@@ -4,8 +4,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from .models import Team, Developer
-from .serializers import TeamSerializer, DeveloperSerializer
+from .models import Team, Developer, Client, Project, Subscription
+from .serializers import (
+    TeamSerializer,
+    DeveloperSerializer,
+    ClientSerializer,
+    ProjectSerializer,
+    SubscriptionSerializer,
+)
 
 
 class SafeModelViewSet(ModelViewSet):
@@ -47,6 +53,51 @@ class DeveloperViewSet(SafeModelViewSet):
             Developer.objects.filter(created_by=self.request.user)
             .prefetch_related('memberships__team')
             .order_by('full_name')
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class ClientViewSet(SafeModelViewSet):
+    serializer_class = ClientSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            Client.objects.filter(created_by=self.request.user)
+            .prefetch_related('projects')
+            .order_by('name')
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class ProjectViewSet(SafeModelViewSet):
+    serializer_class = ProjectSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            Project.objects.filter(created_by=self.request.user)
+            .select_related('client')
+            .order_by('-created_at')
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class SubscriptionViewSet(SafeModelViewSet):
+    serializer_class = SubscriptionSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            Subscription.objects.filter(created_by=self.request.user)
+            .select_related('client', 'project')
+            .order_by('-updated_at')
         )
 
     def perform_create(self, serializer):
