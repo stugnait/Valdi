@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="d8b0ff81-3a0c-4ea7-a254-99ae932104e2" name="Changes" comment="frontend UI done">
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/about/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/auth/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/analytics/anomalies/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/analytics/health/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/analytics/roi/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/analytics/time/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/clients/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/invoices/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/layout.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/profile/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/projects/[id]/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/projects/create/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/projects/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/reports/taxes/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/settings/billing/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/settings/general/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/settings/integrations/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/spendings/recurring/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/spendings/rules/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/spendings/variable/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/subscriptions/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/support/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/teams/[id]/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/teams/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/globals.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/layout.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/onboarding/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/pricing/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/dashboard/app-sidebar.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/landing/cta-section.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/landing/dashboard-preview.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/landing/features-grid.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/landing/hero.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/landing/navbar.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/landing/pain-section.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/landing/social-proof.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/theme-provider.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/accordion.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/alert-dialog.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/alert.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/aspect-ratio.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/avatar.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/badge.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/breadcrumb.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/button-group.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/button.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/calendar.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/card.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/carousel.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/chart.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/checkbox.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/collapsible.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/command.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/context-menu.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/dialog.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/drawer.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/dropdown-menu.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/empty.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/field.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/form.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/hover-card.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/input-group.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/input-otp.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/input.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/item.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/kbd.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/label.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/menubar.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/navigation-menu.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/pagination.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/popover.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/progress.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/radio-group.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/resizable.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/scroll-area.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/select.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/separator.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/sheet.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/sidebar.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/skeleton.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/slider.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/sonner.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/spinner.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/switch.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/table.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/tabs.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/textarea.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/toast.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/toaster.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/toggle-group.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/toggle.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/tooltip.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/use-mobile.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/components/ui/use-toast.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/hooks/use-mobile.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/hooks/use-toast.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/lib/types/projects.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/lib/types/spendings.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/lib/types/teams.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/lib/utils.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/next-env.d.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/next.config.mjs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/pnpm-lock.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/postcss.config.mjs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/apple-icon.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/icon-dark-32x32.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/icon-light-32x32.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/icon.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/placeholder-logo.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/placeholder-logo.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/placeholder-user.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/placeholder.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/placeholder.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/styles/globals.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/tsconfig.json" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "stugnait"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/stugnait/Valdi.git",
+    "accountId": "709f74d2-fdf2-4104-ba9e-3f0c50f44d07"
+  }
+}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5
+}</component>
+  <component name="ProjectId" id="3Cid8YLoeC24MRIDA7DwFagilhZ" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "git-widget-placeholder": "main",
+    "javascript.preferred.runtime.type.id": "node",
+    "js.debugger.nextJs.config.created.client": "true",
+    "js.debugger.nextJs.config.created.server": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_interpreter_path": "node",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.lookFeel",
+    "ts.external.directory.path": "D:\\vardi\\node_modules\\typescript\\lib",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\vardi\frontend" />
+      <recent name="D:\vardi" />
+      <recent name="D:\vardi\app\pricing" />
+      <recent name="D:\vardi\app\onboarding" />
+      <recent name="D:\vardi\app\auth" />
+    </key>
+  </component>
+  <component name="RunManager" selected="npm.Next.js: server-side">
+    <configuration name="Next.js: debug client-side" type="JavascriptDebugType" uri="http://localhost:3000/">
+      <method v="2" />
+    </configuration>
+    <configuration name="Next.js: server-side" type="js.build_tools.npm">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="dev" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-WS-253.31033.133" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="d8b0ff81-3a0c-4ea7-a254-99ae932104e2" name="Changes" comment="" />
+      <created>1776872166157</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1776872166157</updated>
+      <workItem from="1776872167172" duration="3912000" />
+      <workItem from="1776876811596" duration="2488000" />
+      <workItem from="1776888294278" duration="323000" />
+    </task>
+    <task id="LOCAL-00001" summary="frontend UI done">
+      <option name="closed" value="true" />
+      <created>1776888365758</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1776888365758</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="frontend UI done" />
+    <option name="LAST_COMMIT_MESSAGE" value="frontend UI done" />
+  </component>
+</project>
