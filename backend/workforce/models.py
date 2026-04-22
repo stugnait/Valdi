@@ -232,3 +232,82 @@ class Subscription(models.Model):
 
     def __str__(self):
         return f'{self.client.name}: {self.plan_name}'
+
+
+class MonobankIntegration(models.Model):
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='monobank_integrations',
+    )
+    name = models.CharField(max_length=120, default='Monobank')
+    token = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-updated_at',)
+
+    def __str__(self):
+        return f'{self.name} ({self.created_by_id})'
+
+
+class MonobankAccount(models.Model):
+    integration = models.ForeignKey(
+        MonobankIntegration,
+        on_delete=models.CASCADE,
+        related_name='accounts',
+    )
+    account_id = models.CharField(max_length=100)
+    iban = models.CharField(max_length=64, blank=True)
+    currency_code = models.IntegerField()
+    balance = models.BigIntegerField(default=0)
+    cashback_type = models.CharField(max_length=32, blank=True)
+    type = models.CharField(max_length=64, blank=True)
+    masked_pan = models.JSONField(default=list, blank=True)
+    is_tracking_enabled = models.BooleanField(default=True)
+    raw_data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('account_id',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('integration', 'account_id'),
+                name='uniq_monobank_account_per_integration',
+            )
+        ]
+
+    def __str__(self):
+        return f'{self.integration_id}:{self.account_id}'
+
+
+class MonobankOperation(models.Model):
+    account = models.ForeignKey(
+        MonobankAccount,
+        on_delete=models.CASCADE,
+        related_name='operations',
+    )
+    operation_id = models.CharField(max_length=180)
+    operation_time = models.DateTimeField()
+    amount = models.BigIntegerField()
+    description = models.CharField(max_length=255, blank=True)
+    mcc = models.IntegerField(null=True, blank=True)
+    raw_data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-operation_time',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('account', 'operation_id'),
+                name='uniq_monobank_operation_per_account',
+            )
+        ]
+
+    def __str__(self):
+        return self.operation_id
