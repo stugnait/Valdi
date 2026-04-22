@@ -65,3 +65,14 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.
 4. Use the same Client ID in both env files above.
 
 After that, restart backend and frontend.
+
+## Teams & Developers API
+
+After auth, backend now provides:
+
+- `GET/POST /api/teams/`
+- `GET/PATCH/DELETE /api/teams/{id}/`
+- `GET/POST /api/developers/`
+- `GET/PATCH/DELETE /api/developers/{id}/`
+
+Team payload supports nested `memberships` with `developer` and `allocation` (0..100).
