@@ -13,11 +13,27 @@ const navLinks = [
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [authHref, setAuthHref] = useState("/auth")
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
     window.addEventListener("scroll", onScroll)
     return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token")
+    if (!token) return
+
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1] ?? ""))
+      const exp = Number(payload.exp ?? 0)
+      if (exp * 1000 > Date.now()) {
+        setAuthHref("/dashboard")
+      }
+    } catch {
+      setAuthHref("/auth")
+    }
   }, [])
 
   return (
@@ -49,13 +65,13 @@ export function Navbar() {
 
         <div className="hidden md:flex items-center gap-3">
           <Link
-            href="/auth"
+            href={authHref}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5"
           >
             Увійти
           </Link>
           <Link
-            href="/auth"
+            href={authHref}
             className="text-sm font-semibold bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
           >
             Залетіти безкоштовно
@@ -84,11 +100,11 @@ export function Navbar() {
             </Link>
           ))}
           <div className="flex flex-col gap-2 pt-3 border-t border-border">
-            <Link href="/auth" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href={authHref} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Увійти
             </Link>
             <Link
-              href="/auth"
+              href={authHref}
               className="text-sm font-semibold bg-primary text-white px-4 py-2 rounded-lg text-center hover:bg-blue-700 transition-colors"
               onClick={() => setMenuOpen(false)}
             >

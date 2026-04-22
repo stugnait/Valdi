@@ -1,10 +1,12 @@
 "use client"
 
-import { FormEvent, useMemo, useState } from "react"
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react"
 import { Eye, EyeOff, ArrowRight, Check } from "lucide-react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
 type AuthTab = "signup" | "login"
 
@@ -15,6 +17,53 @@ type AuthResponse = {
     id: number
     username: string
     email: string
+  }
+}
+
+function decodeJwtPayload(token: string | null) {
+  if (!token) return null
+  try {
+    const payloadPart = token.split(".")[1]
+    if (!payloadPart) return null
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/")
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4)
+    return JSON.parse(atob(padded)) as { exp?: number }
+  } catch {
+    return null
+  }
+}
+
+function isTokenValid(token: string | null) {
+  const payload = decodeJwtPayload(token)
+  const exp = Number(payload?.exp ?? 0)
+  return exp * 1000 > Date.now()
+}
+
+type GoogleCredentialResponse = {
+  credential?: string
+}
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (params: {
+            client_id: string
+            callback: (response: GoogleCredentialResponse) => void
+          }) => void
+          renderButton: (
+            parent: HTMLElement,
+            options: {
+              theme?: "outline" | "filled_blue" | "filled_black"
+              size?: "small" | "medium" | "large"
+              width?: number
+              text?: "signin_with" | "signup_with" | "continue_with" | "signin"
+            },
+          ) => void
+        }
+      }
+    }
   }
 }
 
@@ -87,12 +136,16 @@ async function parseApiError(response: Response) {
 }
 
 export default function AuthPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<AuthTab>("signup")
   const [showPass, setShowPass] = useState(false)
   const [agencyName, setAgencyName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [googleReady, setGoogleReady] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
@@ -100,6 +153,100 @@ export default function AuthPage() {
     () => (tab === "signup" ? "Створити кабінет Vardi" : "Увійти"),
     [tab],
   )
+
+  const persistSession = (data: AuthResponse) => {
+    localStorage.setItem("access_token", data.access)
+    localStorage.setItem("refresh_token", data.refresh)
+    if (data.user) {
+      localStorage.setItem("user_email", data.user.email)
+    }
+
+    document.cookie = `access_token=${data.access}; path=/; samesite=lax`
+    document.cookie = `refresh_token=${data.refresh}; path=/; samesite=lax`
+  }
+
+  const redirectAfterAuth = useCallback(() => {
+    const nextPath = searchParams.get("next") || "/dashboard"
+    router.push(nextPath)
+  }, [router, searchParams])
+
+  useEffect(() => {
+    const accessToken = localStorage.getItem("access_token")
+    const refreshToken = localStorage.getItem("refresh_token")
+    if (isTokenValid(accessToken)) {
+      document.cookie = `access_token=${accessToken}; path=/; samesite=lax`
+      if (refreshToken) {
+        document.cookie = `refresh_token=${refreshToken}; path=/; samesite=lax`
+      }
+      redirectAfterAuth()
+    }
+  }, [redirectAfterAuth])
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return
+    const googleButtonContainer = document.getElementById("google-signin-btn")
+    if (!googleButtonContainer) return
+
+    const loadScript = () =>
+      new Promise<void>((resolve, reject) => {
+        if (window.google?.accounts?.id) {
+          resolve()
+          return
+        }
+        const script = document.createElement("script")
+        script.src = "https://accounts.google.com/gsi/client"
+        script.async = true
+        script.defer = true
+        script.onload = () => resolve()
+        script.onerror = () => reject(new Error("Не вдалося завантажити Google SDK"))
+        document.head.appendChild(script)
+      })
+
+    const initGoogle = async () => {
+      try {
+        await loadScript()
+        window.google?.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async (response) => {
+            if (!response.credential) return
+            setError("")
+            setSuccess("")
+            setIsGoogleLoading(true)
+            try {
+              const apiResponse = await fetch(`${API_BASE_URL}/api/auth/google/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id_token: response.credential }),
+              })
+              if (!apiResponse.ok) {
+                throw new Error(await parseApiError(apiResponse))
+              }
+              const data = (await apiResponse.json()) as AuthResponse
+              persistSession(data)
+              setSuccess("Успішний вхід через Google ✨")
+              redirectAfterAuth()
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Google авторизація не вдалася")
+            } finally {
+              setIsGoogleLoading(false)
+            }
+          },
+        })
+        googleButtonContainer.innerHTML = ""
+        window.google?.accounts.id.renderButton(googleButtonContainer, {
+          theme: "outline",
+          size: "large",
+          width: 380,
+          text: "continue_with",
+        })
+        setGoogleReady(true)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Google авторизація недоступна")
+      }
+    }
+
+    initGoogle()
+  }, [redirectAfterAuth])
 
   const onTabChange = (newTab: AuthTab) => {
     setTab(newTab)
@@ -124,7 +271,7 @@ export default function AuthPage() {
               agency_name: agencyName,
             }
           : {
-              username: email,
+              email,
               password,
             }
 
@@ -142,14 +289,11 @@ export default function AuthPage() {
 
       const data = (await response.json()) as AuthResponse
 
-      localStorage.setItem("access_token", data.access)
-      localStorage.setItem("refresh_token", data.refresh)
-      if (data.user) {
-        localStorage.setItem("user_email", data.user.email)
-      }
+      persistSession(data)
 
       setSuccess(tab === "signup" ? "Реєстрація успішна. Тепер ти залогінений ✨" : "Успішний вхід ✨")
       setPassword("")
+      redirectAfterAuth()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Сталася помилка")
     } finally {
@@ -242,6 +386,18 @@ export default function AuthPage() {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
+            {GOOGLE_CLIENT_ID && (
+              <div className="space-y-2">
+                <div id="google-signin-btn" className="w-full" />
+                {isGoogleLoading && (
+                  <p className="text-xs text-muted-foreground text-center">Виконуємо вхід через Google…</p>
+                )}
+                {!googleReady && !isGoogleLoading && (
+                  <p className="text-xs text-muted-foreground text-center">Завантажуємо кнопку Google...</p>
+                )}
+              </div>
+            )}
+            {GOOGLE_CLIENT_ID && <div className="text-xs text-center text-muted-foreground">або</div>}
             {tab === "signup" && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Agency Name</label>
