@@ -20,15 +20,23 @@ type AuthResponse = {
   }
 }
 
-function isTokenValid(token: string | null) {
-  if (!token) return false
+function decodeJwtPayload(token: string | null) {
+  if (!token) return null
   try {
-    const payload = JSON.parse(atob(token.split(".")[1] ?? ""))
-    const exp = Number(payload.exp ?? 0)
-    return exp * 1000 > Date.now()
+    const payloadPart = token.split(".")[1]
+    if (!payloadPart) return null
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/")
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4)
+    return JSON.parse(atob(padded)) as { exp?: number }
   } catch {
-    return false
+    return null
   }
+}
+
+function isTokenValid(token: string | null) {
+  const payload = decodeJwtPayload(token)
+  const exp = Number(payload?.exp ?? 0)
+  return exp * 1000 > Date.now()
 }
 
 type GoogleCredentialResponse = {
@@ -163,8 +171,13 @@ export default function AuthPage() {
   }, [router, searchParams])
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token")
-    if (isTokenValid(token)) {
+    const accessToken = localStorage.getItem("access_token")
+    const refreshToken = localStorage.getItem("refresh_token")
+    if (isTokenValid(accessToken)) {
+      document.cookie = `access_token=${accessToken}; path=/; samesite=lax`
+      if (refreshToken) {
+        document.cookie = `refresh_token=${refreshToken}; path=/; samesite=lax`
+      }
       redirectAfterAuth()
     }
   }, [redirectAfterAuth])
