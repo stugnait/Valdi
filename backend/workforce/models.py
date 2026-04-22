@@ -234,30 +234,16 @@ class Subscription(models.Model):
         return f'{self.client.name}: {self.plan_name}'
 
 
-class BankConnection(models.Model):
-    class Provider(models.TextChoices):
-        PLAID = 'plaid', 'Plaid'
-        SALT_EDGE = 'salt-edge', 'Salt Edge'
-        MONO = 'mono', 'Mono'
-        OTHER = 'other', 'Other'
-
-    class Status(models.TextChoices):
-        PENDING = 'pending', 'Pending'
-        ACTIVE = 'active', 'Active'
-        ERROR = 'error', 'Error'
-        DISCONNECTED = 'disconnected', 'Disconnected'
-
-    user = models.ForeignKey(
+class MonobankIntegration(models.Model):
+    created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='bank_connections',
+        related_name='monobank_integrations',
     )
-    provider = models.CharField(max_length=40, choices=Provider.choices, default=Provider.OTHER)
-    encrypted_token = models.TextField()
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
-    last_sync_at = models.DateTimeField(null=True, blank=True)
-    webhook_secret = models.CharField(max_length=255, blank=True)
-    external_client_id = models.CharField(max_length=128, blank=True)
+    name = models.CharField(max_length=120, default='Monobank')
+    token = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -265,73 +251,63 @@ class BankConnection(models.Model):
         ordering = ('-updated_at',)
 
     def __str__(self):
-        return f'{self.user} / {self.provider}'
+        return f'{self.name} ({self.created_by_id})'
 
 
-class BankAccount(models.Model):
-    class AccountType(models.TextChoices):
-        CHECKING = 'checking', 'Checking'
-        SAVINGS = 'savings', 'Savings'
-        CREDIT = 'credit', 'Credit'
-        LOAN = 'loan', 'Loan'
-        OTHER = 'other', 'Other'
-
-    connection = models.ForeignKey(
-        BankConnection,
+class MonobankAccount(models.Model):
+    integration = models.ForeignKey(
+        MonobankIntegration,
         on_delete=models.CASCADE,
         related_name='accounts',
     )
-    external_account_id = models.CharField(max_length=128)
-    iban_masked_pan = models.CharField(max_length=64, blank=True)
-    currency = models.CharField(max_length=3, default='USD')
-    type = models.CharField(max_length=20, choices=AccountType.choices, default=AccountType.OTHER)
-    is_tracked = models.BooleanField(default=True)
-    current_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    account_id = models.CharField(max_length=100)
+    iban = models.CharField(max_length=64, blank=True)
+    currency_code = models.IntegerField()
+    balance = models.BigIntegerField(default=0)
+    cashback_type = models.CharField(max_length=32, blank=True)
+    type = models.CharField(max_length=64, blank=True)
+    masked_pan = models.JSONField(default=list, blank=True)
+    is_tracking_enabled = models.BooleanField(default=True)
+    raw_data = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ('-updated_at',)
+        ordering = ('account_id',)
         constraints = [
             models.UniqueConstraint(
-                fields=('connection', 'external_account_id'),
-                name='uniq_bank_account_per_connection_external_id',
-            ),
+                fields=('integration', 'account_id'),
+                name='uniq_monobank_account_per_integration',
+            )
         ]
 
     def __str__(self):
-        return f'{self.connection_id}:{self.external_account_id}'
+        return f'{self.integration_id}:{self.account_id}'
 
 
-class BankTransaction(models.Model):
-    class Direction(models.TextChoices):
-        IN = 'in', 'In'
-        OUT = 'out', 'Out'
-
+class MonobankOperation(models.Model):
     account = models.ForeignKey(
-        BankAccount,
+        MonobankAccount,
         on_delete=models.CASCADE,
-        related_name='transactions',
+        related_name='operations',
     )
-    external_tx_id = models.CharField(max_length=128)
-    amount = models.DecimalField(max_digits=14, decimal_places=2)
-    currency = models.CharField(max_length=3, default='USD')
-    direction = models.CharField(max_length=3, choices=Direction.choices)
-    mcc = models.CharField(max_length=8, blank=True)
-    description = models.TextField(blank=True)
-    occurred_at = models.DateTimeField()
-    raw_payload = models.JSONField(default=dict, blank=True)
+    operation_id = models.CharField(max_length=180)
+    operation_time = models.DateTimeField()
+    amount = models.BigIntegerField()
+    description = models.CharField(max_length=255, blank=True)
+    mcc = models.IntegerField(null=True, blank=True)
+    raw_data = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ('-occurred_at', '-id')
+        ordering = ('-operation_time',)
         constraints = [
             models.UniqueConstraint(
-                fields=('account', 'external_tx_id'),
-                name='uniq_bank_tx_per_account_external_id',
-            ),
+                fields=('account', 'operation_id'),
+                name='uniq_monobank_operation_per_account',
+            )
         ]
 
     def __str__(self):
-        return f'{self.account_id}:{self.external_tx_id}'
+        return self.operation_id
