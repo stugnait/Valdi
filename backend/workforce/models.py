@@ -232,3 +232,106 @@ class Subscription(models.Model):
 
     def __str__(self):
         return f'{self.client.name}: {self.plan_name}'
+
+
+class BankConnection(models.Model):
+    class Provider(models.TextChoices):
+        PLAID = 'plaid', 'Plaid'
+        SALT_EDGE = 'salt-edge', 'Salt Edge'
+        MONO = 'mono', 'Mono'
+        OTHER = 'other', 'Other'
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        ACTIVE = 'active', 'Active'
+        ERROR = 'error', 'Error'
+        DISCONNECTED = 'disconnected', 'Disconnected'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='bank_connections',
+    )
+    provider = models.CharField(max_length=40, choices=Provider.choices, default=Provider.OTHER)
+    encrypted_token = models.TextField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    last_sync_at = models.DateTimeField(null=True, blank=True)
+    webhook_secret = models.CharField(max_length=255, blank=True)
+    external_client_id = models.CharField(max_length=128, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-updated_at',)
+
+    def __str__(self):
+        return f'{self.user} / {self.provider}'
+
+
+class BankAccount(models.Model):
+    class AccountType(models.TextChoices):
+        CHECKING = 'checking', 'Checking'
+        SAVINGS = 'savings', 'Savings'
+        CREDIT = 'credit', 'Credit'
+        LOAN = 'loan', 'Loan'
+        OTHER = 'other', 'Other'
+
+    connection = models.ForeignKey(
+        BankConnection,
+        on_delete=models.CASCADE,
+        related_name='accounts',
+    )
+    external_account_id = models.CharField(max_length=128)
+    iban_masked_pan = models.CharField(max_length=64, blank=True)
+    currency = models.CharField(max_length=3, default='USD')
+    type = models.CharField(max_length=20, choices=AccountType.choices, default=AccountType.OTHER)
+    is_tracked = models.BooleanField(default=True)
+    current_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-updated_at',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('connection', 'external_account_id'),
+                name='uniq_bank_account_per_connection_external_id',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.connection_id}:{self.external_account_id}'
+
+
+class BankTransaction(models.Model):
+    class Direction(models.TextChoices):
+        IN = 'in', 'In'
+        OUT = 'out', 'Out'
+
+    account = models.ForeignKey(
+        BankAccount,
+        on_delete=models.CASCADE,
+        related_name='transactions',
+    )
+    external_tx_id = models.CharField(max_length=128)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    currency = models.CharField(max_length=3, default='USD')
+    direction = models.CharField(max_length=3, choices=Direction.choices)
+    mcc = models.CharField(max_length=8, blank=True)
+    description = models.TextField(blank=True)
+    occurred_at = models.DateTimeField()
+    raw_payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-occurred_at', '-id')
+        constraints = [
+            models.UniqueConstraint(
+                fields=('account', 'external_tx_id'),
+                name='uniq_bank_tx_per_account_external_id',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.account_id}:{self.external_tx_id}'
