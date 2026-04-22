@@ -165,10 +165,15 @@ export default function AuthPage() {
     document.cookie = `refresh_token=${data.refresh}; path=/; samesite=lax`
   }
 
-  const redirectAfterAuth = useCallback(() => {
-    const nextPath = searchParams.get("next") || "/dashboard"
-    router.push(nextPath)
-  }, [router, searchParams])
+  const redirectAfterAuth = useCallback(
+    (mode: "signup" | "login" | "google-login" = "login") => {
+      const nextPath = searchParams.get("next")
+      const defaultPath = mode === "signup" ? "/onboarding" : "/dashboard"
+      const target = nextPath || defaultPath
+      router.push(target)
+    },
+    [router, searchParams],
+  )
 
   useEffect(() => {
     const accessToken = localStorage.getItem("access_token")
@@ -178,7 +183,7 @@ export default function AuthPage() {
       if (refreshToken) {
         document.cookie = `refresh_token=${refreshToken}; path=/; samesite=lax`
       }
-      redirectAfterAuth()
+      redirectAfterAuth("login")
     }
   }, [redirectAfterAuth])
 
@@ -224,7 +229,7 @@ export default function AuthPage() {
               const data = (await apiResponse.json()) as AuthResponse
               persistSession(data)
               setSuccess("Успішний вхід через Google ✨")
-              redirectAfterAuth()
+              redirectAfterAuth("google-login")
             } catch (err) {
               setError(err instanceof Error ? err.message : "Google авторизація не вдалася")
             } finally {
@@ -290,10 +295,13 @@ export default function AuthPage() {
       const data = (await response.json()) as AuthResponse
 
       persistSession(data)
+      if (tab === "signup" && agencyName.trim()) {
+        localStorage.setItem("company_name", agencyName.trim())
+      }
 
       setSuccess(tab === "signup" ? "Реєстрація успішна. Тепер ти залогінений ✨" : "Успішний вхід ✨")
       setPassword("")
-      redirectAfterAuth()
+      redirectAfterAuth(tab === "signup" ? "signup" : "login")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Сталася помилка")
     } finally {

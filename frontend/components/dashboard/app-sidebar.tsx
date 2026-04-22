@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   Users,
   Building2,
@@ -168,6 +168,43 @@ function NavItem({ item }: NavItemProps) {
 }
 
 export function AppSidebar() {
+  const router = useRouter()
+  const [userName, setUserName] = React.useState("User")
+  const userRole = "Admin"
+  const [companyName, setCompanyName] = React.useState("Agency Finance")
+
+  React.useEffect(() => {
+    const email = localStorage.getItem("user_email") ?? ""
+    const savedName = localStorage.getItem("user_display_name") ?? ""
+    const savedCompanyName = localStorage.getItem("company_name") ?? ""
+
+    const emailPrefix = email.includes("@") ? email.split("@")[0] : email
+    const fallbackName = emailPrefix || "User"
+
+    setUserName(savedName.trim() || fallbackName)
+    setCompanyName(savedCompanyName.trim() || "Agency Finance")
+  }, [])
+
+  const userInitials = userName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("") || "U"
+
+  const handleLogout = () => {
+    localStorage.removeItem("access_token")
+    localStorage.removeItem("refresh_token")
+    localStorage.removeItem("user_email")
+    localStorage.removeItem("user_display_name")
+    localStorage.removeItem("company_name")
+
+    document.cookie = "access_token=; path=/; max-age=0; samesite=lax"
+    document.cookie = "refresh_token=; path=/; max-age=0; samesite=lax"
+
+    router.push("/auth")
+  }
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
@@ -177,7 +214,7 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold text-sidebar-foreground">Vardi</span>
-            <span className="text-xs text-muted-foreground">Agency Finance</span>
+            <span className="text-xs text-muted-foreground">{companyName}</span>
           </div>
         </div>
       </SidebarHeader>
@@ -221,12 +258,12 @@ export function AppSidebar() {
                 <SidebarMenuButton className="w-full">
                   <Avatar className="h-7 w-7">
                     <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-                      АК
+                      {userInitials}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col items-start">
-                    <span className="text-sm font-medium">Олександр</span>
-                    <span className="text-xs text-muted-foreground">Admin</span>
+                    <span className="text-sm font-medium">{userName}</span>
+                    <span className="text-xs text-muted-foreground">{userRole}</span>
                   </div>
                   <ChevronRight className="ml-auto size-4" />
                 </SidebarMenuButton>
@@ -249,7 +286,10 @@ export function AppSidebar() {
                   Сповіщення
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={handleLogout}
+                >
                   <LogOut className="mr-2 size-4" />
                   Вийти
                 </DropdownMenuItem>
