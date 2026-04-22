@@ -403,7 +403,7 @@ export default function AuthPage() {
                 <label className="block text-sm font-medium text-foreground mb-1.5">Agency Name</label>
                 <input
                   type="text"
-                  placeholder="RichFlow Studio"
+                  placeholder="Vardi Studio"
                   value={agencyName}
                   onChange={(e) => setAgencyName(e.target.value)}
                   className="w-full border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-200"
@@ -415,7 +415,7 @@ export default function AuthPage() {
               <label className="block text-sm font-medium text-foreground mb-1.5">Work Email</label>
               <input
                 type="email"
-                placeholder="igor@richflow.studio"
+                placeholder="igor@vardi.studio"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
