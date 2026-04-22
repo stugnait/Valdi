@@ -1,11 +1,29 @@
+from django.db import OperationalError, ProgrammingError
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from .models import Team, Developer
 from .serializers import TeamSerializer, DeveloperSerializer
 
 
-class TeamViewSet(ModelViewSet):
+class SafeModelViewSet(ModelViewSet):
+    migration_error_message = (
+        'Таблиці для workforce ще не створені. '
+        'Запусти `python manage.py migrate` для поточної БД і повтори запит.'
+    )
+
+    def handle_exception(self, exc):
+        if isinstance(exc, (OperationalError, ProgrammingError)):
+            return Response(
+                {'detail': self.migration_error_message},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return super().handle_exception(exc)
+
+
+class TeamViewSet(SafeModelViewSet):
     serializer_class = TeamSerializer
     permission_classes = (IsAuthenticated,)
 
@@ -20,7 +38,7 @@ class TeamViewSet(ModelViewSet):
         serializer.save(created_by=self.request.user)
 
 
-class DeveloperViewSet(ModelViewSet):
+class DeveloperViewSet(SafeModelViewSet):
     serializer_class = DeveloperSerializer
     permission_classes = (IsAuthenticated,)
 

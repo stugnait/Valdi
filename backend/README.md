@@ -68,6 +68,10 @@ After that, restart backend and frontend.
 
 ## Teams & Developers API
 
+> Якщо `GET /api/teams/` повертає помилку про `workforce_team does not exist`,
+> це означає, що міграції не застосовані до поточної БД.
+> Виконай `python manage.py migrate` у бекенді.
+
 After auth, backend now provides:
 
 - `GET/POST /api/teams/`
