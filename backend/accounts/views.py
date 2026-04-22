@@ -3,9 +3,14 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .serializers import RegisterSerializer, UserSerializer
+from .serializers import (
+    RegisterSerializer,
+    UserSerializer,
+    EmailOrUsernameTokenObtainPairSerializer,
+)
 
 
 class RegisterView(APIView):
@@ -36,6 +41,11 @@ class RegisterView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class LoginView(TokenObtainPairView):
+    permission_classes = [AllowAny]
+    serializer_class = EmailOrUsernameTokenObtainPairSerializer
 
 
 class MeView(APIView):

@@ -1,5 +1,6 @@
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
 
@@ -41,3 +42,33 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'email')
+
+
+class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
+    username_field = 'email'
+
+    def validate(self, attrs):
+        email_or_username = attrs.get('email', '').strip().lower()
+        password = attrs.get('password')
+
+        if not email_or_username or not password:
+            raise serializers.ValidationError('Email та пароль обовʼязкові.')
+
+        user = User.objects.filter(email__iexact=email_or_username).first()
+        username = user.username if user else email_or_username
+
+        authenticated_user = authenticate(
+            request=self.context.get('request'),
+            username=username,
+            password=password,
+        )
+
+        if not authenticated_user:
+            raise serializers.ValidationError('Неправильний email/username або пароль.')
+
+        refresh = self.get_token(authenticated_user)
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'user': UserSerializer(authenticated_user).data,
+        }
