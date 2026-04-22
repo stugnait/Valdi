@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { 
   Save,
   Globe,
@@ -98,6 +98,13 @@ export default function GeneralSettingsPage() {
   const [deleteUser, setDeleteUser] = useState<TeamUser | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
 
+  useEffect(() => {
+    const savedCompanyName = localStorage.getItem("company_name")
+    if (!savedCompanyName?.trim()) return
+
+    setSettings(prev => ({ ...prev, companyName: savedCompanyName }))
+  }, [])
+
   const handleSettingChange = <K extends keyof typeof settings>(key: K, value: typeof settings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }))
     setHasChanges(true)
@@ -105,6 +112,7 @@ export default function GeneralSettingsPage() {
 
   const handleSaveSettings = () => {
     // In production, this would save to the database
+    localStorage.setItem("company_name", settings.companyName.trim())
     setHasChanges(false)
   }
 
