@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { 
   Save,
@@ -170,6 +170,29 @@ export default function ProfilePage() {
     confirm: false,
   })
 
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("user_email")
+    const savedDisplayName = localStorage.getItem("user_display_name")
+
+    if (!savedEmail && !savedDisplayName) return
+
+    const email = savedEmail?.trim() || mockUserProfile.email
+    const fallbackName = email.split("@")[0] || mockUserProfile.firstName
+    const displayName = savedDisplayName?.trim() || fallbackName
+    const [firstName, ...rest] = displayName.split(" ")
+    const lastName = rest.join(" ")
+
+    const nextProfile: UserProfile = {
+      ...mockUserProfile,
+      email,
+      firstName: firstName || mockUserProfile.firstName,
+      lastName,
+    }
+
+    setProfile(nextProfile)
+    setEditedProfile(nextProfile)
+  }, [])
+
   const handleEditChange = <K extends keyof UserProfile>(key: K, value: UserProfile[K]) => {
     setEditedProfile(prev => ({ ...prev, [key]: value }))
     setHasChanges(true)
@@ -184,6 +207,12 @@ export default function ProfilePage() {
   }
 
   const handleSaveProfile = () => {
+    const resolvedName = `${editedProfile.firstName} ${editedProfile.lastName}`.trim()
+    const emailPrefix = editedProfile.email.split("@")[0] ?? ""
+
+    localStorage.setItem("user_display_name", resolvedName || emailPrefix)
+    localStorage.setItem("user_email", editedProfile.email.trim())
+
     setProfile(editedProfile)
     setIsEditing(false)
     setHasChanges(false)

@@ -295,6 +295,9 @@ export default function AuthPage() {
       const data = (await response.json()) as AuthResponse
 
       persistSession(data)
+      if (tab === "signup" && agencyName.trim()) {
+        localStorage.setItem("company_name", agencyName.trim())
+      }
 
       setSuccess(tab === "signup" ? "Реєстрація успішна. Тепер ти залогінений ✨" : "Успішний вхід ✨")
       setPassword("")
