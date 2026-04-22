@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, use } from "react"
+import { useEffect, useState, use } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -57,7 +57,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { 
-  mockTeams, 
   mockSkills, 
   type Team, 
   type TeamMember, 
@@ -65,6 +64,7 @@ import {
   type Skill,
   type TeamMembership
 } from "@/lib/types/teams"
+import { type ApiTeam, workforceApi } from "@/lib/api/workforce"
 import {
   Area,
   AreaChart,
@@ -78,9 +78,9 @@ import {
 
 export default function TeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const initialTeam = mockTeams.find((t) => t.id === id)
-  
-  const [team, setTeam] = useState<Team | null>(initialTeam || null)
+  const [team, setTeam] = useState<Team | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
   
   // Member CRUD state
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false)
@@ -107,6 +107,63 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     category: "",
   })
 
+  const toUiTeam = (apiTeam: ApiTeam): Team => ({
+    id: String(apiTeam.id),
+    name: apiTeam.name,
+    description: apiTeam.description,
+    color: "#2563eb",
+    headcount: apiTeam.memberships.length,
+    burnRate: 0,
+    utilization: 0,
+    efficiencyScore: 0,
+    members: apiTeam.memberships.map((membership) => ({
+      id: String(membership.developer),
+      name: membership.developer_name ?? "Developer",
+      email: membership.developer_email ?? "",
+      role: "",
+      baseRate: 0,
+      rateType: "monthly",
+      teamOverheadShare: 0,
+      companyOverheadShare: 280,
+      skills: [],
+      utilization: membership.allocation,
+      revenue: 0,
+      teamMemberships: [{ teamId: String(apiTeam.id), teamName: apiTeam.name, allocation: membership.allocation }],
+    })),
+    overheads: [],
+    burnRateHistory: [],
+  })
+
+  const syncTeamMemberships = async (members: TeamMember[]) => {
+    await workforceApi.updateTeam(id, {
+      memberships: members.map((member) => ({
+        developer: Number(member.id),
+        allocation: member.teamMemberships[0]?.allocation ?? 100,
+      })),
+    })
+  }
+
+  const loadTeam = async () => {
+    setIsLoading(true)
+    setError("")
+    try {
+      const apiTeam = await workforceApi.getTeam(id)
+      setTeam(toUiTeam(apiTeam))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не вдалося завантажити команду")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadTeam()
+  }, [id])
+
+  if (isLoading) {
+    return <div className="py-20 text-center text-sm text-muted-foreground">Завантаження команди...</div>
+  }
+
   if (!team) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -128,15 +185,32 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   // Member CRUD handlers
-  const handleSaveMember = () => {
+  const handleSaveMember = async () => {
     if (!team) return
-    
-    const newMember: TeamMember = {
-      id: selectedMember?.id || `m-${Date.now()}`,
+
+    try {
+      const baseRate = parseFloat(memberForm.baseRate) || 0
+      const apiDeveloper = selectedMember
+        ? await workforceApi.updateDeveloper(selectedMember.id, {
+            full_name: memberForm.name,
+            email: memberForm.email,
+            role: memberForm.role,
+            hourly_rate: baseRate,
+          })
+        : await workforceApi.createDeveloper({
+            full_name: memberForm.name,
+            email: memberForm.email,
+            role: memberForm.role,
+            hourly_rate: baseRate,
+            is_active: true,
+          })
+
+      const newMember: TeamMember = {
+      id: String(apiDeveloper.id),
       name: memberForm.name,
       email: memberForm.email,
       role: memberForm.role,
-      baseRate: parseFloat(memberForm.baseRate) || 0,
+      baseRate,
       rateType: memberForm.rateType,
       teamOverheadShare: 0,
       companyOverheadShare: 280,
@@ -148,31 +222,45 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         : [{ teamId: team.id, teamName: team.name, allocation: 100 }],
     }
 
-    if (selectedMember) {
-      setTeam({
+      if (selectedMember) {
+        const updatedMembers = team.members.map(m => m.id === selectedMember.id ? newMember : m)
+        await syncTeamMemberships(updatedMembers)
+        setTeam({
         ...team,
-        members: team.members.map(m => m.id === selectedMember.id ? newMember : m),
+        members: updatedMembers,
       })
-    } else {
-      setTeam({
+      } else {
+        const updatedMembers = [...team.members, newMember]
+        await syncTeamMemberships(updatedMembers)
+        setTeam({
         ...team,
-        members: [...team.members, newMember],
+        members: updatedMembers,
         headcount: team.headcount + 1,
       })
-    }
+      }
 
-    closeMemberDialog()
+      closeMemberDialog()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не вдалося зберегти члена команди")
+    }
   }
 
-  const handleDeleteMember = () => {
+  const handleDeleteMember = async () => {
     if (!team || !selectedMember) return
-    setTeam({
-      ...team,
-      members: team.members.filter(m => m.id !== selectedMember.id),
-      headcount: Math.max(0, team.headcount - 1),
-    })
-    setIsDeleteMemberOpen(false)
-    setSelectedMember(null)
+    try {
+      await workforceApi.deleteDeveloper(selectedMember.id)
+      const updatedMembers = team.members.filter(m => m.id !== selectedMember.id)
+      await syncTeamMemberships(updatedMembers)
+      setTeam({
+        ...team,
+        members: updatedMembers,
+        headcount: Math.max(0, team.headcount - 1),
+      })
+      setIsDeleteMemberOpen(false)
+      setSelectedMember(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не вдалося видалити члена команди")
+    }
   }
 
   const openEditMember = (member: TeamMember) => {
@@ -285,6 +373,12 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="space-y-6">
+      {error ? (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="pt-6 text-sm text-destructive">{error}</CardContent>
+        </Card>
+      ) : null}
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>

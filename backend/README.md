@@ -65,3 +65,18 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.
 4. Use the same Client ID in both env files above.
 
 After that, restart backend and frontend.
+
+## Teams & Developers API
+
+> Якщо `GET /api/teams/` повертає помилку про `workforce_team does not exist`,
+> це означає, що міграції не застосовані до поточної БД.
+> Виконай `python manage.py migrate` у бекенді.
+
+After auth, backend now provides:
+
+- `GET/POST /api/teams/`
+- `GET/PATCH/DELETE /api/teams/{id}/`
+- `GET/POST /api/developers/`
+- `GET/PATCH/DELETE /api/developers/{id}/`
+
+Team payload supports nested `memberships` with `developer` and `allocation` (0..100).
