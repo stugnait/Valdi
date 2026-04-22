@@ -1,3 +1,7 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { Separator } from "@/components/ui/separator"
@@ -15,6 +19,28 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+  useEffect(() => {
+    const accessToken = localStorage.getItem("access_token")
+    if (!accessToken) {
+      router.replace(`/auth?next=${encodeURIComponent(pathname)}`)
+      return
+    }
+
+    setIsCheckingAuth(false)
+  }, [pathname, router])
+
+  if (isCheckingAuth) {
+    return (
+      <main className="flex min-h-screen items-center justify-center">
+        <p className="text-sm text-muted-foreground">Перевіряємо авторизацію...</p>
+      </main>
+    )
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar />

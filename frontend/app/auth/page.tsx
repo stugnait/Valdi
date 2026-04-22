@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react"
 import { Eye, EyeOff, ArrowRight, Check } from "lucide-react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"
 
@@ -87,6 +88,8 @@ async function parseApiError(response: Response) {
 }
 
 export default function AuthPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<AuthTab>("signup")
   const [showPass, setShowPass] = useState(false)
   const [agencyName, setAgencyName] = useState("")
@@ -124,7 +127,7 @@ export default function AuthPage() {
               agency_name: agencyName,
             }
           : {
-              username: email,
+              email,
               password,
             }
 
@@ -150,6 +153,8 @@ export default function AuthPage() {
 
       setSuccess(tab === "signup" ? "Реєстрація успішна. Тепер ти залогінений ✨" : "Успішний вхід ✨")
       setPassword("")
+      const nextPath = searchParams.get("next") || "/dashboard"
+      router.push(nextPath)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Сталася помилка")
     } finally {
