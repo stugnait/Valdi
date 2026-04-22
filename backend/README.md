@@ -44,6 +44,8 @@ To enable Google auth end-to-end, set these environment variables:
 
 ```env
 GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
+# optional: comma-separated list if you have multiple frontend apps
+# GOOGLE_CLIENT_IDS=web-client-1.apps.googleusercontent.com,web-client-2.apps.googleusercontent.com
 ```
 
 ### Frontend (`frontend/.env.local`)

@@ -64,15 +64,40 @@ class GoogleAuthView(APIView):
         if not raw_token:
             return Response({'detail': 'id_token is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        client_id = os.getenv('GOOGLE_CLIENT_ID')
+        configured_client_ids = [
+            item.strip()
+            for item in os.getenv('GOOGLE_CLIENT_IDS', os.getenv('GOOGLE_CLIENT_ID', '')).split(',')
+            if item.strip()
+        ]
+        if not configured_client_ids:
+            return Response(
+                {'detail': 'GOOGLE_CLIENT_ID/GOOGLE_CLIENT_IDS не налаштований на бекенді.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
         try:
             payload = google_id_token.verify_oauth2_token(
                 raw_token,
                 google_requests.Request(),
-                audience=client_id or None,
+                audience=None,
             )
-        except ValueError:
-            return Response({'detail': 'Невалідний Google токен.'}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError as exc:
+            return Response(
+                {'detail': f'Невалідний Google токен: {str(exc)}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        token_audience = (payload.get('aud') or '').strip()
+        if token_audience not in configured_client_ids:
+            return Response(
+                {
+                    'detail': (
+                        'Google токен має неправильний client_id (aud). '
+                        f'Отримано: {token_audience}'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         email = (payload.get('email') or '').strip().lower()
         if not email or not payload.get('email_verified', False):
