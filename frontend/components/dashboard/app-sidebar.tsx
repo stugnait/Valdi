@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   Users,
   Building2,
@@ -168,6 +168,19 @@ function NavItem({ item }: NavItemProps) {
 }
 
 export function AppSidebar() {
+  const router = useRouter()
+
+  const handleLogout = () => {
+    localStorage.removeItem("access_token")
+    localStorage.removeItem("refresh_token")
+    localStorage.removeItem("user_email")
+
+    document.cookie = "access_token=; path=/; max-age=0; samesite=lax"
+    document.cookie = "refresh_token=; path=/; max-age=0; samesite=lax"
+
+    router.push("/auth")
+  }
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
@@ -249,7 +262,10 @@ export function AppSidebar() {
                   Сповіщення
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={handleLogout}
+                >
                   <LogOut className="mr-2 size-4" />
                   Вийти
                 </DropdownMenuItem>
