@@ -29,3 +29,9 @@ python manage.py runserver
 ```
 
 If you see `no such table: auth_user`, it means migrations were not applied to the active database.
+
+## Important for Supabase
+
+- This Django setup uses the default Django auth model, so users are stored in `auth_user` (not `users`).
+- If you do not see `auth_user` in Supabase, your app is likely connected to another DB (or local SQLite).
+- SQLite fallback is disabled by default now. To avoid silent local DB usage, keep `ALLOW_SQLITE_FALLBACK=False`.

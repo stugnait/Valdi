@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import quote_plus
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -76,13 +77,23 @@ if supabase_host and supabase_password:
         f'@{supabase_host}:{supabase_port}/{supabase_db}'
     )
 
-DATABASE_URL = os.getenv('DATABASE_URL') or supabase_db_url or f'sqlite:///{BASE_DIR / "db.sqlite3"}'
+database_url = os.getenv('DATABASE_URL') or supabase_db_url
+allow_sqlite_fallback = os.getenv('ALLOW_SQLITE_FALLBACK', 'False').lower() == 'true'
+if not database_url:
+    if allow_sqlite_fallback:
+        database_url = f'sqlite:///{BASE_DIR / "db.sqlite3"}'
+    else:
+        raise ImproperlyConfigured(
+            'Database is not configured. Set DATABASE_URL (recommended for Supabase) '
+            'or SUPABASE_DB_HOST + SUPABASE_DB_PASSWORD. '
+            'If you really want local SQLite, set ALLOW_SQLITE_FALLBACK=True.'
+        )
 
 DATABASES = {
     'default': dj_database_url.parse(
-        DATABASE_URL,
+        database_url,
         conn_max_age=int(os.getenv('DB_CONN_MAX_AGE', '600')),
-        ssl_require=DATABASE_URL.startswith('postgresql://'),
+        ssl_require=database_url.startswith('postgresql://'),
     )
 }
 
