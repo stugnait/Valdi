@@ -5,6 +5,15 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 User = get_user_model()
 
 
+def generate_unique_username(base_username: str) -> str:
+    username = base_username
+    i = 1
+    while User.objects.filter(username=username).exists():
+        username = f'{base_username}{i}'
+        i += 1
+    return username
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     agency_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
@@ -23,12 +32,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('agency_name', None)
         email = validated_data['email']
-        username = validated_data.get('username') or email.split('@')[0]
-        base_username = username
-        i = 1
-        while User.objects.filter(username=username).exists():
-            username = f'{base_username}{i}'
-            i += 1
+        username = generate_unique_username(validated_data.get('username') or email.split('@')[0])
 
         user = User.objects.create_user(
             username=username,

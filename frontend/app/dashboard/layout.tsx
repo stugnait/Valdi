@@ -25,7 +25,18 @@ export default function DashboardLayout({
 
   useEffect(() => {
     const accessToken = localStorage.getItem("access_token")
-    if (!accessToken) {
+    const isTokenValid = (() => {
+      if (!accessToken) return false
+      try {
+        const payload = JSON.parse(atob(accessToken.split(".")[1] ?? ""))
+        const exp = Number(payload.exp ?? 0)
+        return exp * 1000 > Date.now()
+      } catch {
+        return false
+      }
+    })()
+
+    if (!isTokenValid) {
       router.replace(`/auth?next=${encodeURIComponent(pathname)}`)
       return
     }
