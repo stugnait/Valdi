@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Team, Developer, TeamMembership
+from .models import Team, Developer, TeamMembership, Client, Project, Subscription
 
 
 class TeamMembershipSerializer(serializers.ModelSerializer):
@@ -84,3 +84,113 @@ class DeveloperSerializer(serializers.ModelSerializer):
             }
             for membership in obj.memberships.select_related('team').all()
         ]
+
+
+class ClientSerializer(serializers.ModelSerializer):
+    active_projects = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Client
+        fields = (
+            'id',
+            'name',
+            'company',
+            'email',
+            'contact_person',
+            'phone',
+            'country',
+            'notes',
+            'total_revenue',
+            'is_active',
+            'active_projects',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at', 'active_projects')
+
+    def get_active_projects(self, obj):
+        return obj.projects.filter(status=Project.Status.ACTIVE).count()
+
+
+class ProjectSerializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(source='client.name', read_only=True)
+
+    class Meta:
+        model = Project
+        fields = (
+            'id',
+            'name',
+            'client',
+            'client_name',
+            'status',
+            'start_date',
+            'end_date',
+            'billing_model',
+            'currency',
+            'total_contract_value',
+            'client_hourly_rate',
+            'monthly_cap',
+            'billing_cycle',
+            'revenue',
+            'labor_cost',
+            'direct_overheads',
+            'buffer_percent',
+            'tax_reserve_percent',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at', 'client_name')
+
+    def validate_client(self, value):
+        user = self.context['request'].user
+        if value.created_by_id != user.id:
+            raise serializers.ValidationError('Не можна використовувати клієнта іншого користувача.')
+        return value
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(source='client.name', read_only=True)
+    project_name = serializers.CharField(source='project.name', read_only=True)
+
+    class Meta:
+        model = Subscription
+        fields = (
+            'id',
+            'client',
+            'client_name',
+            'project',
+            'project_name',
+            'plan_name',
+            'description',
+            'status',
+            'amount',
+            'currency',
+            'billing_cycle',
+            'start_date',
+            'next_billing_date',
+            'end_date',
+            'hours_included',
+            'features',
+            'total_paid',
+            'confirmed_at',
+            'confirmed_by',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at', 'client_name', 'project_name')
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        client = attrs.get('client') or getattr(self.instance, 'client', None)
+        project = attrs.get('project') if 'project' in attrs else getattr(self.instance, 'project', None)
+
+        if client and client.created_by_id != user.id:
+            raise serializers.ValidationError({'client': 'Не можна використовувати клієнта іншого користувача.'})
+
+        if project:
+            if project.created_by_id != user.id:
+                raise serializers.ValidationError({'project': 'Не можна використовувати проєкт іншого користувача.'})
+            if client and project.client_id != client.id:
+                raise serializers.ValidationError({'project': 'Проєкт має належати вибраному клієнту.'})
+
+        return attrs
