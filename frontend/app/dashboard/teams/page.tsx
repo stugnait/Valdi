@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import {
   Plus,
@@ -45,7 +45,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { mockTeams, type Team } from "@/lib/types/teams"
+import { type Team } from "@/lib/types/teams"
+import { type ApiTeam, workforceApi } from "@/lib/api/workforce"
 
 const colorOptions = [
   { name: "Blue", value: "#2563eb" },
@@ -57,7 +58,9 @@ const colorOptions = [
 ]
 
 export default function TeamsHubPage() {
-  const [teams, setTeams] = useState<Team[]>(mockTeams)
+  const [teams, setTeams] = useState<Team[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
@@ -68,42 +71,95 @@ export default function TeamsHubPage() {
     color: "#2563eb",
   })
 
-  const handleCreate = () => {
-    const newTeam: Team = {
-      id: `team-${Date.now()}`,
-      name: formData.name,
-      description: formData.description,
-      color: formData.color,
-      headcount: 0,
+  const toUiTeam = (team: ApiTeam): Team => {
+    const normalizedId = String(team.id)
+    const color = colorOptions[team.id % colorOptions.length]?.value ?? "#2563eb"
+
+    return {
+      id: normalizedId,
+      name: team.name,
+      description: team.description,
+      color,
+      headcount: team.memberships.length,
       burnRate: 0,
       utilization: 0,
       efficiencyScore: 0,
-      members: [],
+      members: team.memberships.map((membership) => ({
+        id: String(membership.developer),
+        name: membership.developer_name ?? "Developer",
+        email: membership.developer_email ?? "",
+        role: "",
+        baseRate: 0,
+        rateType: "monthly",
+        teamOverheadShare: 0,
+        companyOverheadShare: 0,
+        skills: [],
+        utilization: membership.allocation,
+        revenue: 0,
+        teamMemberships: [{ teamId: normalizedId, teamName: team.name, allocation: membership.allocation }],
+      })),
       overheads: [],
       burnRateHistory: [],
     }
-    setTeams([...teams, newTeam])
-    setIsCreateOpen(false)
-    setFormData({ name: "", description: "", color: "#2563eb" })
   }
 
-  const handleEdit = () => {
-    if (!selectedTeam) return
-    setTeams(teams.map(t => 
-      t.id === selectedTeam.id 
-        ? { ...t, name: formData.name, description: formData.description, color: formData.color }
-        : t
-    ))
-    setIsEditOpen(false)
-    setSelectedTeam(null)
-    setFormData({ name: "", description: "", color: "#2563eb" })
+  const loadTeams = async () => {
+    setIsLoading(true)
+    setError("")
+    try {
+      const data = await workforceApi.listTeams()
+      setTeams(data.map(toUiTeam))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не вдалося завантажити команди")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleDelete = () => {
+  useEffect(() => {
+    void loadTeams()
+  }, [])
+
+  const handleCreate = async () => {
+    try {
+      const created = await workforceApi.createTeam({
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+      })
+      setTeams((prev) => [...prev, toUiTeam(created)])
+      setIsCreateOpen(false)
+      setFormData({ name: "", description: "", color: "#2563eb" })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не вдалося створити команду")
+    }
+  }
+
+  const handleEdit = async () => {
     if (!selectedTeam) return
-    setTeams(teams.filter(t => t.id !== selectedTeam.id))
-    setIsDeleteOpen(false)
-    setSelectedTeam(null)
+    try {
+      const updated = await workforceApi.updateTeam(selectedTeam.id, {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+      })
+      setTeams((prev) => prev.map((team) => (team.id === selectedTeam.id ? toUiTeam(updated) : team)))
+      setIsEditOpen(false)
+      setSelectedTeam(null)
+      setFormData({ name: "", description: "", color: "#2563eb" })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не вдалося оновити команду")
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!selectedTeam) return
+    try {
+      await workforceApi.deleteTeam(selectedTeam.id)
+      setTeams((prev) => prev.filter((team) => team.id !== selectedTeam.id))
+      setIsDeleteOpen(false)
+      setSelectedTeam(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не вдалося видалити команду")
+    }
   }
 
   const openEdit = (team: Team) => {
@@ -141,6 +197,12 @@ export default function TeamsHubPage() {
 
   return (
     <div className="space-y-6">
+      {error ? (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="pt-6 text-sm text-destructive">{error}</CardContent>
+        </Card>
+      ) : null}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -204,6 +266,11 @@ export default function TeamsHubPage() {
       </div>
 
       {/* Team Cards Grid */}
+      {isLoading ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">Завантаження команд...</CardContent>
+        </Card>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {teams.map((team) => {
           const isLowUtilization = team.utilization < 50
