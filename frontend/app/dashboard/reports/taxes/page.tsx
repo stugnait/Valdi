@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { 
   Calculator,
   Download,
@@ -41,6 +41,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Separator } from "@/components/ui/separator"
+import { ApiInvoice, ApiTaxReport, workforceApi } from "@/lib/api/workforce"
 
 // FOP tax constants for Ukraine (2024)
 const TAX_RATE_EP = 0.05 // 5% Yedyny Podatok (Single Tax) for Group 3
@@ -64,41 +65,56 @@ interface MonthlyIncome {
   invoices: number
 }
 
-// Mock data
-const mockMonthlyIncome: MonthlyIncome[] = [
-  { month: "2024-01", income: 145000, invoices: 3 },
-  { month: "2024-02", income: 128000, invoices: 2 },
-  { month: "2024-03", income: 175000, invoices: 4 },
-  { month: "2024-04", income: 156000, invoices: 3 },
-]
-
-const mockQuarters: QuarterData[] = [
-  { 
-    quarter: "Q1 2024", 
-    income: 448000, 
-    taxEP: 22400, 
-    esvPaid: 4686,
-    totalDue: 27086,
-    paidDate: "2024-04-15",
-    status: "paid"
-  },
-  { 
-    quarter: "Q2 2024", 
-    income: 156000,  // partial
-    taxEP: 7800, 
-    esvPaid: 1562,
-    totalDue: 9362,
-    paidDate: null,
-    status: "pending"
-  },
-]
-
 // Exchange rate UAH/USD
 const UAH_USD_RATE = 41.5
 
 export default function TaxReportsPage() {
   const [selectedYear, setSelectedYear] = useState("2024")
   const [selectedQuarter, setSelectedQuarter] = useState("Q2")
+  const [invoices, setInvoices] = useState<ApiInvoice[]>([])
+  const [taxReports, setTaxReports] = useState<ApiTaxReport[]>([])
+
+  useEffect(() => {
+    const load = async () => {
+      const [invoicesResponse, taxReportsResponse] = await Promise.all([
+        workforceApi.listInvoices(),
+        workforceApi.listTaxReports(),
+      ])
+      setInvoices(invoicesResponse)
+      setTaxReports(taxReportsResponse)
+    }
+    load()
+  }, [])
+
+  const mockMonthlyIncome: MonthlyIncome[] = useMemo(() => {
+    const monthlyMap = new Map<string, { income: number; invoices: number }>()
+    invoices
+      .filter(invoice => invoice.status === "paid" && invoice.paid_date && invoice.paid_date.startsWith(selectedYear))
+      .forEach(invoice => {
+        const month = invoice.paid_date!.slice(0, 7)
+        const current = monthlyMap.get(month) ?? { income: 0, invoices: 0 }
+        monthlyMap.set(month, { income: current.income + Number(invoice.amount), invoices: current.invoices + 1 })
+      })
+    return Array.from(monthlyMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, values]) => ({ month, income: values.income, invoices: values.invoices }))
+  }, [invoices, selectedYear])
+
+  const mockQuarters: QuarterData[] = useMemo(
+    () =>
+      taxReports
+        .filter(report => String(report.year) === selectedYear)
+        .map(report => ({
+          quarter: `Q${report.quarter} ${report.year}`,
+          income: Number(report.income),
+          taxEP: Number(report.tax_ep),
+          esvPaid: Number(report.esv_paid),
+          totalDue: Number(report.total_due),
+          paidDate: report.paid_date,
+          status: report.status,
+        })),
+    [taxReports, selectedYear]
+  )
 
   // Calculate totals
   const totalIncomeYTD = mockMonthlyIncome.reduce((sum, m) => sum + m.income, 0)
