@@ -1,8 +1,44 @@
+import json
+import logging
+
 from django.db import OperationalError, ProgrammingError
+from django.utils import timezone
 from rest_framework import status
+from rest_framework.decorators import action
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
+from urllib import error as url_error, parse as url_parse, request as url_request
+import hashlib
+import json
+from datetime import datetime, timedelta
+
+from .models import (
+    Team,
+    Developer,
+    Client,
+    Project,
+    Subscription,
+    BankConnection,
+    RecurringExpense,
+    VariableExpense,
+    AutomationRule,
+)
+from .serializers import (
+    TeamSerializer,
+    DeveloperSerializer,
+    ClientSerializer,
+    ProjectSerializer,
+    SubscriptionSerializer,
+    BankConnectionSerializer,
+    RecurringExpenseSerializer,
+    VariableExpenseSerializer,
+    AutomationRuleSerializer,
+)
+
+logger = logging.getLogger(__name__)
+SENSITIVE_FIELDS = {'token', 'access_token', 'refresh_token', 'id_token', 'authorization'}
 
 from .models import Team, Developer, Client, Project, Subscription
 from .serializers import (
@@ -21,6 +57,21 @@ class SafeModelViewSet(ModelViewSet):
     )
 
     def handle_exception(self, exc):
+        request_payload = {}
+        if hasattr(self.request, 'data'):
+            try:
+                request_payload = _redact_sensitive(dict(self.request.data))
+            except Exception:  # noqa: BLE001
+                request_payload = {'body': 'unavailable'}
+
+        logger.warning(
+            'API exception on %s %s. payload=%s',
+            self.request.method,
+            self.request.path,
+            json.dumps(request_payload, ensure_ascii=False),
+            exc_info=exc,
+        )
+
         if isinstance(exc, (OperationalError, ProgrammingError)):
             return Response(
                 {'detail': self.migration_error_message},

@@ -80,3 +80,8 @@ After auth, backend now provides:
 - `GET/PATCH/DELETE /api/developers/{id}/`
 
 Team payload supports nested `memberships` with `developer` and `allocation` (0..100).
+
+## Monobank integration sync
+
+- Decision and implementation blueprint: `docs/monobank_sync_strategy.md`.
+- Chosen approach: **webhook-first** with periodic incremental reconciliation via Celery beat.
