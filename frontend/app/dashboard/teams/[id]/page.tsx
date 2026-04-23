@@ -64,7 +64,7 @@ import {
   type Skill,
   type TeamMembership
 } from "@/lib/types/teams"
-import { type ApiTeam, workforceApi } from "@/lib/api/workforce"
+import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
 import {
   Area,
   AreaChart,
@@ -107,32 +107,57 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     category: "",
   })
 
-  const toUiTeam = (apiTeam: ApiTeam): Team => ({
-    id: String(apiTeam.id),
-    name: apiTeam.name,
-    description: apiTeam.description,
-    color: "#2563eb",
-    headcount: apiTeam.memberships.length,
-    burnRate: 0,
-    utilization: 0,
-    efficiencyScore: 0,
-    members: apiTeam.memberships.map((membership) => ({
-      id: String(membership.developer),
-      name: membership.developer_name ?? "Developer",
-      email: membership.developer_email ?? "",
-      role: "",
-      baseRate: 0,
-      rateType: "monthly",
-      teamOverheadShare: 0,
-      companyOverheadShare: 280,
-      skills: [],
-      utilization: membership.allocation,
-      revenue: 0,
-      teamMemberships: [{ teamId: String(apiTeam.id), teamName: apiTeam.name, allocation: membership.allocation }],
-    })),
-    overheads: [],
-    burnRateHistory: [],
-  })
+  const toUiTeam = (apiTeam: ApiTeam, developersById: Map<number, ApiDeveloper>): Team => {
+    const members = apiTeam.memberships.map((membership) => {
+      const developer = developersById.get(membership.developer)
+      const baseRate = Number(developer?.hourly_rate ?? 0) * 160
+      const utilization = membership.allocation
+      const revenue = baseRate * 1.4
+
+      return {
+        id: String(membership.developer),
+        name: membership.developer_name ?? developer?.full_name ?? "Developer",
+        email: membership.developer_email ?? developer?.email ?? "",
+        role: developer?.role ?? "",
+        baseRate,
+        rateType: "monthly" as const,
+        teamOverheadShare: 0,
+        companyOverheadShare: 280,
+        skills: [],
+        utilization,
+        revenue,
+        teamMemberships: [{ teamId: String(apiTeam.id), teamName: apiTeam.name, allocation: membership.allocation }],
+      }
+    })
+    const burnRate = members.reduce((sum, member) => sum + member.baseRate * (member.utilization / 100), 0)
+    const totalRevenue = members.reduce((sum, member) => sum + member.revenue * (member.utilization / 100), 0)
+    const utilization = members.length > 0
+      ? Math.round(members.reduce((sum, member) => sum + member.utilization, 0) / members.length)
+      : 0
+    const now = new Date()
+    const burnRateHistory = Array.from({ length: 6 }).map((_, index) => {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1)
+      return {
+        month: monthDate.toLocaleDateString("uk-UA", { month: "short" }),
+        burnRate,
+        revenue: totalRevenue,
+      }
+    })
+
+    return {
+      id: String(apiTeam.id),
+      name: apiTeam.name,
+      description: apiTeam.description,
+      color: "#2563eb",
+      headcount: members.length,
+      burnRate,
+      utilization,
+      efficiencyScore: burnRate > 0 ? totalRevenue / burnRate : 0,
+      members,
+      overheads: [],
+      burnRateHistory,
+    }
+  }
 
   const syncTeamMemberships = async (members: TeamMember[]) => {
     await workforceApi.updateTeam(id, {
@@ -147,8 +172,12 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     setIsLoading(true)
     setError("")
     try {
-      const apiTeam = await workforceApi.getTeam(id)
-      setTeam(toUiTeam(apiTeam))
+      const [apiTeam, developers] = await Promise.all([
+        workforceApi.getTeam(id),
+        workforceApi.listDevelopers(),
+      ])
+      const developersById = new Map(developers.map((developer) => [developer.id, developer]))
+      setTeam(toUiTeam(apiTeam, developersById))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося завантажити команду")
     } finally {
@@ -225,20 +254,11 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       if (selectedMember) {
         const updatedMembers = team.members.map(m => m.id === selectedMember.id ? newMember : m)
         await syncTeamMemberships(updatedMembers)
-        setTeam({
-        ...team,
-        members: updatedMembers,
-      })
       } else {
         const updatedMembers = [...team.members, newMember]
         await syncTeamMemberships(updatedMembers)
-        setTeam({
-        ...team,
-        members: updatedMembers,
-        headcount: team.headcount + 1,
-      })
       }
-
+      await loadTeam()
       closeMemberDialog()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося зберегти члена команди")
@@ -251,11 +271,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       await workforceApi.deleteDeveloper(selectedMember.id)
       const updatedMembers = team.members.filter(m => m.id !== selectedMember.id)
       await syncTeamMemberships(updatedMembers)
-      setTeam({
-        ...team,
-        members: updatedMembers,
-        headcount: Math.max(0, team.headcount - 1),
-      })
+      await loadTeam()
       setIsDeleteMemberOpen(false)
       setSelectedMember(null)
     } catch (err) {

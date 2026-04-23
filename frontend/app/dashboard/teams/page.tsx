@@ -46,7 +46,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { type Team } from "@/lib/types/teams"
-import { type ApiTeam, workforceApi } from "@/lib/api/workforce"
+import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
 
 const colorOptions = [
   { name: "Blue", value: "#2563eb" },
@@ -71,33 +71,46 @@ export default function TeamsHubPage() {
     color: "#2563eb",
   })
 
-  const toUiTeam = (team: ApiTeam): Team => {
+  const toUiTeam = (team: ApiTeam, developersById: Map<number, ApiDeveloper>): Team => {
     const normalizedId = String(team.id)
     const color = colorOptions[team.id % colorOptions.length]?.value ?? "#2563eb"
+    const members = team.memberships.map((membership) => {
+      const developer = developersById.get(membership.developer)
+      const baseRate = Number(developer?.hourly_rate ?? 0) * 160
+      const utilization = membership.allocation
+      const revenue = baseRate * 1.4
+
+      return {
+        id: String(membership.developer),
+        name: membership.developer_name ?? developer?.full_name ?? "Developer",
+        email: membership.developer_email ?? developer?.email ?? "",
+        role: developer?.role ?? "",
+        baseRate,
+        rateType: "monthly" as const,
+        teamOverheadShare: 0,
+        companyOverheadShare: 0,
+        skills: [],
+        utilization,
+        revenue,
+        teamMemberships: [{ teamId: normalizedId, teamName: team.name, allocation: membership.allocation }],
+      }
+    })
+    const burnRate = members.reduce((sum, member) => sum + member.baseRate * (member.utilization / 100), 0)
+    const revenue = members.reduce((sum, member) => sum + member.revenue * (member.utilization / 100), 0)
+    const utilization = members.length > 0
+      ? Math.round(members.reduce((sum, member) => sum + member.utilization, 0) / members.length)
+      : 0
 
     return {
       id: normalizedId,
       name: team.name,
       description: team.description,
       color,
-      headcount: team.memberships.length,
-      burnRate: 0,
-      utilization: 0,
-      efficiencyScore: 0,
-      members: team.memberships.map((membership) => ({
-        id: String(membership.developer),
-        name: membership.developer_name ?? "Developer",
-        email: membership.developer_email ?? "",
-        role: "",
-        baseRate: 0,
-        rateType: "monthly",
-        teamOverheadShare: 0,
-        companyOverheadShare: 0,
-        skills: [],
-        utilization: membership.allocation,
-        revenue: 0,
-        teamMemberships: [{ teamId: normalizedId, teamName: team.name, allocation: membership.allocation }],
-      })),
+      headcount: members.length,
+      burnRate,
+      utilization,
+      efficiencyScore: burnRate > 0 ? revenue / burnRate : 0,
+      members,
       overheads: [],
       burnRateHistory: [],
     }
@@ -107,8 +120,12 @@ export default function TeamsHubPage() {
     setIsLoading(true)
     setError("")
     try {
-      const data = await workforceApi.listTeams()
-      setTeams(data.map(toUiTeam))
+      const [teamsData, developersData] = await Promise.all([
+        workforceApi.listTeams(),
+        workforceApi.listDevelopers(),
+      ])
+      const developersById = new Map(developersData.map((developer) => [developer.id, developer]))
+      setTeams(teamsData.map((team) => toUiTeam(team, developersById)))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося завантажити команди")
     } finally {
@@ -126,7 +143,9 @@ export default function TeamsHubPage() {
         name: formData.name.trim(),
         description: formData.description.trim(),
       })
-      setTeams((prev) => [...prev, toUiTeam(created)])
+      const developersData = await workforceApi.listDevelopers()
+      const developersById = new Map(developersData.map((developer) => [developer.id, developer]))
+      setTeams((prev) => [...prev, toUiTeam(created, developersById)])
       setIsCreateOpen(false)
       setFormData({ name: "", description: "", color: "#2563eb" })
     } catch (err) {
@@ -141,7 +160,9 @@ export default function TeamsHubPage() {
         name: formData.name.trim(),
         description: formData.description.trim(),
       })
-      setTeams((prev) => prev.map((team) => (team.id === selectedTeam.id ? toUiTeam(updated) : team)))
+      const developersData = await workforceApi.listDevelopers()
+      const developersById = new Map(developersData.map((developer) => [developer.id, developer]))
+      setTeams((prev) => prev.map((team) => (team.id === selectedTeam.id ? toUiTeam(updated, developersById) : team)))
       setIsEditOpen(false)
       setSelectedTeam(null)
       setFormData({ name: "", description: "", color: "#2563eb" })
