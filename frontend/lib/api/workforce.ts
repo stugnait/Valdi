@@ -83,7 +83,7 @@ export interface ApiSubscription {
   plan_name: string
   description: string
   status: "active" | "pending" | "paused" | "cancelled" | "expired"
-  amount: string
+  amount: string | number
   currency: "USD" | "EUR" | "UAH"
   billing_cycle: "monthly" | "quarterly" | "semi-annual" | "yearly"
   start_date: string
@@ -293,6 +293,7 @@ export const workforceApi = {
   deleteClient: (id: string | number) => apiRequest<void>(`/api/clients/${id}/`, { method: "DELETE" }),
 
   listProjects: () => apiRequest<ApiProject[]>("/api/projects/"),
+  getProject: (id: string | number) => apiRequest<ApiProject>(`/api/projects/${id}/`),
   createProject: (payload: Partial<ApiProject>) =>
     apiRequest<ApiProject>("/api/projects/", { method: "POST", body: JSON.stringify(payload) }),
   updateProject: (id: string | number, payload: Partial<ApiProject>) =>

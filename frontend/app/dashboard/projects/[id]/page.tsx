@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, use } from "react"
+import { useEffect, useState, use } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -66,7 +66,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { 
-  mockProjects, 
   type Project, 
   type Invoice,
   type ResourceAllocation,
@@ -75,13 +74,135 @@ import {
   getStatusBadgeVariant,
   getStatusLabel,
 } from "@/lib/types/projects"
+import { ApiProject, workforceApi } from "@/lib/api/workforce"
 import { mockTeams, type TeamMember } from "@/lib/types/teams"
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const initialProject = mockProjects.find((p) => p.id === id)
-  
-  const [project, setProject] = useState<Project | null>(initialProject || null)
+  const [project, setProject] = useState<Project | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const calculateRuntimeFinancials = (currentProject: Project) => {
+    const totalRevenue = currentProject.invoices.length > 0
+      ? currentProject.invoices
+        .filter(i => i.status === "paid")
+        .reduce((sum, i) => sum + i.amount, 0)
+      : currentProject.revenue
+
+    const totalLaborCost = currentProject.allocations.length > 0
+      ? currentProject.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
+      : currentProject.laborCost
+
+    const totalExpenses = currentProject.expenses.length > 0
+      ? currentProject.expenses.reduce((sum, e) => sum + e.amount, 0)
+      : currentProject.directOverheads
+
+    const netProfit = totalRevenue - totalLaborCost - totalExpenses
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
+
+    return { totalRevenue, totalLaborCost, totalExpenses, netProfit, profitMargin }
+  }
+
+  const mapApiProject = (apiProject: ApiProject): Project => {
+    const revenue = Number(apiProject.revenue || 0)
+    const laborCost = Number(apiProject.labor_cost || 0)
+    const directOverheads = Number(apiProject.direct_overheads || 0)
+    const netProfit = revenue - laborCost - directOverheads
+    const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0
+    const totalContractValue = apiProject.total_contract_value ? Number(apiProject.total_contract_value) : undefined
+    const budgetUsedPercent = totalContractValue && totalContractValue > 0
+      ? ((laborCost + directOverheads) / totalContractValue) * 100
+      : 0
+
+    return {
+      id: apiProject.id.toString(),
+      name: apiProject.name,
+      client: {
+        id: apiProject.client.toString(),
+        name: apiProject.client_name,
+        createdAt: apiProject.created_at,
+        totalRevenue: 0,
+        activeProjects: 0,
+      },
+      status: apiProject.status,
+      startDate: apiProject.start_date,
+      endDate: apiProject.end_date,
+      tags: [],
+      billingModel: apiProject.billing_model,
+      currency: apiProject.currency,
+      totalContractValue,
+      clientHourlyRate: apiProject.client_hourly_rate ? Number(apiProject.client_hourly_rate) : undefined,
+      monthlyCap: apiProject.monthly_cap ?? undefined,
+      billingCycle: apiProject.billing_cycle ?? undefined,
+      taxReservePercent: apiProject.tax_reserve_percent ? Number(apiProject.tax_reserve_percent) : undefined,
+      revenue,
+      laborCost,
+      directOverheads,
+      bufferPercent: Number(apiProject.buffer_percent || 0),
+      allocations: [],
+      invoices: [],
+      expenses: [],
+      budgetUsedPercent,
+      netProfit,
+      profitMargin,
+    }
+  }
+
+  useEffect(() => {
+    const loadProject = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const apiProject = await workforceApi.getProject(id)
+        setProject(mapApiProject(apiProject))
+      } catch (loadError) {
+        setProject(null)
+        setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проект")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void loadProject()
+  }, [id])
+
+  useEffect(() => {
+    if (!project) return
+
+    const { totalRevenue, totalLaborCost, totalExpenses, netProfit, profitMargin } = calculateRuntimeFinancials(project)
+
+    const shouldUpdateLocalProject = (
+      Math.abs(totalRevenue - project.revenue) > 0.01 ||
+      Math.abs(totalLaborCost - project.laborCost) > 0.01 ||
+      Math.abs(totalExpenses - project.directOverheads) > 0.01 ||
+      Math.abs(netProfit - project.netProfit) > 0.01 ||
+      Math.abs(profitMargin - project.profitMargin) > 0.01
+    )
+
+    if (shouldUpdateLocalProject) {
+      setProject(prev => prev ? {
+        ...prev,
+        revenue: totalRevenue,
+        laborCost: totalLaborCost,
+        directOverheads: totalExpenses,
+        netProfit,
+        profitMargin,
+      } : prev)
+    }
+
+    if (project.invoices.length === 0 && project.allocations.length === 0 && project.expenses.length === 0) {
+      return
+    }
+
+    void workforceApi.updateProject(project.id, {
+      revenue: totalRevenue.toFixed(2),
+      labor_cost: totalLaborCost.toFixed(2),
+      direct_overheads: totalExpenses.toFixed(2),
+    }).catch(() => {
+      setError("Дані змінено локально, але не вдалося зберегти на сервері.")
+    })
+  }, [project?.id, project?.invoices, project?.allocations, project?.expenses])
   
   // Invoice CRUD
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false)
@@ -119,10 +240,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   // Get all team members for allocation
   const allMembers = mockTeams.flatMap(t => t.members.map(m => ({ ...m, teamId: t.id, teamName: t.name })))
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-muted-foreground">Завантаження проекту...</p>
+      </div>
+    )
+  }
+
   if (!project) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-muted-foreground">Проект не знайдено</p>
+        <p className="text-muted-foreground">{error || "Проект не знайдено"}</p>
         <Button variant="outline" className="mt-4" asChild>
           <Link href="/dashboard/projects">Повернутися до Project Hub</Link>
         </Button>
@@ -326,14 +455,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }
 
   // Calculations
-  const totalRevenue = project.invoices
-    .filter(i => i.status === "paid")
-    .reduce((sum, i) => sum + i.amount, 0)
-  
-  const totalLaborCost = project.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
-  const totalExpenses = project.expenses.reduce((sum, e) => sum + e.amount, 0)
-  const netProfit = totalRevenue - totalLaborCost - totalExpenses
-  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
+  const { totalRevenue, totalLaborCost, totalExpenses, netProfit, profitMargin } = calculateRuntimeFinancials(project)
 
   // Cost estimator
   const estimatedMonthlyCost = project.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
