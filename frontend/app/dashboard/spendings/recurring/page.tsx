@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { 
   Plus, 
   Search, 
@@ -73,7 +73,6 @@ import {
   PaymentCycle,
   PaymentSource,
   AllocationTarget,
-  mockRecurringExpenses,
   expenseCategories,
   formatCurrency,
   convertToUSD,
@@ -85,9 +84,12 @@ import {
 } from "@/lib/types/spendings"
 import { mockTeams } from "@/lib/types/teams"
 import { mockProjects } from "@/lib/types/projects"
+import { workforceApi, type ApiRecurringExpense } from "@/lib/api/workforce"
 
 export default function RecurringExpensesPage() {
-  const [expenses, setExpenses] = useState<RecurringExpense[]>(mockRecurringExpenses)
+  const [expenses, setExpenses] = useState<RecurringExpense[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -109,6 +111,46 @@ export default function RecurringExpensesPage() {
     description: "",
     nextPaymentDate: "",
   })
+
+  const mapApiExpense = (expense: ApiRecurringExpense): RecurringExpense => ({
+    id: expense.id.toString(),
+    name: expense.name,
+    amount: Number(expense.amount || 0),
+    currency: expense.currency,
+    amountUSD: convertToUSD(Number(expense.amount || 0), expense.currency),
+    cycle: expense.cycle,
+    category: expense.category,
+    source: expense.source,
+    allocation: {
+      type: expense.allocation_type,
+      teamId: expense.team ? expense.team.toString() : undefined,
+      teamName: expense.team_name || undefined,
+      projectId: expense.project ? expense.project.toString() : undefined,
+      projectName: expense.project_name || undefined,
+    },
+    status: expense.status,
+    nextPaymentDate: expense.next_payment_date,
+    lastPaidDate: expense.last_paid_date || undefined,
+    description: expense.description || undefined,
+    createdAt: expense.created_at,
+  })
+
+  const loadExpenses = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await workforceApi.listRecurringExpenses()
+      setExpenses(data.map(mapApiExpense))
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load recurring expenses")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadExpenses()
+  }, [])
 
   // Stats
   const monthlyTotal = calculateMonthlyTotal(expenses)
@@ -163,75 +205,69 @@ export default function RecurringExpensesPage() {
     setIsAddDialogOpen(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim() || !formData.amount || !formData.category || !formData.nextPaymentDate) return
     
     const amount = parseFloat(formData.amount)
     if (isNaN(amount) || amount <= 0) return
     
-    const amountUSD = convertToUSD(amount, formData.currency)
-    
-    const selectedTeam = mockTeams.find(t => t.id === formData.teamId)
-    const selectedProject = mockProjects.find(p => p.id === formData.projectId)
-
-    const expenseData: RecurringExpense = {
-      id: editingExpense?.id || `r${Date.now()}`,
+    const payload = {
       name: formData.name.trim(),
       amount,
       currency: formData.currency,
-      amountUSD,
       cycle: formData.cycle,
       category: formData.category,
       source: formData.source,
-      allocation: {
-        type: formData.allocationType,
-        teamId: formData.allocationType === "team" ? formData.teamId : undefined,
-        teamName: formData.allocationType === "team" ? selectedTeam?.name : undefined,
-        projectId: formData.allocationType === "project" ? formData.projectId : undefined,
-        projectName: formData.allocationType === "project" ? selectedProject?.name : undefined,
-      },
+      allocation_type: formData.allocationType,
+      team: formData.allocationType === "team" && formData.teamId ? Number(formData.teamId) : null,
+      project: formData.allocationType === "project" && formData.projectId ? Number(formData.projectId) : null,
       status: editingExpense?.status || "pending",
-      nextPaymentDate: formData.nextPaymentDate,
-      lastPaidDate: editingExpense?.lastPaidDate,
-      description: formData.description?.trim() || undefined,
-      createdAt: editingExpense?.createdAt || new Date().toISOString().split("T")[0],
+      next_payment_date: formData.nextPaymentDate,
+      description: formData.description?.trim() || "",
     }
-
-    if (editingExpense) {
-      setExpenses(prev => prev.map(e => e.id === editingExpense.id ? expenseData : e))
-    } else {
-      setExpenses(prev => [...prev, expenseData])
+    try {
+      if (editingExpense) {
+        await workforceApi.updateRecurringExpense(editingExpense.id, payload)
+      } else {
+        await workforceApi.createRecurringExpense(payload)
+      }
+      await loadExpenses()
+      setIsAddDialogOpen(false)
+      resetForm()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save recurring expense")
     }
-
-    setIsAddDialogOpen(false)
-    resetForm()
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteExpense) {
-      setExpenses(prev => prev.filter(e => e.id !== deleteExpense.id))
+      try {
+        await workforceApi.deleteRecurringExpense(deleteExpense.id)
+        await loadExpenses()
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete recurring expense")
+      }
       setDeleteExpense(null)
     }
   }
 
-  const handleMarkPaid = (expense: RecurringExpense) => {
-    setExpenses(prev => prev.map(e => {
-      if (e.id === expense.id) {
-        const today = new Date().toISOString().split("T")[0]
-        const nextDate = new Date()
-        if (e.cycle === "monthly") nextDate.setMonth(nextDate.getMonth() + 1)
-        if (e.cycle === "yearly") nextDate.setFullYear(nextDate.getFullYear() + 1)
-        if (e.cycle === "quarterly") nextDate.setMonth(nextDate.getMonth() + 3)
-        
-        return {
-          ...e,
-          status: "paid" as const,
-          lastPaidDate: today,
-          nextPaymentDate: nextDate.toISOString().split("T")[0],
-        }
-      }
-      return e
-    }))
+  const handleMarkPaid = async (expense: RecurringExpense) => {
+    const today = new Date().toISOString().split("T")[0]
+    const nextDate = new Date()
+    if (expense.cycle === "monthly") nextDate.setMonth(nextDate.getMonth() + 1)
+    if (expense.cycle === "yearly") nextDate.setFullYear(nextDate.getFullYear() + 1)
+    if (expense.cycle === "quarterly") nextDate.setMonth(nextDate.getMonth() + 3)
+
+    try {
+      await workforceApi.updateRecurringExpense(expense.id, {
+        status: "paid",
+        last_paid_date: today,
+        next_payment_date: nextDate.toISOString().split("T")[0],
+      })
+      await loadExpenses()
+    } catch (markError) {
+      setError(markError instanceof Error ? markError.message : "Failed to mark expense as paid")
+    }
   }
 
   const getStatusIcon = (status: string) => {
@@ -273,6 +309,18 @@ export default function RecurringExpensesPage() {
           Add Recurring
         </Button>
       </div>
+
+      {error && (
+        <Card className="border-red-200">
+          <CardContent className="pt-6 text-sm text-red-600">{error}</CardContent>
+        </Card>
+      )}
+
+      {loading && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Loading recurring expenses...</CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">

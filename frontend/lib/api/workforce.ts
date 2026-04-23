@@ -83,7 +83,7 @@ export interface ApiSubscription {
   plan_name: string
   description: string
   status: "active" | "pending" | "paused" | "cancelled" | "expired"
-  amount: string
+  amount: string | number
   currency: "USD" | "EUR" | "UAH"
   billing_cycle: "monthly" | "quarterly" | "semi-annual" | "yearly"
   start_date: string
@@ -108,6 +108,60 @@ export interface ApiBankConnection {
   last_sync: string | null
   last_error: string
   disabled_reason: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiRecurringExpense {
+  id: number
+  name: string
+  amount: string | number
+  currency: "USD" | "EUR" | "UAH"
+  cycle: "monthly" | "quarterly" | "yearly"
+  category: string
+  source: "monobank" | "privat24" | "cash" | "wise" | "payoneer"
+  allocation_type: "all" | "team" | "project" | "none"
+  team: number | null
+  team_name: string
+  project: number | null
+  project_name: string
+  status: "paid" | "pending" | "overdue"
+  next_payment_date: string
+  last_paid_date: string | null
+  description: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiVariableExpense {
+  id: number
+  name: string
+  amount: string | number
+  currency: "USD" | "EUR" | "UAH"
+  category: string
+  source: "monobank" | "privat24" | "cash" | "wise" | "payoneer"
+  expense_date: string
+  assignee: number | null
+  assignee_name: string
+  receipt_url: string
+  description: string
+  allocation_type: "all" | "team" | "project" | "none"
+  team: number | null
+  team_name: string
+  project: number | null
+  project_name: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiAutomationRule {
+  id: number
+  name: string
+  is_active: boolean
+  conditions: unknown[]
+  actions: Record<string, unknown>
+  match_count: number
+  last_match_date: string | null
   created_at: string
   updated_at: string
 }
@@ -199,4 +253,25 @@ export const workforceApi = {
   connectBank: (payload: { provider: ApiBankConnection['provider']; token: string }) =>
     apiRequest<ApiBankConnection>("/api/bank-connections/", { method: "POST", body: JSON.stringify(payload) }),
   deleteBankConnection: (id: string | number) => apiRequest<void>(`/api/bank-connections/${id}/`, { method: "DELETE" }),
+
+  listRecurringExpenses: () => apiRequest<ApiRecurringExpense[]>("/api/recurring-expenses/"),
+  createRecurringExpense: (payload: Partial<ApiRecurringExpense>) =>
+    apiRequest<ApiRecurringExpense>("/api/recurring-expenses/", { method: "POST", body: JSON.stringify(payload) }),
+  updateRecurringExpense: (id: string | number, payload: Partial<ApiRecurringExpense>) =>
+    apiRequest<ApiRecurringExpense>(`/api/recurring-expenses/${id}/`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteRecurringExpense: (id: string | number) => apiRequest<void>(`/api/recurring-expenses/${id}/`, { method: "DELETE" }),
+
+  listVariableExpenses: () => apiRequest<ApiVariableExpense[]>("/api/variable-expenses/"),
+  createVariableExpense: (payload: Partial<ApiVariableExpense>) =>
+    apiRequest<ApiVariableExpense>("/api/variable-expenses/", { method: "POST", body: JSON.stringify(payload) }),
+  updateVariableExpense: (id: string | number, payload: Partial<ApiVariableExpense>) =>
+    apiRequest<ApiVariableExpense>(`/api/variable-expenses/${id}/`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteVariableExpense: (id: string | number) => apiRequest<void>(`/api/variable-expenses/${id}/`, { method: "DELETE" }),
+
+  listAutomationRules: () => apiRequest<ApiAutomationRule[]>("/api/automation-rules/"),
+  createAutomationRule: (payload: Partial<ApiAutomationRule>) =>
+    apiRequest<ApiAutomationRule>("/api/automation-rules/", { method: "POST", body: JSON.stringify(payload) }),
+  updateAutomationRule: (id: string | number, payload: Partial<ApiAutomationRule>) =>
+    apiRequest<ApiAutomationRule>(`/api/automation-rules/${id}/`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteAutomationRule: (id: string | number) => apiRequest<void>(`/api/automation-rules/${id}/`, { method: "DELETE" }),
 }

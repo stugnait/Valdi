@@ -341,3 +341,116 @@ class BankTransaction(models.Model):
 
     def __str__(self):
         return f'{self.external_tx_id} ({self.amount} {self.currency})'
+
+
+class RecurringExpense(models.Model):
+    class Currency(models.TextChoices):
+        USD = 'USD', 'USD'
+        EUR = 'EUR', 'EUR'
+        UAH = 'UAH', 'UAH'
+
+    class Cycle(models.TextChoices):
+        MONTHLY = 'monthly', 'Monthly'
+        QUARTERLY = 'quarterly', 'Quarterly'
+        YEARLY = 'yearly', 'Yearly'
+
+    class Source(models.TextChoices):
+        MONOBANK = 'monobank', 'Monobank'
+        PRIVAT24 = 'privat24', 'Privat24'
+        CASH = 'cash', 'Cash'
+        WISE = 'wise', 'Wise'
+        PAYONEER = 'payoneer', 'Payoneer'
+
+    class Status(models.TextChoices):
+        PAID = 'paid', 'Paid'
+        PENDING = 'pending', 'Pending'
+        OVERDUE = 'overdue', 'Overdue'
+
+    class AllocationType(models.TextChoices):
+        ALL = 'all', 'All'
+        TEAM = 'team', 'Team'
+        PROJECT = 'project', 'Project'
+        NONE = 'none', 'None'
+
+    name = models.CharField(max_length=180)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.USD)
+    cycle = models.CharField(max_length=16, choices=Cycle.choices, default=Cycle.MONTHLY)
+    category = models.CharField(max_length=64, default='other')
+    source = models.CharField(max_length=32, choices=Source.choices, default=Source.MONOBANK)
+    allocation_type = models.CharField(max_length=16, choices=AllocationType.choices, default=AllocationType.ALL)
+    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name='recurring_expenses')
+    project = models.ForeignKey(Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='recurring_expenses')
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    next_payment_date = models.DateField()
+    last_paid_date = models.DateField(null=True, blank=True)
+    description = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='recurring_expenses')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return self.name
+
+
+class VariableExpense(models.Model):
+    class Currency(models.TextChoices):
+        USD = 'USD', 'USD'
+        EUR = 'EUR', 'EUR'
+        UAH = 'UAH', 'UAH'
+
+    class Source(models.TextChoices):
+        MONOBANK = 'monobank', 'Monobank'
+        PRIVAT24 = 'privat24', 'Privat24'
+        CASH = 'cash', 'Cash'
+        WISE = 'wise', 'Wise'
+        PAYONEER = 'payoneer', 'Payoneer'
+
+    class AllocationType(models.TextChoices):
+        ALL = 'all', 'All'
+        TEAM = 'team', 'Team'
+        PROJECT = 'project', 'Project'
+        NONE = 'none', 'None'
+
+    name = models.CharField(max_length=180)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.USD)
+    category = models.CharField(max_length=64, default='other')
+    source = models.CharField(max_length=32, choices=Source.choices, default=Source.MONOBANK)
+    expense_date = models.DateField()
+    assignee = models.ForeignKey(Developer, on_delete=models.SET_NULL, null=True, blank=True, related_name='variable_expenses')
+    receipt_url = models.CharField(max_length=300, blank=True)
+    description = models.TextField(blank=True)
+    allocation_type = models.CharField(max_length=16, choices=AllocationType.choices, default=AllocationType.ALL)
+    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name='variable_expenses')
+    project = models.ForeignKey(Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='variable_expenses')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='variable_expenses')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-expense_date', '-created_at')
+
+    def __str__(self):
+        return self.name
+
+
+class AutomationRule(models.Model):
+    name = models.CharField(max_length=180)
+    is_active = models.BooleanField(default=True)
+    conditions = models.JSONField(default=list, blank=True)
+    actions = models.JSONField(default=dict, blank=True)
+    match_count = models.PositiveIntegerField(default=0)
+    last_match_date = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='automation_rules')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-updated_at',)
+
+    def __str__(self):
+        return self.name

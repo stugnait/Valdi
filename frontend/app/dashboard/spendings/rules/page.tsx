@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { 
   Plus, 
   Search, 
@@ -64,16 +64,18 @@ import {
   AutomationRule,
   PaymentSource,
   AllocationTarget,
-  mockAutomationRules,
   expenseCategories,
 } from "@/lib/types/spendings"
 import { mockTeams } from "@/lib/types/teams"
 import { mockProjects } from "@/lib/types/projects"
+import { workforceApi, type ApiAutomationRule } from "@/lib/api/workforce"
 
 type ConditionType = "keyword" | "amount_range" | "source"
 
 export default function RulesPage() {
-  const [rules, setRules] = useState<AutomationRule[]>(mockAutomationRules)
+  const [rules, setRules] = useState<AutomationRule[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingRule, setEditingRule] = useState<AutomationRule | null>(null)
@@ -93,6 +95,34 @@ export default function RulesPage() {
     teamId: "",
     projectId: "",
   })
+
+  const mapApiRule = (rule: ApiAutomationRule): AutomationRule => ({
+    id: rule.id.toString(),
+    name: rule.name,
+    isActive: rule.is_active,
+    conditions: (rule.conditions || []) as AutomationRule["conditions"],
+    actions: (rule.actions || {}) as AutomationRule["actions"],
+    matchCount: rule.match_count,
+    lastMatchDate: rule.last_match_date || undefined,
+    createdAt: rule.created_at,
+  })
+
+  const loadRules = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await workforceApi.listAutomationRules()
+      setRules(data.map(mapApiRule))
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load automation rules")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadRules()
+  }, [])
 
   // Stats
   const activeRules = rules.filter(r => r.isActive).length
@@ -151,7 +181,7 @@ export default function RulesPage() {
     setIsAddDialogOpen(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim()) return
     
     const selectedTeam = mockTeams.find(t => t.id === formData.teamId)
@@ -181,10 +211,9 @@ export default function RulesPage() {
       return
     }
 
-    const ruleData: AutomationRule = {
-      id: editingRule?.id || `rule${Date.now()}`,
+    const payload = {
       name: formData.name.trim(),
-      isActive: editingRule?.isActive ?? true,
+      is_active: editingRule?.isActive ?? true,
       conditions,
       actions: {
         setCategory: formData.setCategory || undefined,
@@ -197,32 +226,40 @@ export default function RulesPage() {
           projectName: formData.allocationType === "project" ? selectedProject?.name : undefined,
         } : undefined,
       },
-      matchCount: editingRule?.matchCount || 0,
-      lastMatchDate: editingRule?.lastMatchDate,
-      createdAt: editingRule?.createdAt || new Date().toISOString().split("T")[0],
     }
-
-    if (editingRule) {
-      setRules(prev => prev.map(r => r.id === editingRule.id ? ruleData : r))
-    } else {
-      setRules(prev => [...prev, ruleData])
+    try {
+      if (editingRule) {
+        await workforceApi.updateAutomationRule(editingRule.id, payload)
+      } else {
+        await workforceApi.createAutomationRule(payload)
+      }
+      await loadRules()
+      setIsAddDialogOpen(false)
+      resetForm()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save automation rule")
     }
-
-    setIsAddDialogOpen(false)
-    resetForm()
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteRule) {
-      setRules(prev => prev.filter(r => r.id !== deleteRule.id))
+      try {
+        await workforceApi.deleteAutomationRule(deleteRule.id)
+        await loadRules()
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete automation rule")
+      }
       setDeleteRule(null)
     }
   }
 
-  const handleToggleActive = (rule: AutomationRule) => {
-    setRules(prev => prev.map(r => 
-      r.id === rule.id ? { ...r, isActive: !r.isActive } : r
-    ))
+  const handleToggleActive = async (rule: AutomationRule) => {
+    try {
+      await workforceApi.updateAutomationRule(rule.id, { is_active: !rule.isActive })
+      await loadRules()
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : "Failed to update rule status")
+    }
   }
 
   const addKeyword = () => {
@@ -341,6 +378,18 @@ export default function RulesPage() {
           Add Rule
         </Button>
       </div>
+
+      {error && (
+        <Card className="border-red-200">
+          <CardContent className="pt-6 text-sm text-red-600">{error}</CardContent>
+        </Card>
+      )}
+
+      {loading && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Loading automation rules...</CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2">
