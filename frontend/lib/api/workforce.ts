@@ -83,7 +83,7 @@ export interface ApiSubscription {
   plan_name: string
   description: string
   status: "active" | "pending" | "paused" | "cancelled" | "expired"
-  amount: string
+  amount: string | number
   currency: "USD" | "EUR" | "UAH"
   billing_cycle: "monthly" | "quarterly" | "semi-annual" | "yearly"
   start_date: string
@@ -94,6 +94,39 @@ export interface ApiSubscription {
   total_paid: string
   confirmed_at: string | null
   confirmed_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiInvoice {
+  id: number
+  number: string
+  project: number
+  project_name: string
+  client: number
+  client_name: string
+  amount: string
+  currency: "USD" | "EUR" | "UAH"
+  status: "draft" | "sent" | "paid" | "overdue"
+  issue_date: string
+  due_date: string
+  paid_date: string | null
+  description: string
+  linked_transaction_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiTaxReport {
+  id: number
+  year: number
+  quarter: number
+  income: string | number
+  tax_ep: string | number
+  esv_paid: string | number
+  total_due: string | number
+  paid_date: string | null
+  status: "paid" | "pending" | "overdue"
   created_at: string
   updated_at: string
 }
@@ -219,6 +252,20 @@ export const workforceApi = {
   updateSubscription: (id: string | number, payload: Partial<ApiSubscription>) =>
     apiRequest<ApiSubscription>(`/api/subscriptions/${id}/`, { method: "PATCH", body: JSON.stringify(payload) }),
   deleteSubscription: (id: string | number) => apiRequest<void>(`/api/subscriptions/${id}/`, { method: "DELETE" }),
+
+  listInvoices: () => apiRequest<ApiInvoice[]>("/api/invoices/"),
+  createInvoice: (payload: Partial<ApiInvoice>) =>
+    apiRequest<ApiInvoice>("/api/invoices/", { method: "POST", body: JSON.stringify(payload) }),
+  updateInvoice: (id: string | number, payload: Partial<ApiInvoice>) =>
+    apiRequest<ApiInvoice>(`/api/invoices/${id}/`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteInvoice: (id: string | number) => apiRequest<void>(`/api/invoices/${id}/`, { method: "DELETE" }),
+
+  listTaxReports: () => apiRequest<ApiTaxReport[]>("/api/tax-reports/"),
+  createTaxReport: (payload: Partial<ApiTaxReport>) =>
+    apiRequest<ApiTaxReport>("/api/tax-reports/", { method: "POST", body: JSON.stringify(payload) }),
+  updateTaxReport: (id: string | number, payload: Partial<ApiTaxReport>) =>
+    apiRequest<ApiTaxReport>(`/api/tax-reports/${id}/`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteTaxReport: (id: string | number) => apiRequest<void>(`/api/tax-reports/${id}/`, { method: "DELETE" }),
 
   getAnalyticsOverview: () => apiRequest<ApiAnalyticsOverview>("/api/analytics/overview/"),
 }
