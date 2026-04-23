@@ -8,3 +8,5 @@ psycopg[binary]>=3.2,<4.0
 dj-config-url
 python-dotenv
 google-auth>=2.34,<3.0
+
+cryptography>=43.0,<44.0

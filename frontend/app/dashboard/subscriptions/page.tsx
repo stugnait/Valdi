@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Plus,
   Search,
@@ -78,11 +78,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import {
   ClientSubscription,
-  SubscriptionPayment,
   SubscriptionStatus,
-  mockClientSubscriptions,
-  mockClients,
-  mockProjects,
   getSubscriptionStatusColor,
   getSubscriptionStatusLabel,
   getPaymentStatusColor,
@@ -90,11 +86,14 @@ import {
   getBillingCycleLabel,
   calculateSubscriptionMetrics,
 } from "@/lib/types/projects"
+import { ApiClient, ApiProject, ApiSubscription, workforceApi } from "@/lib/api/workforce"
 
 const statusFilters: SubscriptionStatus[] = ["active", "pending", "paused", "cancelled", "expired"]
 
 export default function SubscriptionsPage() {
-  const [subscriptions, setSubscriptions] = useState<ClientSubscription[]>(mockClientSubscriptions)
+  const [subscriptions, setSubscriptions] = useState<ClientSubscription[]>([])
+  const [clients, setClients] = useState<ApiClient[]>([])
+  const [projects, setProjects] = useState<ApiProject[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<SubscriptionStatus[]>(["active", "pending"])
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -102,6 +101,8 @@ export default function SubscriptionsPage() {
   const [viewSubscription, setViewSubscription] = useState<ClientSubscription | null>(null)
   const [deleteSubscription, setDeleteSubscription] = useState<ClientSubscription | null>(null)
   const [activeTab, setActiveTab] = useState("overview")
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -129,6 +130,59 @@ export default function SubscriptionsPage() {
     const matchesStatus = statusFilter.length === 0 || statusFilter.includes(sub.status)
     return matchesSearch && matchesStatus
   })
+
+  const availableProjects = useMemo(
+    () => projects.filter((project) => !formData.clientId || project.client.toString() === formData.clientId),
+    [projects, formData.clientId]
+  )
+
+  const mapApiSubscription = (subscription: ApiSubscription): ClientSubscription => ({
+    id: subscription.id.toString(),
+    clientId: subscription.client.toString(),
+    clientName: subscription.client_name,
+    projectId: subscription.project ? subscription.project.toString() : undefined,
+    projectName: subscription.project_name || undefined,
+    planName: subscription.plan_name,
+    description: subscription.description || undefined,
+    status: subscription.status,
+    amount: Number(subscription.amount || 0),
+    currency: subscription.currency,
+    billingCycle: subscription.billing_cycle,
+    startDate: subscription.start_date,
+    nextBillingDate: subscription.next_billing_date,
+    endDate: subscription.end_date || undefined,
+    features: subscription.features || [],
+    hoursIncluded: subscription.hours_included || undefined,
+    totalPaid: Number(subscription.total_paid || 0),
+    payments: [],
+    confirmedAt: subscription.confirmed_at || undefined,
+    confirmedBy: subscription.confirmed_by || undefined,
+    createdAt: subscription.created_at,
+    updatedAt: subscription.updated_at,
+  })
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const [subscriptionsResponse, clientsResponse, projectsResponse] = await Promise.all([
+        workforceApi.listSubscriptions(),
+        workforceApi.listClients(),
+        workforceApi.listProjects(),
+      ])
+      setSubscriptions(subscriptionsResponse.map(mapApiSubscription))
+      setClients(clientsResponse)
+      setProjects(projectsResponse)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load subscriptions")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadData()
+  }, [])
 
   const toggleStatusFilter = (status: SubscriptionStatus) => {
     setStatusFilter(prev =>
@@ -176,75 +230,76 @@ export default function SubscriptionsPage() {
     setIsAddDialogOpen(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.clientId || !formData.planName || !formData.amount) return
+    try {
+      setError(null)
+      const payload = {
+        client: Number(formData.clientId),
+        project: formData.projectId ? Number(formData.projectId) : null,
+        plan_name: formData.planName,
+        description: formData.description,
+        status: editingSubscription?.status || "pending",
+        amount: formData.amount,
+        currency: formData.currency,
+        billing_cycle: formData.billingCycle,
+        start_date: formData.startDate || new Date().toISOString().split("T")[0],
+        next_billing_date: formData.startDate || new Date().toISOString().split("T")[0],
+        features: formData.features ? formData.features.split("\n").map((item) => item.trim()).filter(Boolean) : [],
+        hours_included: formData.hoursIncluded ? Number(formData.hoursIncluded) : null,
+      }
 
-    const client = mockClients.find(c => c.id === formData.clientId)
-    const project = mockProjects.find(p => p.id === formData.projectId)
+      if (editingSubscription) {
+        await workforceApi.updateSubscription(editingSubscription.id, payload)
+      } else {
+        await workforceApi.createSubscription(payload)
+      }
 
-    const subscriptionData: ClientSubscription = {
-      id: editingSubscription?.id || `sub${Date.now()}`,
-      clientId: formData.clientId,
-      clientName: client?.name || "",
-      projectId: formData.projectId || undefined,
-      projectName: project?.name,
-      planName: formData.planName,
-      description: formData.description || undefined,
-      status: editingSubscription?.status || "pending",
-      amount: parseFloat(formData.amount),
-      currency: formData.currency,
-      billingCycle: formData.billingCycle,
-      startDate: formData.startDate || new Date().toISOString().split("T")[0],
-      nextBillingDate: formData.startDate || new Date().toISOString().split("T")[0],
-      features: formData.features ? formData.features.split("\n").filter(f => f.trim()) : undefined,
-      hoursIncluded: formData.hoursIncluded ? parseInt(formData.hoursIncluded) : undefined,
-      totalPaid: editingSubscription?.totalPaid || 0,
-      payments: editingSubscription?.payments || [],
-      createdAt: editingSubscription?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      await loadData()
+      setIsAddDialogOpen(false)
+      resetForm()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save subscription")
     }
-
-    if (editingSubscription) {
-      setSubscriptions(prev => prev.map(s => s.id === editingSubscription.id ? subscriptionData : s))
-    } else {
-      setSubscriptions(prev => [...prev, subscriptionData])
-    }
-
-    setIsAddDialogOpen(false)
-    resetForm()
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteSubscription) {
-      setSubscriptions(prev => prev.filter(s => s.id !== deleteSubscription.id))
-      setDeleteSubscription(null)
+      try {
+        setError(null)
+        await workforceApi.deleteSubscription(deleteSubscription.id)
+        await loadData()
+        setDeleteSubscription(null)
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete subscription")
+      }
     }
   }
 
-  const handleConfirmSubscription = (subscription: ClientSubscription) => {
-    setSubscriptions(prev => prev.map(s =>
-      s.id === subscription.id
-        ? {
-          ...s,
-          status: "active" as SubscriptionStatus,
-          confirmedAt: new Date().toISOString().split("T")[0],
-          confirmedBy: "Admin",
-          updatedAt: new Date().toISOString(),
-        }
-        : s
-    ))
+  const handleConfirmSubscription = async (subscription: ClientSubscription) => {
+    try {
+      setError(null)
+      await workforceApi.updateSubscription(subscription.id, {
+        status: "active",
+        confirmed_at: new Date().toISOString().split("T")[0],
+        confirmed_by: "Admin",
+      })
+      await loadData()
+    } catch (confirmError) {
+      setError(confirmError instanceof Error ? confirmError.message : "Failed to confirm subscription")
+    }
   }
 
-  const handlePauseSubscription = (subscription: ClientSubscription) => {
-    setSubscriptions(prev => prev.map(s =>
-      s.id === subscription.id
-        ? {
-          ...s,
-          status: s.status === "paused" ? "active" : "paused" as SubscriptionStatus,
-          updatedAt: new Date().toISOString(),
-        }
-        : s
-    ))
+  const handlePauseSubscription = async (subscription: ClientSubscription) => {
+    try {
+      setError(null)
+      await workforceApi.updateSubscription(subscription.id, {
+        status: subscription.status === "paused" ? "active" : "paused",
+      })
+      await loadData()
+    } catch (pauseError) {
+      setError(pauseError instanceof Error ? pauseError.message : "Failed to update subscription status")
+    }
   }
 
   const formatCurrency = (value: number, currency: string = "USD") => {
@@ -288,6 +343,18 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <Card className="border-destructive/40">
+          <CardContent className="pt-6 text-sm text-destructive">{error}</CardContent>
+        </Card>
+      )}
+
+      {isLoading && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Loading subscriptions...</CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -872,8 +939,8 @@ export default function SubscriptionsPage() {
                     <SelectValue placeholder="Оберіть клієнта" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockClients.map(client => (
-                      <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                    {clients.map(client => (
+                      <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -890,8 +957,8 @@ export default function SubscriptionsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Без проекту</SelectItem>
-                    {mockProjects.map(project => (
-                      <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                    {availableProjects.map(project => (
+                      <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
