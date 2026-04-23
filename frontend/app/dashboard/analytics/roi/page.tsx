@@ -59,6 +59,18 @@ import { mockProjects, mockClients } from "@/lib/types/projects"
 function useDevROIData() {
   return useMemo(() => {
     const months = ["Січ", "Лют", "Бер", "Кві", "Тра", "Чер"]
+
+    const deterministicRatio = (devId: string, monthIndex: number, min: number, max: number) => {
+      const seedString = `${devId}-${monthIndex}`
+      let hash = 0
+
+      for (let i = 0; i < seedString.length; i += 1) {
+        hash = (hash * 31 + seedString.charCodeAt(i)) | 0
+      }
+
+      const normalized = (Math.abs(hash) % 10000) / 10000
+      return min + normalized * (max - min)
+    }
     
     // Get all unique developers
     const allDevs = mockTeams.flatMap(team => 
@@ -81,8 +93,9 @@ function useDevROIData() {
         monthlyCost: dev.baseRate,
         monthlyData: months.map((month, i) => ({
           month,
-          profit: Math.round(baseProfit * (0.7 + Math.random() * 0.6)),
-          revenue: Math.round(dev.revenue * (0.8 + Math.random() * 0.4)),
+          // Stable per developer/month values are required so period comparisons remain consistent and analytics stay trustworthy.
+          profit: Math.round(baseProfit * deterministicRatio(dev.id, i, 0.7, 1.3)),
+          revenue: Math.round(dev.revenue * deterministicRatio(dev.id, i + months.length, 0.8, 1.2)),
         })),
         averageProfit: baseProfit,
         roi: ((dev.revenue / (dev.baseRate + dev.teamOverheadShare + dev.companyOverheadShare)) - 1) * 100,
