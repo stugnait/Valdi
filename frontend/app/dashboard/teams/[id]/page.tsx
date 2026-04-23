@@ -64,7 +64,7 @@ import {
   type Skill,
   type TeamMembership
 } from "@/lib/types/teams"
-import { type ApiTeam, workforceApi } from "@/lib/api/workforce"
+import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
 import {
   Area,
   AreaChart,
@@ -75,6 +75,12 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
+const MONTHLY_HOURS = 160
+
+const toHourlyRatePayload = (baseRate: number, rateType: "monthly" | "hourly") => {
+  const rawHourly = rateType === "monthly" ? baseRate / MONTHLY_HOURS : baseRate
+  return Math.round(rawHourly * 100) / 100
+}
 
 export default function TeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -92,6 +98,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     role: "",
     baseRate: "",
     rateType: "monthly" as "monthly" | "hourly",
+    teamOverheadShare: "0",
+    companyOverheadShare: "280",
     skills: [] as Skill[],
     teamMemberships: [] as TeamMembership[],
   })
@@ -107,32 +115,68 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     category: "",
   })
 
-  const toUiTeam = (apiTeam: ApiTeam): Team => ({
-    id: String(apiTeam.id),
-    name: apiTeam.name,
-    description: apiTeam.description,
-    color: "#2563eb",
-    headcount: apiTeam.memberships.length,
-    burnRate: 0,
-    utilization: 0,
-    efficiencyScore: 0,
-    members: apiTeam.memberships.map((membership) => ({
-      id: String(membership.developer),
-      name: membership.developer_name ?? "Developer",
-      email: membership.developer_email ?? "",
-      role: "",
-      baseRate: 0,
-      rateType: "monthly",
-      teamOverheadShare: 0,
-      companyOverheadShare: 280,
-      skills: [],
-      utilization: membership.allocation,
-      revenue: 0,
-      teamMemberships: [{ teamId: String(apiTeam.id), teamName: apiTeam.name, allocation: membership.allocation }],
-    })),
-    overheads: [],
-    burnRateHistory: [],
-  })
+  const toUiTeam = (
+    apiTeam: ApiTeam,
+    developersById: Map<number, ApiDeveloper>,
+    totals: { revenue: number; laborCost: number }
+  ): Team => {
+    const members = apiTeam.memberships.map((membership) => {
+      const developer = developersById.get(membership.developer)
+      const baseRate = Number(developer?.hourly_rate ?? 0) * MONTHLY_HOURS
+      const utilization = membership.allocation
+
+      return {
+        id: String(membership.developer),
+        name: membership.developer_name ?? developer?.full_name ?? "Developer",
+        email: membership.developer_email ?? developer?.email ?? "",
+        role: developer?.role ?? "",
+        baseRate,
+        rateType: "monthly" as const,
+        teamOverheadShare: 0,
+        companyOverheadShare: 280,
+        skills: [],
+        utilization,
+        revenue: 0,
+        teamMemberships: [{ teamId: String(apiTeam.id), teamName: apiTeam.name, allocation: membership.allocation }],
+      }
+    })
+    const membersWithCost = members.map((member) => ({
+      ...member,
+      monthlyCost: (member.baseRate + member.teamOverheadShare + member.companyOverheadShare) * (member.utilization / 100),
+    }))
+    const burnRate = membersWithCost.reduce((sum, member) => sum + member.monthlyCost, 0)
+    const totalRevenue = totals.laborCost > 0 ? (burnRate / totals.laborCost) * totals.revenue : 0
+    const membersWithRevenue = membersWithCost.map((member) => ({
+      ...member,
+      revenue: burnRate > 0 ? (member.monthlyCost / burnRate) * totalRevenue : 0,
+    }))
+    const utilization = members.length > 0
+      ? Math.round(members.reduce((sum, member) => sum + member.utilization, 0) / members.length)
+      : 0
+    const now = new Date()
+    const burnRateHistory = Array.from({ length: 6 }).map((_, index) => {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1)
+      return {
+        month: monthDate.toLocaleDateString("uk-UA", { month: "short" }),
+        burnRate,
+        revenue: totalRevenue,
+      }
+    })
+
+    return {
+      id: String(apiTeam.id),
+      name: apiTeam.name,
+      description: apiTeam.description,
+      color: "#2563eb",
+      headcount: members.length,
+      burnRate,
+      utilization,
+      efficiencyScore: burnRate > 0 ? totalRevenue / burnRate : 0,
+      members: membersWithRevenue,
+      overheads: [],
+      burnRateHistory,
+    }
+  }
 
   const syncTeamMemberships = async (members: TeamMember[]) => {
     await workforceApi.updateTeam(id, {
@@ -147,8 +191,20 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     setIsLoading(true)
     setError("")
     try {
-      const apiTeam = await workforceApi.getTeam(id)
-      setTeam(toUiTeam(apiTeam))
+      const [apiTeam, developers, projects] = await Promise.all([
+        workforceApi.getTeam(id),
+        workforceApi.listDevelopers(),
+        workforceApi.listProjects(),
+      ])
+      const totals = projects.reduce(
+        (acc, project) => ({
+          revenue: acc.revenue + Number(project.revenue ?? 0),
+          laborCost: acc.laborCost + Number(project.labor_cost ?? 0),
+        }),
+        { revenue: 0, laborCost: 0 }
+      )
+      const developersById = new Map(developers.map((developer) => [developer.id, developer]))
+      setTeam(toUiTeam(apiTeam, developersById, totals))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося завантажити команду")
     } finally {
@@ -190,18 +246,21 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
 
     try {
       const baseRate = parseFloat(memberForm.baseRate) || 0
+      const hourlyRate = toHourlyRatePayload(baseRate, memberForm.rateType)
+      const teamOverheadShare = parseFloat(memberForm.teamOverheadShare) || 0
+      const companyOverheadShare = parseFloat(memberForm.companyOverheadShare) || 0
       const apiDeveloper = selectedMember
         ? await workforceApi.updateDeveloper(selectedMember.id, {
             full_name: memberForm.name,
             email: memberForm.email,
             role: memberForm.role,
-            hourly_rate: baseRate,
+            hourly_rate: hourlyRate,
           })
         : await workforceApi.createDeveloper({
             full_name: memberForm.name,
             email: memberForm.email,
             role: memberForm.role,
-            hourly_rate: baseRate,
+            hourly_rate: hourlyRate,
             is_active: true,
           })
 
@@ -212,8 +271,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: memberForm.role,
       baseRate,
       rateType: memberForm.rateType,
-      teamOverheadShare: 0,
-      companyOverheadShare: 280,
+      teamOverheadShare,
+      companyOverheadShare,
       skills: memberForm.skills,
       utilization: 0,
       revenue: 0,
@@ -225,20 +284,11 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       if (selectedMember) {
         const updatedMembers = team.members.map(m => m.id === selectedMember.id ? newMember : m)
         await syncTeamMemberships(updatedMembers)
-        setTeam({
-        ...team,
-        members: updatedMembers,
-      })
       } else {
         const updatedMembers = [...team.members, newMember]
         await syncTeamMemberships(updatedMembers)
-        setTeam({
-        ...team,
-        members: updatedMembers,
-        headcount: team.headcount + 1,
-      })
       }
-
+      await loadTeam()
       closeMemberDialog()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося зберегти члена команди")
@@ -251,11 +301,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       await workforceApi.deleteDeveloper(selectedMember.id)
       const updatedMembers = team.members.filter(m => m.id !== selectedMember.id)
       await syncTeamMemberships(updatedMembers)
-      setTeam({
-        ...team,
-        members: updatedMembers,
-        headcount: Math.max(0, team.headcount - 1),
-      })
+      await loadTeam()
       setIsDeleteMemberOpen(false)
       setSelectedMember(null)
     } catch (err) {
@@ -271,6 +317,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: member.role,
       baseRate: member.baseRate.toString(),
       rateType: member.rateType,
+      teamOverheadShare: member.teamOverheadShare.toString(),
+      companyOverheadShare: member.companyOverheadShare.toString(),
       skills: member.skills,
       teamMemberships: member.teamMemberships,
     })
@@ -286,6 +334,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: "",
       baseRate: "",
       rateType: "monthly",
+      teamOverheadShare: "0",
+      companyOverheadShare: "280",
       skills: [],
       teamMemberships: [],
     })
@@ -900,6 +950,28 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                     <SelectItem value="hourly">Погодинна</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="member-team-overhead">Team Overhead ($/міс)</Label>
+                <Input
+                  id="member-team-overhead"
+                  type="number"
+                  value={memberForm.teamOverheadShare}
+                  onChange={(e) => setMemberForm({ ...memberForm, teamOverheadShare: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="member-company-overhead">Company Overhead ($/міс)</Label>
+                <Input
+                  id="member-company-overhead"
+                  type="number"
+                  value={memberForm.companyOverheadShare}
+                  onChange={(e) => setMemberForm({ ...memberForm, companyOverheadShare: e.target.value })}
+                  placeholder="280"
+                />
               </div>
             </div>
             <div className="space-y-2">
