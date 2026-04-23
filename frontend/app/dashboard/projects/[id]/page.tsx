@@ -83,6 +83,27 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const calculateRuntimeFinancials = (currentProject: Project) => {
+    const totalRevenue = currentProject.invoices.length > 0
+      ? currentProject.invoices
+        .filter(i => i.status === "paid")
+        .reduce((sum, i) => sum + i.amount, 0)
+      : currentProject.revenue
+
+    const totalLaborCost = currentProject.allocations.length > 0
+      ? currentProject.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
+      : currentProject.laborCost
+
+    const totalExpenses = currentProject.expenses.length > 0
+      ? currentProject.expenses.reduce((sum, e) => sum + e.amount, 0)
+      : currentProject.directOverheads
+
+    const netProfit = totalRevenue - totalLaborCost - totalExpenses
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
+
+    return { totalRevenue, totalLaborCost, totalExpenses, netProfit, profitMargin }
+  }
+
   const mapApiProject = (apiProject: ApiProject): Project => {
     const revenue = Number(apiProject.revenue || 0)
     const laborCost = Number(apiProject.labor_cost || 0)
@@ -145,6 +166,43 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     void loadProject()
   }, [id])
+
+  useEffect(() => {
+    if (!project) return
+
+    const { totalRevenue, totalLaborCost, totalExpenses, netProfit, profitMargin } = calculateRuntimeFinancials(project)
+
+    const shouldUpdateLocalProject = (
+      Math.abs(totalRevenue - project.revenue) > 0.01 ||
+      Math.abs(totalLaborCost - project.laborCost) > 0.01 ||
+      Math.abs(totalExpenses - project.directOverheads) > 0.01 ||
+      Math.abs(netProfit - project.netProfit) > 0.01 ||
+      Math.abs(profitMargin - project.profitMargin) > 0.01
+    )
+
+    if (shouldUpdateLocalProject) {
+      setProject(prev => prev ? {
+        ...prev,
+        revenue: totalRevenue,
+        laborCost: totalLaborCost,
+        directOverheads: totalExpenses,
+        netProfit,
+        profitMargin,
+      } : prev)
+    }
+
+    if (project.invoices.length === 0 && project.allocations.length === 0 && project.expenses.length === 0) {
+      return
+    }
+
+    void workforceApi.updateProject(project.id, {
+      revenue: totalRevenue.toFixed(2),
+      labor_cost: totalLaborCost.toFixed(2),
+      direct_overheads: totalExpenses.toFixed(2),
+    }).catch(() => {
+      setError("Дані змінено локально, але не вдалося зберегти на сервері.")
+    })
+  }, [project?.id, project?.invoices, project?.allocations, project?.expenses])
   
   // Invoice CRUD
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false)
@@ -397,14 +455,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }
 
   // Calculations
-  const totalRevenue = project.invoices
-    .filter(i => i.status === "paid")
-    .reduce((sum, i) => sum + i.amount, 0)
-  
-  const totalLaborCost = project.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
-  const totalExpenses = project.expenses.reduce((sum, e) => sum + e.amount, 0)
-  const netProfit = totalRevenue - totalLaborCost - totalExpenses
-  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
+  const { totalRevenue, totalLaborCost, totalExpenses, netProfit, profitMargin } = calculateRuntimeFinancials(project)
 
   // Cost estimator
   const estimatedMonthlyCost = project.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
