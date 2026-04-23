@@ -74,7 +74,7 @@ import {
   getStatusBadgeVariant,
   getStatusLabel,
 } from "@/lib/types/projects"
-import { ApiProject, workforceApi } from "@/lib/api/workforce"
+import { ApiInvoice, ApiProject, workforceApi } from "@/lib/api/workforce"
 import { mockTeams, type TeamMember } from "@/lib/types/teams"
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -149,13 +149,32 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
+  const mapApiInvoice = (apiInvoice: ApiInvoice): Invoice => ({
+    id: String(apiInvoice.id),
+    name: apiInvoice.description?.trim() || apiInvoice.number,
+    amount: Number(apiInvoice.amount),
+    status: apiInvoice.status,
+    dueDate: apiInvoice.due_date,
+    paidDate: apiInvoice.paid_date ?? undefined,
+    description: apiInvoice.description || undefined,
+  })
+
   useEffect(() => {
     const loadProject = async () => {
       try {
         setIsLoading(true)
         setError(null)
-        const apiProject = await workforceApi.getProject(id)
-        setProject(mapApiProject(apiProject))
+        const [apiProject, allInvoices] = await Promise.all([
+          workforceApi.getProject(id),
+          workforceApi.listInvoices(),
+        ])
+
+        const mappedProject = mapApiProject(apiProject)
+        const projectInvoices = allInvoices
+          .filter(invoice => String(invoice.project) === id)
+          .map(mapApiInvoice)
+
+        setProject({ ...mappedProject, invoices: projectInvoices })
       } catch (loadError) {
         setProject(null)
         setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проект")
@@ -277,40 +296,62 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }
 
   // Invoice handlers
-  const handleSaveInvoice = () => {
-    const newInvoice: Invoice = {
-      id: selectedInvoice?.id || `inv-${Date.now()}`,
-      name: invoiceForm.name,
-      amount: parseFloat(invoiceForm.amount) || 0,
+  const handleSaveInvoice = async () => {
+    if (!project) return
+
+    const parsedAmount = parseFloat(invoiceForm.amount)
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError("Вкажіть коректну суму інвойсу")
+      return
+    }
+
+    const payload = {
+      project: Number(project.id),
+      client: Number(project.client.id),
+      amount: parsedAmount,
+      currency: project.currency,
       status: invoiceForm.status,
-      dueDate: invoiceForm.dueDate,
-      description: invoiceForm.description,
-      paidDate: invoiceForm.status === "paid" ? new Date().toISOString().split("T")[0] : undefined,
+      due_date: invoiceForm.dueDate,
+      description: invoiceForm.description || invoiceForm.name,
+      paid_date: invoiceForm.status === "paid" ? new Date().toISOString().split("T")[0] : null,
     }
 
-    if (selectedInvoice) {
-      setProject({
-        ...project,
-        invoices: project.invoices.map(i => i.id === selectedInvoice.id ? newInvoice : i),
-      })
-    } else {
-      setProject({
-        ...project,
-        invoices: [...project.invoices, newInvoice],
-      })
-    }
+    try {
+      if (selectedInvoice) {
+        await workforceApi.updateInvoice(selectedInvoice.id, payload)
+      } else {
+        await workforceApi.createInvoice({
+          ...payload,
+          issue_date: new Date().toISOString().split("T")[0],
+          number: `INV-${new Date().getFullYear()}-${Date.now()}`,
+        })
+      }
 
-    closeInvoiceDialog()
+      const refreshedInvoices = await workforceApi.listInvoices()
+      const projectInvoices = refreshedInvoices
+        .filter(invoice => String(invoice.project) === project.id)
+        .map(mapApiInvoice)
+
+      setProject(prev => (prev ? { ...prev, invoices: projectInvoices } : prev))
+      closeInvoiceDialog()
+    } catch (invoiceError) {
+      setError(invoiceError instanceof Error ? invoiceError.message : "Не вдалося зберегти інвойс")
+    }
   }
 
-  const handleDeleteInvoice = () => {
+  const handleDeleteInvoice = async () => {
     if (!selectedInvoice) return
-    setProject({
-      ...project,
-      invoices: project.invoices.filter(i => i.id !== selectedInvoice.id),
-    })
-    setIsDeleteInvoiceOpen(false)
-    setSelectedInvoice(null)
+
+    try {
+      await workforceApi.deleteInvoice(selectedInvoice.id)
+      setProject(prev => prev
+        ? { ...prev, invoices: prev.invoices.filter(i => i.id !== selectedInvoice.id) }
+        : prev)
+      setIsDeleteInvoiceOpen(false)
+      setSelectedInvoice(null)
+    } catch (invoiceError) {
+      setError(invoiceError instanceof Error ? invoiceError.message : "Не вдалося видалити інвойс")
+    }
   }
 
   const openEditInvoice = (invoice: Invoice) => {
@@ -331,15 +372,24 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     setInvoiceForm({ name: "", amount: "", status: "draft", dueDate: "", description: "" })
   }
 
-  const markInvoiceAsPaid = (invoice: Invoice) => {
-    setProject({
-      ...project,
-      invoices: project.invoices.map(i => 
-        i.id === invoice.id 
-          ? { ...i, status: "paid" as InvoiceStatus, paidDate: new Date().toISOString().split("T")[0] }
-          : i
-      ),
-    })
+  const markInvoiceAsPaid = async (invoice: Invoice) => {
+    const paidDate = new Date().toISOString().split("T")[0]
+
+    try {
+      await workforceApi.updateInvoice(invoice.id, { status: "paid", paid_date: paidDate })
+      setProject(prev => prev
+        ? {
+            ...prev,
+            invoices: prev.invoices.map(i =>
+              i.id === invoice.id
+                ? { ...i, status: "paid" as InvoiceStatus, paidDate }
+                : i
+            ),
+          }
+        : prev)
+    } catch (invoiceError) {
+      setError(invoiceError instanceof Error ? invoiceError.message : "Не вдалося оновити статус інвойсу")
+    }
   }
 
   // Allocation handlers
