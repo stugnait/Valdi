@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, use } from "react"
+import { useEffect, useMemo, useState, use } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -74,14 +74,17 @@ import {
   getStatusBadgeVariant,
   getStatusLabel,
 } from "@/lib/types/projects"
-import { ApiInvoice, ApiProject, workforceApi } from "@/lib/api/workforce"
-import { mockTeams, type TeamMember } from "@/lib/types/teams"
+import { ApiInvoice, ApiProject, ApiTeam, ApiDeveloper, workforceApi } from "@/lib/api/workforce"
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [project, setProject] = useState<Project | null>(null)
+  const [teams, setTeams] = useState<ApiTeam[]>([])
+  const [developers, setDevelopers] = useState<ApiDeveloper[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const getProjectAllocationsStorageKey = (projectId: string) => `project_allocations_${projectId}`
 
   const calculateRuntimeFinancials = (currentProject: Project) => {
     const totalRevenue = currentProject.invoices.length > 0
@@ -164,17 +167,34 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       try {
         setIsLoading(true)
         setError(null)
-        const [apiProject, allInvoices] = await Promise.all([
+        const [apiProject, allInvoices, teamsResponse, developersResponse] = await Promise.all([
           workforceApi.getProject(id),
           workforceApi.listInvoices(),
+          workforceApi.listTeams(),
+          workforceApi.listDevelopers(),
         ])
+
+        setTeams(teamsResponse)
+        setDevelopers(developersResponse)
 
         const mappedProject = mapApiProject(apiProject)
         const projectInvoices = allInvoices
           .filter(invoice => String(invoice.project) === id)
           .map(mapApiInvoice)
 
-        setProject({ ...mappedProject, invoices: projectInvoices })
+        let persistedAllocations: ResourceAllocation[] = []
+        if (typeof window !== "undefined") {
+          const rawAllocations = localStorage.getItem(getProjectAllocationsStorageKey(id))
+          if (rawAllocations) {
+            try {
+              persistedAllocations = JSON.parse(rawAllocations) as ResourceAllocation[]
+            } catch {
+              persistedAllocations = []
+            }
+          }
+        }
+
+        setProject({ ...mappedProject, invoices: projectInvoices, allocations: persistedAllocations })
       } catch (loadError) {
         setProject(null)
         setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проект")
@@ -185,6 +205,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     void loadProject()
   }, [id])
+
+  useEffect(() => {
+    if (!project || typeof window === "undefined") return
+    localStorage.setItem(getProjectAllocationsStorageKey(project.id), JSON.stringify(project.allocations))
+  }, [project?.id, project?.allocations])
 
   useEffect(() => {
     if (!project) return
@@ -257,7 +282,34 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   })
 
   // Get all team members for allocation
-  const allMembers = mockTeams.flatMap(t => t.members.map(m => ({ ...m, teamId: t.id, teamName: t.name })))
+  const developerRateById = useMemo(
+    () =>
+      developers.reduce<Record<number, number>>((acc, developer) => {
+        acc[developer.id] = Number(developer.hourly_rate || 0)
+        return acc
+      }, {}),
+    [developers]
+  )
+
+  const allMembers = useMemo(
+    () =>
+      teams.flatMap((team) =>
+        team.memberships.map((membership) => {
+          const hourlyRate = developerRateById[membership.developer] || 0
+          const developerRole = developers.find((developer) => developer.id === membership.developer)?.role || "Developer"
+          return {
+            id: `${team.id}-${membership.developer}`,
+            developerId: membership.developer,
+            name: membership.developer_name || `Developer #${membership.developer}`,
+            role: developerRole,
+            teamId: team.id.toString(),
+            teamName: team.name,
+            baseRate: hourlyRate * 160,
+          }
+        })
+      ),
+    [teams, developers, developerRateById]
+  )
 
   if (isLoading) {
     return (

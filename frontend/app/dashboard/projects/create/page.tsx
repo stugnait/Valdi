@@ -320,7 +320,7 @@ export default function CreateProjectPage() {
         return
       }
 
-      await workforceApi.createProject({
+      const createdProject = await workforceApi.createProject({
         name: formData.name.trim(),
         client: Number(selectedClientId),
         status: "lead",
@@ -338,6 +338,10 @@ export default function CreateProjectPage() {
         buffer_percent: formData.bufferPercent || "0",
         tax_reserve_percent: formData.billingModel === "fixed" && formData.taxReservePercent ? formData.taxReservePercent : null,
       })
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`project_allocations_${createdProject.id}`, JSON.stringify(formData.allocations))
+      }
 
       router.push("/dashboard/projects")
     } catch (submitError) {
