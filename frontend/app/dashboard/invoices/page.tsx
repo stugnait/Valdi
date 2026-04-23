@@ -122,9 +122,7 @@ export default function InvoicesPage() {
     description: "",
   })
 
-
-
-  const activeProjects = useMemo(() => projects.filter(project => project.status === "active"), [projects])
+  const invoiceableProjects = useMemo(() => projects, [projects])
 
   useEffect(() => {
     const load = async () => {
@@ -538,7 +536,7 @@ export default function InvoicesPage() {
                   <SelectValue placeholder="Select project" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeProjects.map(project => (
+                  {invoiceableProjects.map(project => (
                     <SelectItem key={project.id} value={String(project.id)}>
                       {project.name} - {project.client_name}
                     </SelectItem>
