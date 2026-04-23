@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -31,8 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { mockClients, mockTags, type Client, type ProjectTag, type Milestone, type ResourceAllocation } from "@/lib/types/projects"
-import { mockTeams } from "@/lib/types/teams"
+import { mockTags, type ProjectTag, type Milestone, type ResourceAllocation } from "@/lib/types/projects"
+import { ApiClient, ApiDeveloper, ApiTeam, workforceApi } from "@/lib/api/workforce"
 
 const steps = [
   { id: 1, name: "Basics", description: "Базова інформація" },
@@ -103,9 +103,65 @@ export default function CreateProjectPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [isCreatingClient, setIsCreatingClient] = useState(false)
+  const [clients, setClients] = useState<ApiClient[]>([])
+  const [teams, setTeams] = useState<ApiTeam[]>([])
+  const [developers, setDevelopers] = useState<ApiDeveloper[]>([])
+  const [isLoadingData, setIsLoadingData] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // All team members
-  const allMembers = mockTeams.flatMap(t => t.members.map(m => ({ ...m, teamId: t.id, teamName: t.name })))
+  const developerRateById = useMemo(
+    () =>
+      developers.reduce<Record<number, number>>((acc, developer) => {
+        acc[developer.id] = Number(developer.hourly_rate || 0)
+        return acc
+      }, {}),
+    [developers]
+  )
+
+  const allMembers = useMemo(
+    () =>
+      teams.flatMap((team) =>
+        team.memberships.map((membership) => {
+          const hourlyRate = developerRateById[membership.developer] || 0
+          const developerRole = developers.find((developer) => developer.id === membership.developer)?.role || "Developer"
+          return {
+            id: `${team.id}-${membership.developer}`,
+            developerId: membership.developer,
+            name: membership.developer_name || `Developer #${membership.developer}`,
+            role: developerRole,
+            teamId: team.id.toString(),
+            teamName: team.name,
+            baseRate: hourlyRate * 160,
+            defaultAllocation: membership.allocation || 100,
+          }
+        })
+      ),
+    [teams, developers, developerRateById]
+  )
+
+  const loadData = async () => {
+    try {
+      setIsLoadingData(true)
+      setError(null)
+      const [clientsResponse, teamsResponse, developersResponse] = await Promise.all([
+        workforceApi.listClients(),
+        workforceApi.listTeams(),
+        workforceApi.listDevelopers(),
+      ])
+      setClients(clientsResponse)
+      setTeams(teamsResponse)
+      setDevelopers(developersResponse)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити дані.")
+    } finally {
+      setIsLoadingData(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadData()
+  }, [])
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -193,8 +249,8 @@ export default function CreateProjectPage() {
       memberRole: member.role,
       teamId: member.teamId,
       teamName: member.teamName,
-      allocation: 100,
-      monthlyCost: member.baseRate,
+      allocation: member.defaultAllocation,
+      monthlyCost: member.baseRate * (member.defaultAllocation / 100),
     }
     
     setFormData({
@@ -245,10 +301,50 @@ export default function CreateProjectPage() {
     })
   }
 
-  const handleSubmit = () => {
-    // In a real app, this would save to the database
-    console.log("Creating project:", formData)
-    router.push("/dashboard/projects")
+  const handleSubmit = async () => {
+    try {
+      setIsSubmitting(true)
+      setError(null)
+
+      let selectedClientId = formData.clientId
+      if (isCreatingClient && formData.newClientName.trim()) {
+        const createdClient = await workforceApi.createClient({
+          name: formData.newClientName.trim(),
+          company: formData.newClientName.trim(),
+        })
+        selectedClientId = createdClient.id.toString()
+      }
+
+      if (!selectedClientId) {
+        setError("Оберіть клієнта або створіть нового.")
+        return
+      }
+
+      await workforceApi.createProject({
+        name: formData.name.trim(),
+        client: Number(selectedClientId),
+        status: "lead",
+        start_date: formData.startDate,
+        end_date: formData.endDate,
+        billing_model: formData.billingModel,
+        currency: formData.currency,
+        total_contract_value: formData.billingModel === "fixed" ? formData.totalContractValue || "0" : null,
+        client_hourly_rate: formData.billingModel === "time-materials" ? formData.clientHourlyRate || "0" : null,
+        monthly_cap: formData.billingModel === "time-materials" && formData.monthlyCap ? Number(formData.monthlyCap) : null,
+        billing_cycle: formData.billingModel === "time-materials" ? formData.billingCycle : null,
+        revenue: "0",
+        labor_cost: estimatedMonthlyCost.toFixed(2),
+        direct_overheads: directExpensesTotal.toFixed(2),
+        buffer_percent: formData.bufferPercent || "0",
+        tax_reserve_percent: formData.billingModel === "fixed" && formData.taxReservePercent ? formData.taxReservePercent : null,
+      })
+
+      router.push("/dashboard/projects")
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Не вдалося створити проєкт.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const canProceed = () => {
@@ -283,6 +379,12 @@ export default function CreateProjectPage() {
           <p className="text-sm text-muted-foreground">Створення нового проекту</p>
         </div>
       </div>
+
+      {isLoadingData && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Завантажуємо клієнтів, команди та девелоперів...</CardContent>
+        </Card>
+      )}
 
       {/* Steps Indicator */}
       <div className="flex items-center justify-center gap-2">
@@ -363,8 +465,8 @@ export default function CreateProjectPage() {
                           <SelectValue placeholder="Оберіть клієнта..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {mockClients.map(client => (
-                            <SelectItem key={client.id} value={client.id}>
+                          {clients.map(client => (
+                            <SelectItem key={client.id} value={client.id.toString()}>
                               {client.name} {client.company && `(${client.company})`}
                             </SelectItem>
                           ))}
@@ -924,6 +1026,12 @@ export default function CreateProjectPage() {
         </div>
       </div>
 
+      {error && (
+        <Card className="border-destructive/40">
+          <CardContent className="pt-6 text-sm text-destructive">{error}</CardContent>
+        </Card>
+      )}
+
       {/* Navigation */}
       <div className="flex items-center justify-between pt-4 border-t">
         <Button
@@ -944,9 +1052,9 @@ export default function CreateProjectPage() {
             <ArrowRight className="size-4 ml-2" />
           </Button>
         ) : (
-          <Button onClick={handleSubmit} disabled={!canProceed()}>
+          <Button onClick={handleSubmit} disabled={!canProceed() || isSubmitting || isLoadingData}>
             <Check className="size-4 mr-2" />
-            Створити проект
+            {isSubmitting ? "Зберігаємо..." : "Створити проект"}
           </Button>
         )}
       </div>
