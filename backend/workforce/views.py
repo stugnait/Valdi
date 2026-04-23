@@ -5,28 +5,14 @@ from django.db import OperationalError, ProgrammingError
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
-from urllib import error as url_error, parse as url_parse, request as url_request
-import hashlib
-import json
-from datetime import datetime, timedelta
 
-from .models import Team, Developer, Client, Project, Subscription, BankConnection
+from . import serializers as workforce_serializers
 from .crypto import encrypt_token, mask_token
-from .serializers import (
-    TeamSerializer,
-    DeveloperSerializer,
-    ClientSerializer,
-    ProjectSerializer,
-    SubscriptionSerializer,
-    BankConnectionSerializer,
-    RecurringExpenseSerializer,
-    VariableExpenseSerializer,
-    AutomationRuleSerializer,
-)
+from .models import Team, Developer, Client, Project, Subscription, BankConnection
 
 logger = logging.getLogger(__name__)
 SENSITIVE_FIELDS = {'token', 'access_token', 'refresh_token', 'id_token', 'authorization'}
@@ -72,7 +58,7 @@ class SafeModelViewSet(ModelViewSet):
 
 
 class TeamViewSet(SafeModelViewSet):
-    serializer_class = TeamSerializer
+    serializer_class = workforce_serializers.TeamSerializer
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
@@ -87,7 +73,7 @@ class TeamViewSet(SafeModelViewSet):
 
 
 class DeveloperViewSet(SafeModelViewSet):
-    serializer_class = DeveloperSerializer
+    serializer_class = workforce_serializers.DeveloperSerializer
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
@@ -102,7 +88,7 @@ class DeveloperViewSet(SafeModelViewSet):
 
 
 class ClientViewSet(SafeModelViewSet):
-    serializer_class = ClientSerializer
+    serializer_class = workforce_serializers.ClientSerializer
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
@@ -117,7 +103,7 @@ class ClientViewSet(SafeModelViewSet):
 
 
 class ProjectViewSet(SafeModelViewSet):
-    serializer_class = ProjectSerializer
+    serializer_class = workforce_serializers.ProjectSerializer
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
@@ -132,7 +118,7 @@ class ProjectViewSet(SafeModelViewSet):
 
 
 class SubscriptionViewSet(SafeModelViewSet):
-    serializer_class = SubscriptionSerializer
+    serializer_class = workforce_serializers.SubscriptionSerializer
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
@@ -147,7 +133,7 @@ class SubscriptionViewSet(SafeModelViewSet):
 
 
 class BankConnectionViewSet(SafeModelViewSet):
-    serializer_class = BankConnectionSerializer
+    serializer_class = workforce_serializers.BankConnectionSerializer
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
