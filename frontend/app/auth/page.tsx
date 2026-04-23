@@ -138,7 +138,8 @@ async function parseApiError(response: Response) {
 export default function AuthPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [tab, setTab] = useState<AuthTab>("signup")
+  const initialTab = searchParams.get("mode") === "login" || searchParams.get("next") ? "login" : "signup"
+  const [tab, setTab] = useState<AuthTab>(initialTab)
   const [showPass, setShowPass] = useState(false)
   const [agencyName, setAgencyName] = useState("")
   const [email, setEmail] = useState("")
@@ -394,18 +395,35 @@ export default function AuthPage() {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {GOOGLE_CLIENT_ID && (
-              <div className="space-y-2">
-                <div id="google-signin-btn" className="w-full" />
-                {isGoogleLoading && (
-                  <p className="text-xs text-muted-foreground text-center">Виконуємо вхід через Google…</p>
-                )}
-                {!googleReady && !isGoogleLoading && (
-                  <p className="text-xs text-muted-foreground text-center">Завантажуємо кнопку Google...</p>
-                )}
-              </div>
-            )}
-            {GOOGLE_CLIENT_ID && <div className="text-xs text-center text-muted-foreground">або</div>}
+            <div className="space-y-2">
+              {GOOGLE_CLIENT_ID ? (
+                <>
+                  <div id="google-signin-btn" className="w-full" />
+                  {isGoogleLoading && (
+                    <p className="text-xs text-muted-foreground text-center">Виконуємо вхід через Google…</p>
+                  )}
+                  {!googleReady && !isGoogleLoading && (
+                    <p className="text-xs text-muted-foreground text-center">Завантажуємо кнопку Google...</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setError("Google вхід ще не налаштований. Додай NEXT_PUBLIC_GOOGLE_CLIENT_ID у frontend/.env.local")
+                    }
+                    className="w-full border border-border rounded-xl px-4 py-3 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+                  >
+                    Увійти через Google
+                  </button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Кнопка доступна після налаштування Google Client ID.
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="text-xs text-center text-muted-foreground">або</div>
             {tab === "signup" && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Agency Name</label>
