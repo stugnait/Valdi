@@ -1,5 +1,6 @@
 import {
   type CreateIntegrationConnectionPayload,
+  type IntegrationAccountDto,
   type IntegrationConnectionDto,
   type ReconnectIntegrationPayload,
 } from "@/lib/types/integrations"
@@ -51,25 +52,50 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>
 }
 
+type BackendConnectionDto = {
+  id: string
+  provider: IntegrationConnectionDto["provider"]
+  status: IntegrationConnectionDto["status"]
+  token_masked: string | null
+  last_sync: string | null
+  last_error: string | null
+  disabled_reason: string | null
+}
+
+function toConnectionDto(item: BackendConnectionDto): IntegrationConnectionDto {
+  return {
+    id: item.id,
+    provider: item.provider,
+    status: item.status,
+    last_sync_at: item.last_sync,
+    token_masked: item.token_masked,
+    last_error_text: item.last_error,
+    requires_reconnect: Boolean(item.disabled_reason),
+    accounts: [] as IntegrationAccountDto[],
+  }
+}
+
 export const integrationsApi = {
-  listConnections: () => apiRequest<IntegrationConnectionDto[]>("/api/integrations/connections/"),
+  listConnections: async () => {
+    const items = await apiRequest<BackendConnectionDto[]>("/api/bank-connections/")
+    return items.map(toConnectionDto)
+  },
   createConnection: (payload: CreateIntegrationConnectionPayload) =>
-    apiRequest<IntegrationConnectionDto>("/api/integrations/connections/", {
+    apiRequest<BackendConnectionDto>("/api/bank-connections/", {
       method: "POST",
       body: JSON.stringify(payload),
-    }),
+    }).then(toConnectionDto),
   deleteConnection: (connectionId: string) =>
-    apiRequest<void>(`/api/integrations/connections/${connectionId}/`, { method: "DELETE" }),
+    apiRequest<void>(`/api/bank-connections/${connectionId}/`, { method: "DELETE" }),
   forceSync: (connectionId: string) =>
-    apiRequest<IntegrationConnectionDto>(`/api/integrations/connections/${connectionId}/sync/`, { method: "POST" }),
+    apiRequest<BackendConnectionDto>(`/api/bank-connections/${connectionId}/sync/`, { method: "POST" }).then(toConnectionDto),
   reconnect: (connectionId: string, payload: ReconnectIntegrationPayload) =>
-    apiRequest<IntegrationConnectionDto>(`/api/integrations/connections/${connectionId}/reconnect/`, {
+    apiRequest<BackendConnectionDto>(`/api/bank-connections/${connectionId}/reconnect/`, {
       method: "POST",
       body: JSON.stringify(payload),
-    }),
-  updateAccountTracking: (accountId: string, isTracked: boolean) =>
-    apiRequest<void>(`/api/integrations/accounts/${accountId}/tracking/`, {
-      method: "PATCH",
-      body: JSON.stringify({ is_tracked: isTracked }),
-    }),
+    }).then(toConnectionDto),
+  updateAccountTracking: async (_accountId: string, _isTracked: boolean) => {
+    // Backend account-level tracking endpoint is not available yet.
+    return Promise.resolve()
+  },
 }
