@@ -1,5 +1,5 @@
 export type IntegrationProvider = "monobank" | "privat24" | "wise" | "revolut"
-export type IntegrationConnectionStatus = "connected" | "syncing" | "error"
+export type IntegrationConnectionStatus = "connected" | "syncing" | "error" | "disabled"
 
 export interface IntegrationAccountDto {
   id: string
