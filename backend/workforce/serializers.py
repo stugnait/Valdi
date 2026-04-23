@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Team, Developer, TeamMembership, Client, Project, Subscription
+from .models import Team, Developer, TeamMembership, Client, Project, Subscription, BankConnection
 
 
 class TeamMembershipSerializer(serializers.ModelSerializer):
@@ -194,3 +194,63 @@ class SubscriptionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'project': 'Проєкт має належати вибраному клієнту.'})
 
         return attrs
+
+
+class BankConnectionSerializer(serializers.ModelSerializer):
+    token = serializers.CharField(write_only=True, required=True, trim_whitespace=True)
+
+    class Meta:
+        model = BankConnection
+        fields = (
+            'id',
+            'provider',
+            'status',
+            'token',
+            'token_masked',
+            'connected_at',
+            'last_sync',
+            'last_error',
+            'disabled_reason',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = (
+            'id',
+            'status',
+            'token_masked',
+            'connected_at',
+            'last_sync',
+            'last_error',
+            'disabled_reason',
+            'created_at',
+            'updated_at',
+        )
+
+    def create(self, validated_data):
+        from .crypto import encrypt_token, mask_token
+
+        token = validated_data.pop('token').strip()
+        if not token:
+            raise serializers.ValidationError({'token': 'Token is required.'})
+
+        validated_data['encrypted_token'] = encrypt_token(token)
+        validated_data['token_masked'] = mask_token(token)
+        validated_data['status'] = BankConnection.Status.CONNECTED
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        from .crypto import encrypt_token, mask_token
+
+        token = validated_data.pop('token', None)
+        if token is not None:
+            token = token.strip()
+            if not token:
+                raise serializers.ValidationError({'token': 'Token is required.'})
+            instance.encrypted_token = encrypt_token(token)
+            instance.token_masked = mask_token(token)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance

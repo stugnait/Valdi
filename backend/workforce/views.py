@@ -17,14 +17,21 @@ from .models import Team, Developer, Client, Project, Subscription, BankConnecti
 logger = logging.getLogger(__name__)
 SENSITIVE_FIELDS = {'token', 'access_token', 'refresh_token', 'id_token', 'authorization'}
 
-from .models import Team, Developer, Client, Project, Subscription
-from .serializers import (
-    TeamSerializer,
-    DeveloperSerializer,
-    ClientSerializer,
-    ProjectSerializer,
-    SubscriptionSerializer,
-)
+
+def _redact_sensitive(payload):
+    if isinstance(payload, dict):
+        sanitized = {}
+        for key, value in payload.items():
+            if str(key).lower() in SENSITIVE_FIELDS:
+                sanitized[key] = '***REDACTED***'
+            else:
+                sanitized[key] = _redact_sensitive(value)
+        return sanitized
+
+    if isinstance(payload, list):
+        return [_redact_sensitive(item) for item in payload]
+
+    return payload
 
 
 class SafeModelViewSet(ModelViewSet):
