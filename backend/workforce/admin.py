@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from .models import Team, Developer, TeamMembership, Client, Project, Subscription
+from .models import (
+    Team,
+    Developer,
+    TeamMembership,
+    Client,
+    Project,
+    Subscription,
+    BankAccount,
+    BankTransaction,
+)
 
 
 @admin.register(Team)
@@ -41,3 +50,17 @@ class SubscriptionAdmin(admin.ModelAdmin):
     list_display = ('plan_name', 'client', 'status', 'amount', 'currency', 'next_billing_date', 'created_by')
     list_filter = ('status', 'currency', 'billing_cycle')
     search_fields = ('plan_name', 'client__name', 'project__name')
+
+
+@admin.register(BankAccount)
+class BankAccountAdmin(admin.ModelAdmin):
+    list_display = ('provider', 'external_account_id', 'currency', 'balance', 'created_by', 'last_synced_at')
+    list_filter = ('provider', 'currency')
+    search_fields = ('external_account_id', 'iban', 'holder')
+
+
+@admin.register(BankTransaction)
+class BankTransactionAdmin(admin.ModelAdmin):
+    list_display = ('external_tx_id', 'bank_account', 'occurred_at', 'amount', 'currency', 'category')
+    list_filter = ('currency', 'category', 'direction')
+    search_fields = ('external_tx_id', 'description', 'counterparty')

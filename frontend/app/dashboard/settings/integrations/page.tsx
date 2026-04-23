@@ -9,8 +9,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  Eye,
-  EyeOff,
   Settings2,
   Wifi,
   WifiOff,
@@ -21,7 +19,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -258,10 +255,17 @@ export default function IntegrationsPage() {
             Syncing
           </Badge>
         )
+      case "disabled":
+        return (
+          <Badge className="bg-muted text-muted-foreground gap-1">
+            <AlertCircle className="size-3" />
+            Disabled
+          </Badge>
+        )
     }
   }
 
-  const formatLastSync = (date: string | null) => {
+  const formatDateTime = (date: string | null) => {
     if (!date) return "Never"
 
     const parsed = new Date(date)
@@ -297,9 +301,7 @@ export default function IntegrationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Bank Integrations</h1>
-          <p className="text-sm text-muted-foreground">
-            Connect your bank accounts to automatically sync transactions
-          </p>
+          <p className="text-sm text-muted-foreground">Connect your bank accounts to automatically sync transactions</p>
         </div>
         <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
           <Plus className="size-4" />
@@ -307,7 +309,8 @@ export default function IntegrationsPage() {
         </Button>
       </div>
 
-      {/* Stats */}
+      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
+
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -322,12 +325,12 @@ export default function IntegrationsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tracked Accounts</CardTitle>
+            <CardTitle className="text-sm font-medium">Active status</CardTitle>
             <CreditCard className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalAccounts}</div>
-            <p className="text-xs text-muted-foreground">Active for sync</p>
+            <div className="text-2xl font-bold">{connections.filter((c) => !c.disabledReason).length}</div>
+            <p className="text-xs text-muted-foreground">Without disabled reason</p>
           </CardContent>
         </Card>
 
@@ -345,7 +348,6 @@ export default function IntegrationsPage() {
         </Card>
       </div>
 
-      {/* Connections List */}
       <div className="space-y-4">
         {isLoading ? (
           <Card>
@@ -361,7 +363,6 @@ export default function IntegrationsPage() {
           return (
             <Card key={connection.id}>
               <CardContent className="p-0">
-                {/* Connection Header */}
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-4">
                     <div className="flex items-center justify-center size-12 rounded-lg bg-primary/10 text-primary font-bold text-lg">
@@ -495,9 +496,7 @@ export default function IntegrationsPage() {
             <CardContent className="py-12 text-center">
               <WifiOff className="size-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="font-medium mb-1">No Banks Connected</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Connect your first bank account to start tracking transactions
-              </p>
+              <p className="text-sm text-muted-foreground mb-4">Connect your first bank account to start tracking transactions</p>
               <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
                 <Plus className="size-4" />
                 Add Bank
@@ -507,14 +506,11 @@ export default function IntegrationsPage() {
         ) : null}
       </div>
 
-      {/* Add Connection Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Connect Bank Account</DialogTitle>
-            <DialogDescription>
-              Enter your API credentials to connect your bank
-            </DialogDescription>
+            <DialogDescription>Token is sent one time on connect and stored encrypted on backend</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
