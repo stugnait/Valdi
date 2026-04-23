@@ -7,6 +7,9 @@ from .models import (
     Client,
     Project,
     Subscription,
+    Invoice,
+    TaxReport,
+    AutomationRule,
     BankConnection,
     RecurringExpense,
     VariableExpense,
@@ -204,6 +207,83 @@ class SubscriptionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'project': 'Проєкт має належати вибраному клієнту.'})
 
         return attrs
+
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(source='client.name', read_only=True)
+    project_name = serializers.CharField(source='project.name', read_only=True)
+
+    class Meta:
+        model = Invoice
+        fields = (
+            'id',
+            'number',
+            'project',
+            'project_name',
+            'client',
+            'client_name',
+            'amount',
+            'currency',
+            'status',
+            'issue_date',
+            'due_date',
+            'paid_date',
+            'description',
+            'linked_transaction_id',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at', 'client_name', 'project_name')
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        client = attrs.get('client') or getattr(self.instance, 'client', None)
+        project = attrs.get('project') or getattr(self.instance, 'project', None)
+
+        if client and client.created_by_id != user.id:
+            raise serializers.ValidationError({'client': 'Не можна використовувати клієнта іншого користувача.'})
+        if project and project.created_by_id != user.id:
+            raise serializers.ValidationError({'project': 'Не можна використовувати проєкт іншого користувача.'})
+        if client and project and project.client_id != client.id:
+            raise serializers.ValidationError({'project': 'Проєкт має належати вибраному клієнту.'})
+
+        return attrs
+
+
+class TaxReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaxReport
+        fields = (
+            'id',
+            'year',
+            'quarter',
+            'income',
+            'tax_ep',
+            'esv_paid',
+            'total_due',
+            'paid_date',
+            'status',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+
+class AutomationRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AutomationRule
+        fields = (
+            'id',
+            'name',
+            'is_active',
+            'conditions',
+            'actions',
+            'match_count',
+            'last_match_date',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'match_count', 'last_match_date', 'created_at', 'updated_at')
 
 
 class BankConnectionSerializer(serializers.ModelSerializer):

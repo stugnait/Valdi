@@ -21,6 +21,9 @@ from .models import (
     Client,
     Project,
     Subscription,
+    Invoice,
+    TaxReport,
+    AutomationRule,
     BankConnection,
     RecurringExpense,
     VariableExpense,
@@ -172,6 +175,17 @@ class TaxReportViewSet(SafeModelViewSet):
 
     def get_queryset(self):
         return TaxReport.objects.filter(created_by=self.request.user).order_by('-year', '-quarter')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class AutomationRuleViewSet(SafeModelViewSet):
+    serializer_class = workforce_serializers.AutomationRuleSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return AutomationRule.objects.filter(created_by=self.request.user).order_by('-updated_at')
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
