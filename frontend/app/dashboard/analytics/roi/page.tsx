@@ -67,6 +67,18 @@ function stableNoise(seed: string) {
 function useDevROIData() {
   return useMemo(() => {
     const months = ["Січ", "Лют", "Бер", "Кві", "Тра", "Чер"]
+
+    const deterministicRatio = (devId: string, monthIndex: number, min: number, max: number) => {
+      const seedString = `${devId}-${monthIndex}`
+      let hash = 0
+
+      for (let i = 0; i < seedString.length; i += 1) {
+        hash = (hash * 31 + seedString.charCodeAt(i)) | 0
+      }
+
+      const normalized = (Math.abs(hash) % 10000) / 10000
+      return min + normalized * (max - min)
+    }
     
     // Get all unique developers
     const allDevs = mockTeams.flatMap(team => 

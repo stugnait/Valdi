@@ -151,6 +151,32 @@ class SubscriptionViewSet(SafeModelViewSet):
         serializer.save(created_by=self.request.user)
 
 
+class InvoiceViewSet(SafeModelViewSet):
+    serializer_class = workforce_serializers.InvoiceSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            Invoice.objects.filter(created_by=self.request.user)
+            .select_related('project', 'client')
+            .order_by('-issue_date', '-created_at')
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class TaxReportViewSet(SafeModelViewSet):
+    serializer_class = workforce_serializers.TaxReportSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return TaxReport.objects.filter(created_by=self.request.user).order_by('-year', '-quarter')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
 class BankConnectionViewSet(SafeModelViewSet):
     serializer_class = workforce_serializers.BankConnectionSerializer
     permission_classes = (IsAuthenticated,)

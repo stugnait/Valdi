@@ -125,6 +125,20 @@ function useUncategorizedData() {
       { id: "u5", name: "ATM Withdrawal", amount: 200, date: daysAgo(16), source: "monobank" },
     ]
 
+    const uncategorized = demoTransactions.map(tx => {
+      const txDate = new Date(now)
+      txDate.setDate(now.getDate() - tx.daysAgo)
+
+      return {
+        id: tx.id,
+        name: tx.name,
+        amount: tx.amount,
+        source: tx.source,
+        timestamp: txDate.toISOString(),
+        date: txDate.toLocaleDateString("uk-UA"),
+      }
+    })
+
     const total = uncategorized.reduce((sum, t) => sum + t.amount, 0)
 
     // Monthly trend (decreasing is good)

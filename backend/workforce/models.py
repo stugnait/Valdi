@@ -234,6 +234,89 @@ class Subscription(models.Model):
         return f'{self.client.name}: {self.plan_name}'
 
 
+class Invoice(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        SENT = 'sent', 'Sent'
+        PAID = 'paid', 'Paid'
+        OVERDUE = 'overdue', 'Overdue'
+
+    class Currency(models.TextChoices):
+        USD = 'USD', 'USD'
+        EUR = 'EUR', 'EUR'
+        UAH = 'UAH', 'UAH'
+
+    number = models.CharField(max_length=64)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='invoices')
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='invoices')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.USD)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    issue_date = models.DateField()
+    due_date = models.DateField()
+    paid_date = models.DateField(null=True, blank=True)
+    description = models.TextField(blank=True)
+    linked_transaction_id = models.CharField(max_length=128, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='invoices',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-issue_date', '-created_at')
+        constraints = [
+            models.UniqueConstraint(
+                fields=('created_by', 'number'),
+                name='uniq_invoice_number_per_owner',
+            ),
+        ]
+
+    def __str__(self):
+        return self.number
+
+
+class TaxReport(models.Model):
+    class Status(models.TextChoices):
+        PAID = 'paid', 'Paid'
+        PENDING = 'pending', 'Pending'
+        OVERDUE = 'overdue', 'Overdue'
+
+    year = models.PositiveIntegerField()
+    quarter = models.PositiveSmallIntegerField()
+    income = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax_ep = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    esv_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_due = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    paid_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='tax_reports',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-year', '-quarter')
+        constraints = [
+            models.UniqueConstraint(
+                fields=('created_by', 'year', 'quarter'),
+                name='uniq_tax_report_period_per_owner',
+            ),
+            models.CheckConstraint(
+                check=models.Q(quarter__gte=1) & models.Q(quarter__lte=4),
+                name='tax_report_quarter_between_1_4',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Q{self.quarter} {self.year}'
+
+
 class BankConnection(models.Model):
     class Provider(models.TextChoices):
         MONOBANK = 'monobank', 'Monobank'

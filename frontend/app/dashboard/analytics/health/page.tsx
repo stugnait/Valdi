@@ -38,6 +38,20 @@ import { mockTeams } from "@/lib/types/teams"
 import { mockProjects } from "@/lib/types/projects"
 import { mockRecurringExpenses, mockVariableExpenses } from "@/lib/types/spendings"
 
+const safeNumber = (value: number, fallback = 0) => (Number.isFinite(value) ? value : fallback)
+const safeRatioPercent = (value: number, total: number, fallback = 0) =>
+  total > 0 ? safeNumber((value / total) * 100, fallback) : fallback
+
+const formatCurrency = (value: number, fallback = "—") => {
+  if (!Number.isFinite(value)) return fallback
+  return `$${value.toLocaleString()}`
+}
+
+const formatPercent = (value: number, digits = 1, fallback = "—") => {
+  if (!Number.isFinite(value)) return fallback
+  return `${value.toFixed(digits)}%`
+}
+
 // Calculate aggregated financial data
 function useFinancialData() {
   return useMemo(() => {
@@ -151,6 +165,14 @@ function SankeyDiagram({ data }: { data: ReturnType<typeof useSankeyData> }) {
   const maxSourceAmount = sources.length > 0 ? Math.max(...sources.map(s => s.amount)) : 1
   const totalDestAmount = destinations.reduce((sum, d) => sum + d.amount, 0) || 1
 
+  if (sources.length === 0) {
+    return (
+      <div className="flex h-[280px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+        No revenue data yet
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center justify-between gap-4 h-[280px] relative">
       {/* Left side - Sources */}
@@ -212,7 +234,7 @@ function SankeyDiagram({ data }: { data: ReturnType<typeof useSankeyData> }) {
       {/* Right side - Destinations */}
       <div className="flex flex-col gap-2 w-[160px] shrink-0">
         {destinations.map((dest) => {
-          const percentage = (dest.amount / totalDestAmount) * 100
+          const percentage = safeRatioPercent(dest.amount, totalDestAmount, 0)
           const height = Math.max(28, percentage * 2)
           return (
             <div 
@@ -305,7 +327,7 @@ function RunwayGauge({ months, cashOnHand, monthlyBurn }: { months: number; cash
       {/* Value */}
       <div className="text-center">
         <div className="text-4xl font-bold" style={{ color: getColor() }}>
-          {months.toFixed(1)}
+          {safeNumber(months).toFixed(1)}
         </div>
         <div className="text-sm text-muted-foreground">months runway</div>
         <Badge 
@@ -319,11 +341,11 @@ function RunwayGauge({ months, cashOnHand, monthlyBurn }: { months: number; cash
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 mt-6 w-full text-center">
         <div className="p-3 bg-muted/50 rounded-lg">
-          <div className="text-lg font-semibold">${cashOnHand.toLocaleString()}</div>
+          <div className="text-lg font-semibold">{formatCurrency(cashOnHand, "$0")}</div>
           <div className="text-xs text-muted-foreground">Cash on Hand</div>
         </div>
         <div className="p-3 bg-muted/50 rounded-lg">
-          <div className="text-lg font-semibold">${monthlyBurn.toLocaleString()}</div>
+          <div className="text-lg font-semibold">{formatCurrency(monthlyBurn, "$0")}</div>
           <div className="text-xs text-muted-foreground">Monthly Burn</div>
         </div>
       </div>
@@ -527,7 +549,7 @@ export default function GlobalHealthPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             title="Total Revenue"
-            value={`$${financialData.totalRevenue.toLocaleString()}`}
+            value={formatCurrency(financialData.totalRevenue, "$0")}
             change="+12.5%"
             changeType="positive"
             icon={DollarSign}
@@ -535,7 +557,7 @@ export default function GlobalHealthPage() {
           />
           <MetricCard
             title="EBITDA"
-            value={`$${financialData.ebitda.toLocaleString()}`}
+            value={formatCurrency(financialData.ebitda, "$0")}
             change="+8.2%"
             changeType="positive"
             icon={TrendingUp}
@@ -543,15 +565,15 @@ export default function GlobalHealthPage() {
           />
           <MetricCard
             title="Net Profit"
-            value={`$${financialData.netProfit.toLocaleString()}`}
-            change={`${financialData.profitMargin.toFixed(1)}% margin`}
+            value={formatCurrency(financialData.netProfit, "$0")}
+            change={`${formatPercent(financialData.profitMargin)} margin`}
             changeType={financialData.netProfit > 0 ? "positive" : "negative"}
             icon={Target}
             description="After all deductions"
           />
           <MetricCard
             title="Monthly Burn"
-            value={`$${financialData.monthlyBurn.toLocaleString()}`}
+            value={formatCurrency(financialData.monthlyBurn, "$0")}
             change="-3.1%"
             changeType="positive"
             icon={AlertTriangle}
@@ -646,25 +668,25 @@ export default function GlobalHealthPage() {
                   { 
                     label: "Labor Costs", 
                     amount: financialData.totalLaborCost, 
-                    percent: (financialData.totalLaborCost / financialData.totalMonthlyCosts) * 100,
+                    percent: safeRatioPercent(financialData.totalLaborCost, financialData.totalMonthlyCosts),
                     color: "#3B82F6" 
                   },
                   { 
                     label: "Recurring Overheads", 
                     amount: financialData.monthlyRecurring, 
-                    percent: (financialData.monthlyRecurring / financialData.totalMonthlyCosts) * 100,
+                    percent: safeRatioPercent(financialData.monthlyRecurring, financialData.totalMonthlyCosts),
                     color: "#F59E0B" 
                   },
                   { 
                     label: "Variable Expenses", 
                     amount: financialData.monthlyVariable, 
-                    percent: (financialData.monthlyVariable / financialData.totalMonthlyCosts) * 100,
+                    percent: safeRatioPercent(financialData.monthlyVariable, financialData.totalMonthlyCosts),
                     color: "#8B5CF6" 
                   },
                   { 
                     label: "Taxes & ESV", 
                     amount: financialData.taxReserve + financialData.monthlyESV, 
-                    percent: ((financialData.taxReserve + financialData.monthlyESV) / financialData.totalMonthlyCosts) * 100,
+                    percent: safeRatioPercent(financialData.taxReserve + financialData.monthlyESV, financialData.totalMonthlyCosts),
                     color: "#EF4444" 
                   },
                 ].map((item) => (
@@ -678,7 +700,7 @@ export default function GlobalHealthPage() {
                         {item.label}
                       </span>
                       <span className="font-mono">
-                        ${item.amount.toLocaleString()} ({item.percent.toFixed(1)}%)
+                        {formatCurrency(item.amount, "$0")} ({formatPercent(item.percent)})
                       </span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -699,7 +721,7 @@ export default function GlobalHealthPage() {
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">Total Monthly Costs</span>
                   <span className="text-xl font-bold">
-                    ${financialData.totalMonthlyCosts.toLocaleString()}
+                    {formatCurrency(financialData.totalMonthlyCosts, "$0")}
                   </span>
                 </div>
               </div>
