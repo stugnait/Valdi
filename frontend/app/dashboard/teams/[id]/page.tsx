@@ -77,6 +77,11 @@ import {
 } from "recharts"
 const MONTHLY_HOURS = 160
 
+const toHourlyRatePayload = (baseRate: number, rateType: "monthly" | "hourly") => {
+  const rawHourly = rateType === "monthly" ? baseRate / MONTHLY_HOURS : baseRate
+  return Math.round(rawHourly * 100) / 100
+}
+
 export default function TeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [team, setTeam] = useState<Team | null>(null)
@@ -241,7 +246,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
 
     try {
       const baseRate = parseFloat(memberForm.baseRate) || 0
-      const hourlyRate = memberForm.rateType === "monthly" ? baseRate / MONTHLY_HOURS : baseRate
+      const hourlyRate = toHourlyRatePayload(baseRate, memberForm.rateType)
       const teamOverheadShare = parseFloat(memberForm.teamOverheadShare) || 0
       const companyOverheadShare = parseFloat(memberForm.companyOverheadShare) || 0
       const apiDeveloper = selectedMember
