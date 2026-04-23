@@ -14,17 +14,8 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 
-from .models import (
-    Team,
-    Developer,
-    Client,
-    Project,
-    Subscription,
-    BankConnection,
-    RecurringExpense,
-    VariableExpense,
-    AutomationRule,
-)
+from .models import Team, Developer, Client, Project, Subscription, BankConnection
+from .crypto import encrypt_token, mask_token
 from .serializers import (
     TeamSerializer,
     DeveloperSerializer,
@@ -153,3 +144,49 @@ class SubscriptionViewSet(SafeModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+class BankConnectionViewSet(SafeModelViewSet):
+    serializer_class = BankConnectionSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return BankConnection.objects.filter(created_by=self.request.user).order_by('-updated_at')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=['post'], url_path='sync')
+    def sync(self, request, pk=None):
+        connection = self.get_object()
+        connection.status = BankConnection.Status.CONNECTED
+        connection.last_sync = timezone.now()
+        connection.last_error = ''
+        connection.save(update_fields=['status', 'last_sync', 'last_error', 'updated_at'])
+        serializer = self.get_serializer(connection)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='reconnect')
+    def reconnect(self, request, pk=None):
+        connection = self.get_object()
+        token = str(request.data.get('token', '')).strip()
+        if not token:
+            raise ValidationError({'token': 'Token is required.'})
+
+        connection.encrypted_token = encrypt_token(token)
+        connection.token_masked = mask_token(token)
+        connection.status = BankConnection.Status.CONNECTED
+        connection.last_error = ''
+        connection.disabled_reason = ''
+        connection.save(
+            update_fields=[
+                'encrypted_token',
+                'token_masked',
+                'status',
+                'last_error',
+                'disabled_reason',
+                'updated_at',
+            ]
+        )
+        serializer = self.get_serializer(connection)
+        return Response(serializer.data)

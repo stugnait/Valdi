@@ -9,7 +9,10 @@ from django.core.exceptions import ImproperlyConfigured
 def _get_fernet() -> Fernet:
     raw_key = os.getenv('BANK_TOKEN_ENCRYPTION_KEY', '').strip()
     if not raw_key:
-        raise ImproperlyConfigured('BANK_TOKEN_ENCRYPTION_KEY env var is required for token encryption.')
+        raise ImproperlyConfigured(
+            'BANK_TOKEN_ENCRYPTION_KEY env var is required for token encryption. '
+            'Set it in backend/.env (example: python -c "import secrets; print(secrets.token_urlsafe(48))").'
+        )
 
     digest = hashlib.sha256(raw_key.encode('utf-8')).digest()
     fernet_key = base64.urlsafe_b64encode(digest)

@@ -15,7 +15,17 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-4. Configure DB variables in `.env` (`DATABASE_URL` for Supabase is recommended).
+4. Configure DB variables in `.env` (`DATABASE_URL` for Supabase is recommended) and set encryption key for bank tokens:
+
+```env
+BANK_TOKEN_ENCRYPTION_KEY=replace-with-long-random-encryption-key
+```
+
+Generate one quickly:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
 5. Apply migrations **before** calling auth endpoints:
 
 ```bash

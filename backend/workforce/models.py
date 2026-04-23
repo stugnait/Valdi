@@ -232,3 +232,112 @@ class Subscription(models.Model):
 
     def __str__(self):
         return f'{self.client.name}: {self.plan_name}'
+
+
+class BankConnection(models.Model):
+    class Provider(models.TextChoices):
+        MONOBANK = 'monobank', 'Monobank'
+        PRIVAT24 = 'privat24', 'Privat24'
+        WISE = 'wise', 'Wise'
+        REVOLUT = 'revolut', 'Revolut'
+
+    class Status(models.TextChoices):
+        CONNECTED = 'connected', 'Connected'
+        ERROR = 'error', 'Error'
+        SYNCING = 'syncing', 'Syncing'
+        DISABLED = 'disabled', 'Disabled'
+
+    provider = models.CharField(max_length=32, choices=Provider.choices)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.CONNECTED)
+    encrypted_token = models.TextField()
+    token_masked = models.CharField(max_length=128)
+    connected_at = models.DateTimeField(auto_now_add=True)
+    last_sync = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    disabled_reason = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='bank_connections',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-updated_at',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('created_by', 'provider'),
+                name='uniq_bank_connection_provider_per_owner',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.created_by_id}:{self.provider}'
+
+
+class BankAccount(models.Model):
+    class Provider(models.TextChoices):
+        MONOBANK = 'monobank', 'Monobank'
+
+    provider = models.CharField(max_length=32, choices=Provider.choices, default=Provider.MONOBANK)
+    external_account_id = models.CharField(max_length=128)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='bank_accounts',
+    )
+    iban = models.CharField(max_length=64, blank=True)
+    masked_pan = models.CharField(max_length=32, blank=True)
+    holder = models.CharField(max_length=150, blank=True)
+    currency = models.CharField(max_length=3, default='UAH')
+    timezone = models.CharField(max_length=64, default='UTC')
+    balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    sync_cursor = models.BigIntegerField(null=True, blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    raw_data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-updated_at',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('provider', 'external_account_id', 'created_by'),
+                name='uniq_bank_account_provider_external_owner',
+            )
+        ]
+
+    def __str__(self):
+        return f'{self.provider}:{self.external_account_id}'
+
+
+class BankTransaction(models.Model):
+    class Direction(models.TextChoices):
+        DEBIT = 'debit', 'Debit'
+        CREDIT = 'credit', 'Credit'
+
+    bank_account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name='transactions')
+    external_tx_id = models.CharField(max_length=128, unique=True)
+    occurred_at = models.DateTimeField()
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    currency = models.CharField(max_length=3)
+    description = models.CharField(max_length=255, blank=True)
+    mcc = models.PositiveIntegerField(null=True, blank=True)
+    counterparty = models.CharField(max_length=255, blank=True)
+    direction = models.CharField(max_length=10, choices=Direction.choices)
+    category = models.CharField(max_length=64, default='uncategorized')
+    category_source = models.CharField(max_length=32, default='auto')
+    raw_data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-occurred_at',)
+        indexes = [
+            models.Index(fields=('bank_account', 'occurred_at')),
+            models.Index(fields=('category',)),
+        ]
+
+    def __str__(self):
+        return f'{self.external_tx_id} ({self.amount} {self.currency})'
