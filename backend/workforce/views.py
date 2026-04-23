@@ -1,3 +1,6 @@
+import json
+import logging
+
 from django.db import OperationalError, ProgrammingError
 from django.utils import timezone
 from rest_framework import status
@@ -11,14 +14,29 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 
-from .models import Team, Developer, Client, Project, Subscription
+from .models import Team, Developer, Client, Project, Subscription, BankConnection
 from .serializers import (
     TeamSerializer,
     DeveloperSerializer,
     ClientSerializer,
     ProjectSerializer,
     SubscriptionSerializer,
+    BankConnectionSerializer,
 )
+
+logger = logging.getLogger(__name__)
+SENSITIVE_FIELDS = {'token', 'access_token', 'refresh_token', 'id_token', 'authorization'}
+
+
+def _redact_sensitive(value):
+    if isinstance(value, dict):
+        return {
+            key: ('***REDACTED***' if key.lower() in SENSITIVE_FIELDS else _redact_sensitive(item))
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_sensitive(item) for item in value]
+    return value
 
 
 class SafeModelViewSet(ModelViewSet):
@@ -28,6 +46,21 @@ class SafeModelViewSet(ModelViewSet):
     )
 
     def handle_exception(self, exc):
+        request_payload = {}
+        if hasattr(self.request, 'data'):
+            try:
+                request_payload = _redact_sensitive(dict(self.request.data))
+            except Exception:  # noqa: BLE001
+                request_payload = {'body': 'unavailable'}
+
+        logger.warning(
+            'API exception on %s %s. payload=%s',
+            self.request.method,
+            self.request.path,
+            json.dumps(request_payload, ensure_ascii=False),
+            exc_info=exc,
+        )
+
         if isinstance(exc, (OperationalError, ProgrammingError)):
             return Response(
                 {'detail': self.migration_error_message},
@@ -106,6 +139,17 @@ class SubscriptionViewSet(SafeModelViewSet):
             .select_related('client', 'project')
             .order_by('-updated_at')
         )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class BankConnectionViewSet(SafeModelViewSet):
+    serializer_class = BankConnectionSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return BankConnection.objects.filter(created_by=self.request.user).order_by('-updated_at')
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
