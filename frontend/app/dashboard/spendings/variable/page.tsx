@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { 
   Plus, 
   Search, 
@@ -61,17 +61,19 @@ import {
   Currency,
   PaymentSource,
   AllocationTarget,
-  mockVariableExpenses,
   expenseCategories,
   formatCurrency,
   convertToUSD,
   getSourceIcon,
 } from "@/lib/types/spendings"
-import { mockTeams, TeamMember } from "@/lib/types/teams"
+import { mockTeams } from "@/lib/types/teams"
 import { mockProjects } from "@/lib/types/projects"
+import { workforceApi, type ApiVariableExpense } from "@/lib/api/workforce"
 
 export default function VariableExpensesPage() {
-  const [expenses, setExpenses] = useState<VariableExpense[]>(mockVariableExpenses)
+  const [expenses, setExpenses] = useState<VariableExpense[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -96,6 +98,46 @@ export default function VariableExpensesPage() {
     projectId: "",
     receiptUrl: "",
   })
+
+  const mapApiExpense = (expense: ApiVariableExpense): VariableExpense => ({
+    id: expense.id.toString(),
+    name: expense.name,
+    amount: Number(expense.amount || 0),
+    currency: expense.currency,
+    amountUSD: convertToUSD(Number(expense.amount || 0), expense.currency),
+    category: expense.category,
+    source: expense.source,
+    date: expense.expense_date,
+    assigneeId: expense.assignee ? expense.assignee.toString() : undefined,
+    assigneeName: expense.assignee_name || undefined,
+    receiptUrl: expense.receipt_url || undefined,
+    description: expense.description || undefined,
+    allocation: {
+      type: expense.allocation_type,
+      teamId: expense.team ? expense.team.toString() : undefined,
+      teamName: expense.team_name || undefined,
+      projectId: expense.project ? expense.project.toString() : undefined,
+      projectName: expense.project_name || undefined,
+    },
+    createdAt: expense.created_at,
+  })
+
+  const loadExpenses = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await workforceApi.listVariableExpenses()
+      setExpenses(data.map(mapApiExpense))
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load variable expenses")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadExpenses()
+  }, [])
 
   // Stats
   const currentMonth = new Date().getMonth()
@@ -163,54 +205,48 @@ export default function VariableExpensesPage() {
     setIsAddDialogOpen(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim() || !formData.amount || !formData.category) return
     
     const amount = parseFloat(formData.amount)
     if (isNaN(amount) || amount <= 0) return
     
-    const amountUSD = convertToUSD(amount, formData.currency)
-    
-    const assignee = allMembers.find(m => m.id === formData.assigneeId)
-    const selectedTeam = mockTeams.find(t => t.id === formData.teamId)
-    const selectedProject = mockProjects.find(p => p.id === formData.projectId)
-
-    const expenseData: VariableExpense = {
-      id: editingExpense?.id || `v${Date.now()}`,
+    const payload = {
       name: formData.name.trim(),
       amount,
       currency: formData.currency,
-      amountUSD,
       category: formData.category,
       source: formData.source,
-      date: formData.date || new Date().toISOString().split("T")[0],
-      assigneeId: formData.assigneeId || undefined,
-      assigneeName: assignee?.name,
-      receiptUrl: formData.receiptUrl || undefined,
-      description: formData.description?.trim() || undefined,
-      allocation: {
-        type: formData.allocationType,
-        teamId: formData.allocationType === "team" ? formData.teamId : undefined,
-        teamName: formData.allocationType === "team" ? selectedTeam?.name : undefined,
-        projectId: formData.allocationType === "project" ? formData.projectId : undefined,
-        projectName: formData.allocationType === "project" ? selectedProject?.name : undefined,
-      },
-      createdAt: editingExpense?.createdAt || new Date().toISOString().split("T")[0],
+      expense_date: formData.date || new Date().toISOString().split("T")[0],
+      assignee: formData.assigneeId ? Number(formData.assigneeId) : null,
+      receipt_url: formData.receiptUrl || "",
+      description: formData.description?.trim() || "",
+      allocation_type: formData.allocationType,
+      team: formData.allocationType === "team" && formData.teamId ? Number(formData.teamId) : null,
+      project: formData.allocationType === "project" && formData.projectId ? Number(formData.projectId) : null,
     }
-
-    if (editingExpense) {
-      setExpenses(prev => prev.map(e => e.id === editingExpense.id ? expenseData : e))
-    } else {
-      setExpenses(prev => [...prev, expenseData])
+    try {
+      if (editingExpense) {
+        await workforceApi.updateVariableExpense(editingExpense.id, payload)
+      } else {
+        await workforceApi.createVariableExpense(payload)
+      }
+      await loadExpenses()
+      setIsAddDialogOpen(false)
+      resetForm()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save variable expense")
     }
-
-    setIsAddDialogOpen(false)
-    resetForm()
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteExpense) {
-      setExpenses(prev => prev.filter(e => e.id !== deleteExpense.id))
+      try {
+        await workforceApi.deleteVariableExpense(deleteExpense.id)
+        await loadExpenses()
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete variable expense")
+      }
       setDeleteExpense(null)
     }
   }
@@ -230,6 +266,18 @@ export default function VariableExpensesPage() {
           Record Expense
         </Button>
       </div>
+
+      {error && (
+        <Card className="border-red-200">
+          <CardContent className="pt-6 text-sm text-red-600">{error}</CardContent>
+        </Card>
+      )}
+
+      {loading && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Loading variable expenses...</CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2">

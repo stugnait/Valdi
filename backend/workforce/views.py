@@ -14,7 +14,17 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 
-from .models import Team, Developer, Client, Project, Subscription, BankConnection
+from .models import (
+    Team,
+    Developer,
+    Client,
+    Project,
+    Subscription,
+    BankConnection,
+    RecurringExpense,
+    VariableExpense,
+    AutomationRule,
+)
 from .serializers import (
     TeamSerializer,
     DeveloperSerializer,
@@ -22,6 +32,9 @@ from .serializers import (
     ProjectSerializer,
     SubscriptionSerializer,
     BankConnectionSerializer,
+    RecurringExpenseSerializer,
+    VariableExpenseSerializer,
+    AutomationRuleSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -150,6 +163,47 @@ class BankConnectionViewSet(SafeModelViewSet):
 
     def get_queryset(self):
         return BankConnection.objects.filter(created_by=self.request.user).order_by('-updated_at')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class RecurringExpenseViewSet(SafeModelViewSet):
+    serializer_class = RecurringExpenseSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            RecurringExpense.objects.filter(created_by=self.request.user)
+            .select_related('team', 'project')
+            .order_by('-created_at')
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class VariableExpenseViewSet(SafeModelViewSet):
+    serializer_class = VariableExpenseSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            VariableExpense.objects.filter(created_by=self.request.user)
+            .select_related('assignee', 'team', 'project')
+            .order_by('-expense_date', '-created_at')
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class AutomationRuleViewSet(SafeModelViewSet):
+    serializer_class = AutomationRuleSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return AutomationRule.objects.filter(created_by=self.request.user).order_by('-updated_at')
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
