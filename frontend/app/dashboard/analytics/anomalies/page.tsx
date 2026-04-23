@@ -109,24 +109,31 @@ function useScopeCreepData() {
 // Uncategorized Expenses
 function useUncategorizedData() {
   return useMemo(() => {
+    const now = new Date()
+    const daysAgo = (days: number) => {
+      const date = new Date(now)
+      date.setDate(now.getDate() - days)
+      return date.toISOString().split("T")[0]
+    }
+
     // Simulate uncategorized transactions
     const uncategorized = [
-      { id: "u1", name: "Card Payment", amount: 450, date: "2024-04-20", source: "monobank" },
-      { id: "u2", name: "Wire Transfer", amount: 1200, date: "2024-04-18", source: "privat24" },
-      { id: "u3", name: "Unknown Merchant", amount: 85, date: "2024-04-15", source: "monobank" },
-      { id: "u4", name: "Subscription", amount: 29, date: "2024-04-12", source: "wise" },
-      { id: "u5", name: "ATM Withdrawal", amount: 200, date: "2024-04-10", source: "monobank" },
+      { id: "u1", name: "Card Payment", amount: 450, date: daysAgo(3), source: "monobank" },
+      { id: "u2", name: "Wire Transfer", amount: 1200, date: daysAgo(6), source: "privat24" },
+      { id: "u3", name: "Unknown Merchant", amount: 85, date: daysAgo(10), source: "monobank" },
+      { id: "u4", name: "Subscription", amount: 29, date: daysAgo(13), source: "wise" },
+      { id: "u5", name: "ATM Withdrawal", amount: 200, date: daysAgo(16), source: "monobank" },
     ]
 
     const total = uncategorized.reduce((sum, t) => sum + t.amount, 0)
 
     // Monthly trend (decreasing is good)
-    const monthlyTrend = [
-      { month: "Січ", amount: 3200 },
-      { month: "Лют", amount: 2800 },
-      { month: "Бер", amount: 2100 },
-      { month: "Кві", amount: total },
-    ]
+    const monthlyTrend = Array.from({ length: 4 }, (_, index) => {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - (3 - index), 1)
+      const month = monthDate.toLocaleDateString("uk-UA", { month: "short" })
+      const baseline = Math.max(total + (3 - index) * 650, total)
+      return { month, amount: index === 3 ? total : baseline }
+    })
 
     const allExpenses = [...mockVariableExpenses, ...mockRecurringExpenses]
     const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amountUSD, 0)

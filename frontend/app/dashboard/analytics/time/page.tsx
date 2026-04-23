@@ -127,7 +127,6 @@ function useForecastData(
       const date = new Date(today)
       date.setDate(date.getDate() + i)
       
-      const isPast = i < 0
       const isToday = i === 0
 
       // Check for invoice due dates
@@ -151,7 +150,6 @@ function useForecastData(
         income,
         expense,
         balance: Math.round(runningBalance),
-        isPast,
         isToday,
         isFuture: i > 0,
         hasInvoice: !!invoiceDue,

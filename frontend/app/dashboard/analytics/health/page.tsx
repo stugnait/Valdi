@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { workforceApi, type ApiAnalyticsOverview } from "@/lib/api/workforce"
 import { mockTeams } from "@/lib/types/teams"
 import { mockProjects } from "@/lib/types/projects"
 import { mockRecurringExpenses, mockVariableExpenses } from "@/lib/types/spendings"
@@ -92,7 +93,7 @@ function useFinancialData() {
     const monthlyBurn = totalMonthlyCosts + taxReserve + monthlyESV
 
     // Runway in months
-    const runwayMonths = currentCash / monthlyBurn
+    const runwayMonths = monthlyBurn > 0 ? currentCash / monthlyBurn : 0
 
     return {
       totalRevenue,
@@ -108,7 +109,7 @@ function useFinancialData() {
       currentCash,
       monthlyBurn,
       runwayMonths,
-      profitMargin: (netProfit / totalRevenue) * 100,
+      profitMargin: totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0,
     }
   }, [])
 }
@@ -147,13 +148,18 @@ function useSankeyData(data: ReturnType<typeof useFinancialData>) {
 function SankeyDiagram({ data }: { data: ReturnType<typeof useSankeyData> }) {
   const { sources, destinations, totalIncome } = data
   
-  const maxSourceAmount = Math.max(...sources.map(s => s.amount))
-  const totalDestAmount = destinations.reduce((sum, d) => sum + d.amount, 0)
+  const maxSourceAmount = sources.length > 0 ? Math.max(...sources.map(s => s.amount)) : 1
+  const totalDestAmount = destinations.reduce((sum, d) => sum + d.amount, 0) || 1
 
   return (
     <div className="flex items-center justify-between gap-4 h-[280px] relative">
       {/* Left side - Sources */}
       <div className="flex flex-col gap-2 w-[180px] shrink-0">
+        {sources.length === 0 && (
+          <div className="rounded-md border border-dashed border-muted-foreground/30 p-3 text-sm text-muted-foreground">
+            No revenue data yet
+          </div>
+        )}
         {sources.map((source) => {
           const height = Math.max(28, (source.amount / maxSourceAmount) * 80)
           return (
@@ -420,8 +426,70 @@ function EBITDABreakdown({ data }: { data: ReturnType<typeof useFinancialData> }
 
 export default function GlobalHealthPage() {
   const [period, setPeriod] = useState("month")
-  const financialData = useFinancialData()
-  const sankeyData = useSankeyData(financialData)
+  const mockFinancialData = useFinancialData()
+  const mockSankeyData = useSankeyData(mockFinancialData)
+  const [analyticsOverview, setAnalyticsOverview] = useState<ApiAnalyticsOverview | null>(null)
+  const [isLoadingOverview, setIsLoadingOverview] = useState(true)
+  const [overviewError, setOverviewError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    const load = async () => {
+      try {
+        setIsLoadingOverview(true)
+        const payload = await workforceApi.getAnalyticsOverview()
+        if (!isMounted) return
+        setAnalyticsOverview(payload)
+        setOverviewError(null)
+      } catch (error) {
+        if (!isMounted) return
+        const message = error instanceof Error ? error.message : "Unable to load analytics overview"
+        setOverviewError(message)
+      } finally {
+        if (isMounted) setIsLoadingOverview(false)
+      }
+    }
+    void load()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const financialData = analyticsOverview
+    ? {
+        totalRevenue: analyticsOverview.health.total_revenue,
+        totalLaborCost: analyticsOverview.health.total_labor_cost,
+        monthlyRecurring: analyticsOverview.health.monthly_recurring,
+        monthlyVariable: analyticsOverview.health.monthly_variable,
+        totalMonthlyCosts: analyticsOverview.health.total_monthly_costs,
+        taxReserve: analyticsOverview.health.tax_reserve,
+        monthlyESV: analyticsOverview.health.monthly_esv,
+        monthlyDepreciation: analyticsOverview.health.monthly_depreciation,
+        ebitda: analyticsOverview.health.ebitda,
+        netProfit: analyticsOverview.health.net_profit,
+        currentCash: analyticsOverview.health.current_cash,
+        monthlyBurn: analyticsOverview.health.monthly_burn,
+        runwayMonths: analyticsOverview.health.runway_months,
+        profitMargin: analyticsOverview.health.profit_margin,
+      }
+    : mockFinancialData
+
+  const sankeyData = analyticsOverview
+    ? {
+        sources: analyticsOverview.health.sankey.sources.map((source) => ({
+          id: source.id,
+          name: source.name,
+          amount: source.amount,
+        })),
+        destinations: analyticsOverview.health.sankey.destinations.map((destination) => ({
+          id: String(destination.id),
+          name: destination.name,
+          amount: destination.amount,
+          color: destination.color ?? "#6B7280",
+        })),
+        totalIncome: analyticsOverview.health.sankey.total_income,
+      }
+    : mockSankeyData
 
   return (
     <TooltipProvider>
@@ -434,7 +502,13 @@ export default function GlobalHealthPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Global Health</h1>
-              <p className="text-muted-foreground">Your morning coffee dashboard</p>
+              <p className="text-muted-foreground">
+                {isLoadingOverview
+                  ? "Loading analytics overview..."
+                  : overviewError
+                    ? `Using local fallback data (${overviewError})`
+                    : "Connected to backend analytics overview"}
+              </p>
             </div>
           </div>
           <Select value={period} onValueChange={setPeriod}>

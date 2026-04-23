@@ -98,6 +98,43 @@ export interface ApiSubscription {
   updated_at: string
 }
 
+export interface AnalyticsMoneyFlowNode {
+  id: string | number
+  name: string
+  amount: number
+  color?: string
+}
+
+export interface ApiAnalyticsOverview {
+  health: {
+    total_revenue: number
+    total_labor_cost: number
+    monthly_recurring: number
+    monthly_variable: number
+    total_monthly_costs: number
+    tax_reserve: number
+    monthly_esv: number
+    monthly_depreciation: number
+    ebitda: number
+    net_profit: number
+    current_cash: number
+    monthly_burn: number
+    runway_months: number
+    profit_margin: number
+    sankey: {
+      sources: AnalyticsMoneyFlowNode[]
+      destinations: AnalyticsMoneyFlowNode[]
+      total_income: number
+    }
+    cost_structure: Array<{
+      label: string
+      amount: number
+      percent: number
+      color: string
+    }>
+  }
+}
+
 function getAccessToken() {
   if (typeof window === "undefined") return ""
   return localStorage.getItem("access_token") ?? ""
@@ -181,4 +218,6 @@ export const workforceApi = {
   updateSubscription: (id: string | number, payload: Partial<ApiSubscription>) =>
     apiRequest<ApiSubscription>(`/api/subscriptions/${id}/`, { method: "PATCH", body: JSON.stringify(payload) }),
   deleteSubscription: (id: string | number) => apiRequest<void>(`/api/subscriptions/${id}/`, { method: "DELETE" }),
+
+  getAnalyticsOverview: () => apiRequest<ApiAnalyticsOverview>("/api/analytics/overview/"),
 }
