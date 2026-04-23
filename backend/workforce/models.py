@@ -234,6 +234,48 @@ class Subscription(models.Model):
         return f'{self.client.name}: {self.plan_name}'
 
 
+class BankConnection(models.Model):
+    class Provider(models.TextChoices):
+        MONOBANK = 'monobank', 'Monobank'
+        PRIVAT24 = 'privat24', 'Privat24'
+        WISE = 'wise', 'Wise'
+        REVOLUT = 'revolut', 'Revolut'
+
+    class Status(models.TextChoices):
+        CONNECTED = 'connected', 'Connected'
+        ERROR = 'error', 'Error'
+        SYNCING = 'syncing', 'Syncing'
+        DISABLED = 'disabled', 'Disabled'
+
+    provider = models.CharField(max_length=32, choices=Provider.choices)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.CONNECTED)
+    encrypted_token = models.TextField()
+    token_masked = models.CharField(max_length=128)
+    connected_at = models.DateTimeField(auto_now_add=True)
+    last_sync = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    disabled_reason = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='bank_connections',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-updated_at',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('created_by', 'provider'),
+                name='uniq_bank_connection_provider_per_owner',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.created_by_id}:{self.provider}'
+
+
 class BankAccount(models.Model):
     class Provider(models.TextChoices):
         MONOBANK = 'monobank', 'Monobank'

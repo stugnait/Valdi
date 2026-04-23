@@ -13,6 +13,8 @@ import {
   Wifi,
   WifiOff,
   Link2,
+  Eye,
+  EyeOff,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -45,6 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import { ApiError, integrationsApi } from "@/lib/api/integrations"
 import { type IntegrationConnectionDto, type IntegrationProvider } from "@/lib/types/integrations"
 
@@ -309,8 +312,6 @@ export default function IntegrationsPage() {
         </Button>
       </div>
 
-      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
-
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -329,7 +330,7 @@ export default function IntegrationsPage() {
             <CreditCard className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{connections.filter((c) => !c.disabledReason).length}</div>
+            <div className="text-2xl font-bold">{connections.filter((c) => c.status !== "disabled").length}</div>
             <p className="text-xs text-muted-foreground">Without disabled reason</p>
           </CardContent>
         </Card>
@@ -341,7 +342,7 @@ export default function IntegrationsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {connections.length > 0 && connections[0].last_sync_at ? formatLastSync(connections[0].last_sync_at) : "N/A"}
+              {connections.length > 0 && connections[0].last_sync_at ? formatDateTime(connections[0].last_sync_at) : "N/A"}
             </div>
             <p className="text-xs text-muted-foreground">Auto-sync every 6 hours</p>
           </CardContent>
@@ -380,7 +381,7 @@ export default function IntegrationsPage() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="size-3" />
-                          {formatLastSync(connection.last_sync_at)}
+                          {formatDateTime(connection.last_sync_at)}
                         </span>
                       </div>
                       {connection.last_error_text ? (
