@@ -93,21 +93,21 @@ interface UserProfile {
 // Mock user data
 const mockUserProfile: UserProfile = {
   id: "u1",
-  firstName: "Олександр",
-  lastName: "Коваленко",
-  email: "alex@agency.ua",
-  phone: "+380 67 123 4567",
-  position: "CEO & Founder",
-  department: "Executive",
-  location: "Київ, Україна",
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  position: "",
+  department: "",
+  location: "",
   timezone: "Europe/Kyiv",
-  bio: "Засновник та керівник агенції Vardi. Більше 10 років досвіду в IT та управлінні проектами. Фокус на ефективності та якості.",
-  joinedAt: "2021-01-15",
-  lastLoginAt: "2024-05-02T10:30:00",
+  bio: "",
+  joinedAt: "",
+  lastLoginAt: "",
   
-  linkedIn: "https://linkedin.com/in/alexkovalenko",
-  github: "https://github.com/alexkovalenko",
-  website: "https://alexkovalenko.dev",
+  linkedIn: "",
+  github: "",
+  website: "",
   
   notifications: {
     email: true,
@@ -119,7 +119,7 @@ const mockUserProfile: UserProfile = {
   },
   
   twoFactorEnabled: true,
-  lastPasswordChange: "2024-03-15",
+  lastPasswordChange: "",
 }
 
 // Mock subscription data
@@ -237,6 +237,8 @@ export default function ProfilePage() {
   }
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return ""
+
     return new Date(dateString).toLocaleDateString("uk-UA", {
       year: "numeric",
       month: "long",
@@ -245,6 +247,8 @@ export default function ProfilePage() {
   }
 
   const formatDateTime = (dateString: string) => {
+    if (!dateString) return ""
+
     return new Date(dateString).toLocaleString("uk-UA", {
       year: "numeric",
       month: "short",
@@ -257,6 +261,11 @@ export default function ProfilePage() {
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase()
   }
+
+  const fullName = `${profile.firstName} ${profile.lastName}`.trim()
+  const fallbackName = profile.email.split("@")[0] || "Користувач"
+  const displayName = fullName || fallbackName
+  const avatarInitials = getInitials(profile.firstName, profile.lastName) || displayName[0]?.toUpperCase() || "U"
 
   const isPasswordValid = passwordData.new.length >= 8 && passwordData.new === passwordData.confirm
 
@@ -310,7 +319,7 @@ export default function ProfilePage() {
                 <Avatar className="size-24">
                   <AvatarImage src={profile.avatarUrl} />
                   <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
-                    {getInitials(profile.firstName, profile.lastName)}
+                    {avatarInitials}
                   </AvatarFallback>
                 </Avatar>
                 {isEditing && (
@@ -332,40 +341,56 @@ export default function ProfilePage() {
             <div className="flex-1 space-y-4">
               <div>
                 <h2 className="text-xl font-semibold">
-                  {profile.firstName} {profile.lastName}
+                  {displayName}
                 </h2>
-                <p className="text-muted-foreground">{profile.position}</p>
+                {profile.position && (
+                  <p className="text-muted-foreground">{profile.position}</p>
+                )}
               </div>
 
               <div className="grid gap-3 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="size-4" />
-                  <span>{profile.email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="size-4" />
-                  <span>{profile.phone}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="size-4" />
-                  <span>{profile.location}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Briefcase className="size-4" />
-                  <span>{profile.department}</span>
-                </div>
+                {profile.email && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Mail className="size-4" />
+                    <span>{profile.email}</span>
+                  </div>
+                )}
+                {profile.phone && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Phone className="size-4" />
+                    <span>{profile.phone}</span>
+                  </div>
+                )}
+                {profile.location && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="size-4" />
+                    <span>{profile.location}</span>
+                  </div>
+                )}
+                {profile.department && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Briefcase className="size-4" />
+                    <span>{profile.department}</span>
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Calendar className="size-3" />
-                  <span>Приєднався: {formatDate(profile.joinedAt)}</span>
+              {(profile.joinedAt || profile.lastLoginAt) && (
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  {profile.joinedAt && (
+                    <div className="flex items-center gap-1">
+                      <Calendar className="size-3" />
+                      <span>Приєднався: {formatDate(profile.joinedAt)}</span>
+                    </div>
+                  )}
+                  {profile.lastLoginAt && (
+                    <div className="flex items-center gap-1">
+                      <Shield className="size-3" />
+                      <span>Останній вхід: {formatDateTime(profile.lastLoginAt)}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1">
-                  <Shield className="size-3" />
-                  <span>Останній вхід: {formatDateTime(profile.lastLoginAt)}</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -457,7 +482,7 @@ export default function ProfilePage() {
                       onChange={(e) => handleEditChange("firstName", e.target.value)}
                     />
                   ) : (
-                    <p className="text-sm py-2">{profile.firstName}</p>
+                    profile.firstName && <p className="text-sm py-2">{profile.firstName}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -469,7 +494,7 @@ export default function ProfilePage() {
                       onChange={(e) => handleEditChange("lastName", e.target.value)}
                     />
                   ) : (
-                    <p className="text-sm py-2">{profile.lastName}</p>
+                    profile.lastName && <p className="text-sm py-2">{profile.lastName}</p>
                   )}
                 </div>
               </div>
@@ -485,7 +510,7 @@ export default function ProfilePage() {
                       onChange={(e) => handleEditChange("email", e.target.value)}
                     />
                   ) : (
-                    <p className="text-sm py-2">{profile.email}</p>
+                    profile.email && <p className="text-sm py-2">{profile.email}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -497,7 +522,7 @@ export default function ProfilePage() {
                       onChange={(e) => handleEditChange("phone", e.target.value)}
                     />
                   ) : (
-                    <p className="text-sm py-2">{profile.phone}</p>
+                    profile.phone && <p className="text-sm py-2">{profile.phone}</p>
                   )}
                 </div>
               </div>
@@ -514,7 +539,7 @@ export default function ProfilePage() {
                       onChange={(e) => handleEditChange("position", e.target.value)}
                     />
                   ) : (
-                    <p className="text-sm py-2">{profile.position}</p>
+                    profile.position && <p className="text-sm py-2">{profile.position}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -534,7 +559,7 @@ export default function ProfilePage() {
                       </SelectContent>
                     </Select>
                   ) : (
-                    <p className="text-sm py-2">{profile.department}</p>
+                    profile.department && <p className="text-sm py-2">{profile.department}</p>
                   )}
                 </div>
               </div>
@@ -549,7 +574,7 @@ export default function ProfilePage() {
                       onChange={(e) => handleEditChange("location", e.target.value)}
                     />
                   ) : (
-                    <p className="text-sm py-2">{profile.location}</p>
+                    profile.location && <p className="text-sm py-2">{profile.location}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -569,7 +594,7 @@ export default function ProfilePage() {
                       </SelectContent>
                     </Select>
                   ) : (
-                    <p className="text-sm py-2">{timezones.find(tz => tz.value === profile.timezone)?.label}</p>
+                    profile.timezone && <p className="text-sm py-2">{timezones.find(tz => tz.value === profile.timezone)?.label}</p>
                   )}
                 </div>
               </div>
@@ -585,7 +610,7 @@ export default function ProfilePage() {
                     placeholder="Розкажіть трохи про себе..."
                   />
                 ) : (
-                  <p className="text-sm py-2 text-muted-foreground">{profile.bio}</p>
+                  profile.bio && <p className="text-sm py-2 text-muted-foreground">{profile.bio}</p>
                 )}
               </div>
             </CardContent>
@@ -614,9 +639,7 @@ export default function ProfilePage() {
                       placeholder="https://linkedin.com/in/username"
                     />
                   ) : (
-                    <p className="text-sm py-2 text-muted-foreground">
-                      {profile.linkedIn || "Не вказано"}
-                    </p>
+                    profile.linkedIn && <p className="text-sm py-2 text-muted-foreground">{profile.linkedIn}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -632,9 +655,7 @@ export default function ProfilePage() {
                       placeholder="https://github.com/username"
                     />
                   ) : (
-                    <p className="text-sm py-2 text-muted-foreground">
-                      {profile.github || "Не вказано"}
-                    </p>
+                    profile.github && <p className="text-sm py-2 text-muted-foreground">{profile.github}</p>
                   )}
                 </div>
               </div>
@@ -651,9 +672,7 @@ export default function ProfilePage() {
                     placeholder="https://yourwebsite.com"
                   />
                 ) : (
-                  <p className="text-sm py-2 text-muted-foreground">
-                    {profile.website || "Не вказано"}
-                  </p>
+                  profile.website && <p className="text-sm py-2 text-muted-foreground">{profile.website}</p>
                 )}
               </div>
             </CardContent>
