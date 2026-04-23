@@ -98,7 +98,7 @@ function useBaseFinancials() {
   }, [])
 }
 
-// Generate 60-day forecast
+// Generate 60-day forward forecast
 function useForecastData(
   baseData: ReturnType<typeof useBaseFinancials>,
   salaryAdjustment: number,
@@ -126,9 +126,6 @@ function useForecastData(
     for (let i = 0; i < 60; i++) {
       const date = new Date(today)
       date.setDate(date.getDate() + i)
-      
-      const isPast = i < 0
-      const isToday = i === 0
 
       // Check for invoice due dates
       const invoiceDue = baseData.pendingInvoices.find(inv => {
@@ -151,9 +148,7 @@ function useForecastData(
         income,
         expense,
         balance: Math.round(runningBalance),
-        isPast,
-        isToday,
-        isFuture: i > 0,
+        isToday: i === 0,
         hasInvoice: !!invoiceDue,
         invoiceName: invoiceDue?.name,
       })
@@ -435,7 +430,7 @@ export default function TimeMachinePage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">The Time Machine</h1>
-              <p className="text-muted-foreground">60-day cash flow forecast with what-if scenarios</p>
+              <p className="text-muted-foreground">Forward 60-day cash flow forecast with what-if scenarios</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -466,7 +461,7 @@ export default function TimeMachinePage() {
                         </TooltipContent>
                       </Tooltip>
                     </CardTitle>
-                    <CardDescription>Projected balance over the next 60 days</CardDescription>
+                    <CardDescription>Projected balance from today through the next 60 days</CardDescription>
                   </div>
                   <div className="flex items-center gap-4 text-sm">
                     <div className="flex items-center gap-2">
@@ -476,6 +471,10 @@ export default function TimeMachinePage() {
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-red-500/30" />
                       <span className="text-muted-foreground">Risk Zone</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-0 border border-dashed border-indigo-500" />
+                      <span className="text-muted-foreground">Today</span>
                     </div>
                   </div>
                 </div>
