@@ -21,6 +21,8 @@ from .models import (
     Client,
     Project,
     Subscription,
+    Invoice,
+    TaxReport,
     BankConnection,
     RecurringExpense,
     VariableExpense,
