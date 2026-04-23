@@ -55,6 +55,14 @@ import {
 import { mockTeams } from "@/lib/types/teams"
 import { mockProjects, mockClients } from "@/lib/types/projects"
 
+function stableNoise(seed: string) {
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) % 1000003
+  }
+  return (hash % 1000) / 1000
+}
+
 // Calculate developer ROI data
 function useDevROIData() {
   return useMemo(() => {
@@ -91,11 +99,11 @@ function useDevROIData() {
         teamName: dev.teamName,
         teamColor: dev.teamColor,
         monthlyCost: dev.baseRate,
-        monthlyData: months.map((month, i) => ({
+        monthlyData: months.map((month) => ({
           month,
-          // Stable per developer/month values are required so period comparisons remain consistent and analytics stay trustworthy.
-          profit: Math.round(baseProfit * deterministicRatio(dev.id, i, 0.7, 1.3)),
-          revenue: Math.round(dev.revenue * deterministicRatio(dev.id, i + months.length, 0.8, 1.2)),
+          // Keep values deterministic so analytics are stable between page reloads.
+          profit: Math.round(baseProfit * (0.7 + stableNoise(`${dev.id}-${month}-profit`) * 0.6)),
+          revenue: Math.round(dev.revenue * (0.8 + stableNoise(`${dev.id}-${month}-revenue`) * 0.4)),
         })),
         averageProfit: baseProfit,
         roi: ((dev.revenue / (dev.baseRate + dev.teamOverheadShare + dev.companyOverheadShare)) - 1) * 100,

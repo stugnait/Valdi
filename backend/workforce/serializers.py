@@ -7,9 +7,9 @@ from .models import (
     Client,
     Project,
     Subscription,
-    Invoice,
-    TaxReport,
     BankConnection,
+    RecurringExpense,
+    VariableExpense,
 )
 
 
@@ -266,63 +266,71 @@ class BankConnectionSerializer(serializers.ModelSerializer):
         return instance
 
 
-class InvoiceSerializer(serializers.ModelSerializer):
-    project_name = serializers.CharField(source='project.name', read_only=True)
-    client_name = serializers.CharField(source='client.name', read_only=True)
-
+class RecurringExpenseSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Invoice
+        model = RecurringExpense
         fields = (
             'id',
-            'number',
-            'project',
-            'project_name',
-            'client',
-            'client_name',
+            'name',
             'amount',
             'currency',
+            'cycle',
+            'category',
+            'source',
+            'allocation_type',
             'status',
-            'issue_date',
-            'due_date',
-            'paid_date',
+            'next_payment_date',
+            'last_paid_date',
             'description',
-            'linked_transaction_id',
-            'created_at',
-            'updated_at',
-        )
-        read_only_fields = ('id', 'project_name', 'client_name', 'created_at', 'updated_at')
-
-    def validate(self, attrs):
-        user = self.context['request'].user
-        project = attrs.get('project') or getattr(self.instance, 'project', None)
-        client = attrs.get('client') or getattr(self.instance, 'client', None)
-
-        if project and project.created_by_id != user.id:
-            raise serializers.ValidationError({'project': 'Не можна використовувати проєкт іншого користувача.'})
-
-        if client and client.created_by_id != user.id:
-            raise serializers.ValidationError({'client': 'Не можна використовувати клієнта іншого користувача.'})
-
-        if project and client and project.client_id != client.id:
-            raise serializers.ValidationError({'project': 'Проєкт має належати вибраному клієнту.'})
-
-        return attrs
-
-
-class TaxReportSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TaxReport
-        fields = (
-            'id',
-            'year',
-            'quarter',
-            'income',
-            'tax_ep',
-            'esv_paid',
-            'total_due',
-            'paid_date',
-            'status',
+            'team',
+            'project',
             'created_at',
             'updated_at',
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        team = attrs.get('team') if 'team' in attrs else getattr(self.instance, 'team', None)
+        project = attrs.get('project') if 'project' in attrs else getattr(self.instance, 'project', None)
+        if team and team.created_by_id != user.id:
+            raise serializers.ValidationError({'team': 'Не можна використовувати команду іншого користувача.'})
+        if project and project.created_by_id != user.id:
+            raise serializers.ValidationError({'project': 'Не можна використовувати проєкт іншого користувача.'})
+        return attrs
+
+
+class VariableExpenseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VariableExpense
+        fields = (
+            'id',
+            'name',
+            'amount',
+            'currency',
+            'category',
+            'source',
+            'expense_date',
+            'receipt_url',
+            'description',
+            'allocation_type',
+            'assignee',
+            'team',
+            'project',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        assignee = attrs.get('assignee') if 'assignee' in attrs else getattr(self.instance, 'assignee', None)
+        team = attrs.get('team') if 'team' in attrs else getattr(self.instance, 'team', None)
+        project = attrs.get('project') if 'project' in attrs else getattr(self.instance, 'project', None)
+        if assignee and assignee.created_by_id != user.id:
+            raise serializers.ValidationError({'assignee': 'Не можна використовувати девелопера іншого користувача.'})
+        if team and team.created_by_id != user.id:
+            raise serializers.ValidationError({'team': 'Не можна використовувати команду іншого користувача.'})
+        if project and project.created_by_id != user.id:
+            raise serializers.ValidationError({'project': 'Не можна використовувати проєкт іншого користувача.'})
+        return attrs

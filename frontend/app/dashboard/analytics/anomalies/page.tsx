@@ -109,14 +109,20 @@ function useScopeCreepData() {
 // Uncategorized Expenses
 function useUncategorizedData() {
   return useMemo(() => {
-    // Demo data: generate transactions relative to today (last N days)
     const now = new Date()
-    const demoTransactions = [
-      { id: "u1", name: "Card Payment", amount: 450, daysAgo: 1, source: "monobank" },
-      { id: "u2", name: "Wire Transfer", amount: 1200, daysAgo: 3, source: "privat24" },
-      { id: "u3", name: "Unknown Merchant", amount: 85, daysAgo: 6, source: "monobank" },
-      { id: "u4", name: "Subscription", amount: 29, daysAgo: 9, source: "wise" },
-      { id: "u5", name: "ATM Withdrawal", amount: 200, daysAgo: 12, source: "monobank" },
+    const daysAgo = (days: number) => {
+      const date = new Date(now)
+      date.setDate(now.getDate() - days)
+      return date.toISOString().split("T")[0]
+    }
+
+    // Simulate uncategorized transactions
+    const uncategorized = [
+      { id: "u1", name: "Card Payment", amount: 450, date: daysAgo(3), source: "monobank" },
+      { id: "u2", name: "Wire Transfer", amount: 1200, date: daysAgo(6), source: "privat24" },
+      { id: "u3", name: "Unknown Merchant", amount: 85, date: daysAgo(10), source: "monobank" },
+      { id: "u4", name: "Subscription", amount: 29, date: daysAgo(13), source: "wise" },
+      { id: "u5", name: "ATM Withdrawal", amount: 200, date: daysAgo(16), source: "monobank" },
     ]
 
     const uncategorized = demoTransactions.map(tx => {
@@ -135,22 +141,12 @@ function useUncategorizedData() {
 
     const total = uncategorized.reduce((sum, t) => sum + t.amount, 0)
 
-    // Monthly trend: current + previous months, generated dynamically.
-    const monthCount = 4
-    const monthlyTrend = Array.from({ length: monthCount }, (_, index) => {
-      const monthDate = new Date(now.getFullYear(), now.getMonth() - (monthCount - index - 1), 1)
-      const monthKey = `${monthDate.getFullYear()}-${monthDate.getMonth()}`
-      const amount = uncategorized
-        .filter(tx => {
-          const txDate = new Date(tx.timestamp)
-          return `${txDate.getFullYear()}-${txDate.getMonth()}` === monthKey
-        })
-        .reduce((sum, tx) => sum + tx.amount, 0)
-
-      return {
-        month: monthDate.toLocaleDateString("uk-UA", { month: "short" }),
-        amount,
-      }
+    // Monthly trend (decreasing is good)
+    const monthlyTrend = Array.from({ length: 4 }, (_, index) => {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - (3 - index), 1)
+      const month = monthDate.toLocaleDateString("uk-UA", { month: "short" })
+      const baseline = Math.max(total + (3 - index) * 650, total)
+      return { month, amount: index === 3 ? total : baseline }
     })
 
     const allExpenses = [...mockVariableExpenses, ...mockRecurringExpenses]

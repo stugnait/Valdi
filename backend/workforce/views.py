@@ -1,6 +1,8 @@
 import json
 import logging
+from decimal import Decimal
 
+from django.db.models import Sum
 from django.db import OperationalError, ProgrammingError
 from django.utils import timezone
 from rest_framework import status
@@ -8,11 +10,21 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from . import serializers as workforce_serializers
 from .crypto import encrypt_token, mask_token
-from .models import Team, Developer, Client, Project, Subscription, Invoice, TaxReport, BankConnection
+from .models import (
+    Team,
+    Developer,
+    Client,
+    Project,
+    Subscription,
+    BankConnection,
+    RecurringExpense,
+    VariableExpense,
+)
 
 logger = logging.getLogger(__name__)
 SENSITIVE_FIELDS = {'token', 'access_token', 'refresh_token', 'id_token', 'authorization'}
@@ -209,3 +221,146 @@ class BankConnectionViewSet(SafeModelViewSet):
         )
         serializer = self.get_serializer(connection)
         return Response(serializer.data)
+
+
+class RecurringExpenseViewSet(SafeModelViewSet):
+    serializer_class = workforce_serializers.RecurringExpenseSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            RecurringExpense.objects.filter(created_by=self.request.user)
+            .select_related('team', 'project')
+            .order_by('-created_at')
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class VariableExpenseViewSet(SafeModelViewSet):
+    serializer_class = workforce_serializers.VariableExpenseSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            VariableExpense.objects.filter(created_by=self.request.user)
+            .select_related('assignee', 'team', 'project')
+            .order_by('-expense_date', '-created_at')
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class AnalyticsOverviewAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    @staticmethod
+    def _monthly_amount(expense):
+        if expense.cycle == RecurringExpense.Cycle.MONTHLY:
+            return expense.amount
+        if expense.cycle == RecurringExpense.Cycle.QUARTERLY:
+            return expense.amount / Decimal('3')
+        if expense.cycle == RecurringExpense.Cycle.YEARLY:
+            return expense.amount / Decimal('12')
+        return Decimal('0')
+
+    def get(self, request):
+        user = request.user
+        projects = Project.objects.filter(created_by=user).select_related('client')
+        recurring_expenses = list(RecurringExpense.objects.filter(created_by=user))
+        variable_expenses = list(VariableExpense.objects.filter(created_by=user))
+        developers = Developer.objects.filter(created_by=user, is_active=True)
+
+        total_revenue = projects.aggregate(total=Sum('revenue'))['total'] or Decimal('0')
+        total_labor_cost = projects.aggregate(total=Sum('labor_cost'))['total'] or Decimal('0')
+        monthly_recurring = sum((self._monthly_amount(expense) for expense in recurring_expenses), Decimal('0'))
+        variable_total = sum((expense.amount for expense in variable_expenses), Decimal('0'))
+        monthly_variable = variable_total / Decimal('3') if variable_expenses else Decimal('0')
+        total_monthly_costs = total_labor_cost + monthly_recurring + monthly_variable
+        tax_reserve = total_revenue * Decimal('0.05')
+        monthly_esv = Decimal('1760') / Decimal('3')
+        equipment_value = sum(
+            (expense.amount for expense in variable_expenses if expense.category == 'equipment'),
+            Decimal('0'),
+        )
+        monthly_depreciation = equipment_value / Decimal('36') if equipment_value else Decimal('0')
+        ebitda = total_revenue - total_labor_cost - monthly_recurring - monthly_variable
+        net_profit = ebitda - tax_reserve - monthly_esv - monthly_depreciation
+        current_cash = Decimal('45000')
+        monthly_burn = total_monthly_costs + tax_reserve + monthly_esv
+        runway_months = current_cash / monthly_burn if monthly_burn > 0 else Decimal('0')
+        profit_margin = (net_profit / total_revenue) * Decimal('100') if total_revenue > 0 else Decimal('0')
+
+        sources = []
+        for project in projects.filter(status__in=[Project.Status.ACTIVE, Project.Status.FINISHED]):
+            if project.revenue <= 0:
+                continue
+            sources.append(
+                {
+                    'id': project.id,
+                    'name': project.client.name,
+                    'amount': float(project.revenue),
+                }
+            )
+
+        total_team_rate = developers.aggregate(total=Sum('hourly_rate'))['total'] or Decimal('0')
+        destinations = [
+            {'id': 'labor', 'name': 'Salaries', 'amount': float(total_labor_cost), 'color': '#3B82F6'},
+            {
+                'id': 'overhead',
+                'name': 'Overheads',
+                'amount': float(monthly_recurring + monthly_variable),
+                'color': '#F59E0B',
+            },
+            {'id': 'taxes', 'name': 'Taxes & ESV', 'amount': float(tax_reserve + monthly_esv), 'color': '#EF4444'},
+            {'id': 'profit', 'name': 'Net Profit', 'amount': float(max(net_profit, Decimal('0'))), 'color': '#10B981'},
+        ]
+        cost_structure = []
+        base_total = total_monthly_costs if total_monthly_costs > 0 else Decimal('1')
+        for label, amount, color in [
+            ('Labor Costs', total_labor_cost, '#3B82F6'),
+            ('Recurring Overheads', monthly_recurring, '#F59E0B'),
+            ('Variable Expenses', monthly_variable, '#8B5CF6'),
+            ('Taxes & ESV', tax_reserve + monthly_esv, '#EF4444'),
+        ]:
+            cost_structure.append(
+                {
+                    'label': label,
+                    'amount': float(amount),
+                    'percent': float((amount / base_total) * Decimal('100')),
+                    'color': color,
+                }
+            )
+
+        payload = {
+            'health': {
+                'total_revenue': float(total_revenue),
+                'total_labor_cost': float(total_labor_cost),
+                'monthly_recurring': float(monthly_recurring),
+                'monthly_variable': float(monthly_variable),
+                'total_monthly_costs': float(total_monthly_costs),
+                'tax_reserve': float(tax_reserve),
+                'monthly_esv': float(monthly_esv),
+                'monthly_depreciation': float(monthly_depreciation),
+                'ebitda': float(ebitda),
+                'net_profit': float(net_profit),
+                'current_cash': float(current_cash),
+                'monthly_burn': float(monthly_burn),
+                'runway_months': float(runway_months),
+                'profit_margin': float(profit_margin),
+                'sankey': {
+                    'sources': sorted(sources, key=lambda x: x['amount'], reverse=True),
+                    'destinations': destinations,
+                    'total_income': float(sum(item['amount'] for item in sources)),
+                },
+                'cost_structure': cost_structure,
+                'meta': {
+                    'projects_count': projects.count(),
+                    'developers_count': developers.count(),
+                    'active_hourly_total': float(total_team_rate),
+                },
+            }
+        }
+        return Response(payload)

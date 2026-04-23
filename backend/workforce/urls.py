@@ -10,6 +10,9 @@ from .views import (
     InvoiceViewSet,
     TaxReportViewSet,
     BankConnectionViewSet,
+    RecurringExpenseViewSet,
+    VariableExpenseViewSet,
+    AnalyticsOverviewAPIView,
 )
 
 router = DefaultRouter()
@@ -21,7 +24,10 @@ router.register('subscriptions', SubscriptionViewSet, basename='subscription')
 router.register('invoices', InvoiceViewSet, basename='invoice')
 router.register('tax-reports', TaxReportViewSet, basename='tax-report')
 router.register('bank-connections', BankConnectionViewSet, basename='bank-connection')
+router.register('recurring-expenses', RecurringExpenseViewSet, basename='recurring-expense')
+router.register('variable-expenses', VariableExpenseViewSet, basename='variable-expense')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('analytics/overview/', AnalyticsOverviewAPIView.as_view(), name='analytics-overview'),
 ]
