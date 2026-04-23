@@ -1,16 +1,6 @@
 from django.contrib import admin
 
-from .models import (
-    Team,
-    Developer,
-    TeamMembership,
-    Client,
-    Project,
-    Subscription,
-    BankConnection,
-    BankAccount,
-    BankTransaction,
-)
+from .models import Team, Developer, TeamMembership, Client, Project, Subscription
 
 
 @admin.register(Team)
@@ -51,24 +41,3 @@ class SubscriptionAdmin(admin.ModelAdmin):
     list_display = ('plan_name', 'client', 'status', 'amount', 'currency', 'next_billing_date', 'created_by')
     list_filter = ('status', 'currency', 'billing_cycle')
     search_fields = ('plan_name', 'client__name', 'project__name')
-
-
-@admin.register(BankConnection)
-class BankConnectionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'provider', 'status', 'last_sync_at', 'updated_at')
-    list_filter = ('provider', 'status')
-    search_fields = ('user__email', 'external_client_id')
-
-
-@admin.register(BankAccount)
-class BankAccountAdmin(admin.ModelAdmin):
-    list_display = ('connection', 'external_account_id', 'currency', 'type', 'is_tracked', 'current_balance')
-    list_filter = ('currency', 'type', 'is_tracked')
-    search_fields = ('external_account_id', 'iban_masked_pan', 'connection__user__email')
-
-
-@admin.register(BankTransaction)
-class BankTransactionAdmin(admin.ModelAdmin):
-    list_display = ('account', 'external_tx_id', 'amount', 'currency', 'direction', 'occurred_at')
-    list_filter = ('currency', 'direction')
-    search_fields = ('external_tx_id', 'mcc', 'description', 'account__external_account_id')

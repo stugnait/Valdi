@@ -1,15 +1,6 @@
 from rest_framework import serializers
 
-from .models import (
-    Team,
-    Developer,
-    TeamMembership,
-    Client,
-    Project,
-    Subscription,
-    MonobankIntegration,
-    MonobankAccount,
-)
+from .models import Team, Developer, TeamMembership, Client, Project, Subscription
 
 
 class TeamMembershipSerializer(serializers.ModelSerializer):
@@ -203,49 +194,3 @@ class SubscriptionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'project': 'Проєкт має належати вибраному клієнту.'})
 
         return attrs
-
-
-class MonobankConnectSerializer(serializers.Serializer):
-    token = serializers.CharField(max_length=255, trim_whitespace=True)
-    name = serializers.CharField(max_length=120, required=False, default='Monobank')
-
-
-class MonobankAccountSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MonobankAccount
-        fields = (
-            'id',
-            'account_id',
-            'iban',
-            'currency_code',
-            'balance',
-            'cashback_type',
-            'type',
-            'masked_pan',
-            'is_tracking_enabled',
-            'created_at',
-            'updated_at',
-        )
-        read_only_fields = fields
-
-
-class MonobankIntegrationSerializer(serializers.ModelSerializer):
-    accounts_count = serializers.IntegerField(source='accounts.count', read_only=True)
-
-    class Meta:
-        model = MonobankIntegration
-        fields = (
-            'id',
-            'name',
-            'is_active',
-            'last_synced_at',
-            'accounts_count',
-            'created_at',
-            'updated_at',
-        )
-        read_only_fields = fields
-
-
-class MonobankTrackingPatchSerializer(serializers.Serializer):
-    account_id = serializers.CharField(max_length=100)
-    is_tracking_enabled = serializers.BooleanField()

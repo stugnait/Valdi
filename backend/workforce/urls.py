@@ -7,7 +7,6 @@ from .views import (
     ClientViewSet,
     ProjectViewSet,
     SubscriptionViewSet,
-    IntegrationViewSet,
 )
 
 router = DefaultRouter()
@@ -16,7 +15,6 @@ router.register('developers', DeveloperViewSet, basename='developer')
 router.register('clients', ClientViewSet, basename='client')
 router.register('projects', ProjectViewSet, basename='project')
 router.register('subscriptions', SubscriptionViewSet, basename='subscription')
-router.register('integrations', IntegrationViewSet, basename='integration')
 
 urlpatterns = [
     path('', include(router.urls)),
