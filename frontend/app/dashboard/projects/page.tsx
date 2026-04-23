@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import {
   Plus,
@@ -41,22 +41,86 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { 
-  mockProjects, 
   type Project, 
   type ProjectStatus,
   getStatusBadgeVariant,
   getStatusLabel,
   getBudgetHealthColor,
 } from "@/lib/types/projects"
+import { ApiProject, workforceApi } from "@/lib/api/workforce"
 
 const statusFilters: ProjectStatus[] = ["lead", "active", "finished", "paused"]
 
 export default function ProjectsHubPage() {
-  const [projects, setProjects] = useState<Project[]>(mockProjects)
+  const [projects, setProjects] = useState<Project[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<ProjectStatus[]>(["active", "lead"])
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const mapApiProject = (apiProject: ApiProject): Project => {
+    const revenue = Number(apiProject.revenue || 0)
+    const laborCost = Number(apiProject.labor_cost || 0)
+    const directOverheads = Number(apiProject.direct_overheads || 0)
+    const netProfit = revenue - laborCost - directOverheads
+    const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0
+    const totalContractValue = apiProject.total_contract_value ? Number(apiProject.total_contract_value) : undefined
+    const budgetUsedPercent = totalContractValue && totalContractValue > 0
+      ? ((laborCost + directOverheads) / totalContractValue) * 100
+      : 0
+
+    return {
+      id: apiProject.id.toString(),
+      name: apiProject.name,
+      client: {
+        id: apiProject.client.toString(),
+        name: apiProject.client_name,
+        createdAt: apiProject.created_at,
+        totalRevenue: 0,
+        activeProjects: 0,
+      },
+      status: apiProject.status,
+      startDate: apiProject.start_date,
+      endDate: apiProject.end_date,
+      tags: [],
+      billingModel: apiProject.billing_model,
+      currency: apiProject.currency,
+      totalContractValue,
+      clientHourlyRate: apiProject.client_hourly_rate ? Number(apiProject.client_hourly_rate) : undefined,
+      monthlyCap: apiProject.monthly_cap ?? undefined,
+      billingCycle: apiProject.billing_cycle ?? undefined,
+      taxReservePercent: apiProject.tax_reserve_percent ? Number(apiProject.tax_reserve_percent) : undefined,
+      revenue,
+      laborCost,
+      directOverheads,
+      bufferPercent: Number(apiProject.buffer_percent || 0),
+      allocations: [],
+      invoices: [],
+      expenses: [],
+      budgetUsedPercent,
+      netProfit,
+      profitMargin,
+    }
+  }
+
+  const loadProjects = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const response = await workforceApi.listProjects()
+      setProjects(response.map(mapApiProject))
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load projects")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadProjects()
+  }, [])
 
   const filteredProjects = projects.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -65,11 +129,17 @@ export default function ProjectsHubPage() {
     return matchesSearch && matchesStatus
   })
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!selectedProject) return
-    setProjects(projects.filter(p => p.id !== selectedProject.id))
-    setIsDeleteOpen(false)
-    setSelectedProject(null)
+    try {
+      setError(null)
+      await workforceApi.deleteProject(selectedProject.id)
+      await loadProjects()
+      setIsDeleteOpen(false)
+      setSelectedProject(null)
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete project")
+    }
   }
 
   const formatCurrency = (value: number) => {
@@ -116,6 +186,18 @@ export default function ProjectsHubPage() {
           </Link>
         </Button>
       </div>
+
+      {error && (
+        <Card className="border-destructive/40">
+          <CardContent className="pt-6 text-sm text-destructive">{error}</CardContent>
+        </Card>
+      )}
+
+      {isLoading && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Loading projects...</CardContent>
+        </Card>
+      )}
 
       {/* Header Stats */}
       <div className="grid gap-4 md:grid-cols-3">

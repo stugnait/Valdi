@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { 
   Plus, 
   Search, 
@@ -64,7 +64,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Client, mockClients, mockProjects } from "@/lib/types/projects"
+import { Client } from "@/lib/types/projects"
+import { ApiClient, ApiProject, workforceApi } from "@/lib/api/workforce"
 
 const countries = [
   "USA", "Ukraine", "Germany", "UK", "Canada", "Sweden", "Netherlands",
@@ -72,7 +73,10 @@ const countries = [
 ]
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>(mockClients)
+  const [clients, setClients] = useState<Client[]>([])
+  const [projects, setProjects] = useState<ApiProject[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [countryFilter, setCountryFilter] = useState<string>("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -104,6 +108,41 @@ export default function ClientsPage() {
     const matchesCountry = countryFilter === "all" || client.country === countryFilter
     return matchesSearch && matchesCountry
   })
+
+  const mapApiClient = (apiClient: ApiClient): Client => ({
+    id: apiClient.id.toString(),
+    name: apiClient.name,
+    company: apiClient.company || undefined,
+    email: apiClient.email || undefined,
+    contactPerson: apiClient.contact_person || undefined,
+    phone: apiClient.phone || undefined,
+    country: apiClient.country || undefined,
+    notes: apiClient.notes || undefined,
+    createdAt: apiClient.created_at,
+    totalRevenue: Number(apiClient.total_revenue || 0),
+    activeProjects: apiClient.active_projects ?? 0,
+  })
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const [clientsResponse, projectsResponse] = await Promise.all([
+        workforceApi.listClients(),
+        workforceApi.listProjects(),
+      ])
+      setClients(clientsResponse.map(mapApiClient))
+      setProjects(projectsResponse)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load clients")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadData()
+  }, [])
 
   const resetForm = () => {
     setFormData({
@@ -137,43 +176,50 @@ export default function ClientsPage() {
     setIsAddDialogOpen(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim()) return
+    try {
+      setError(null)
+      const payload = {
+        name: formData.name.trim(),
+        company: formData.company.trim(),
+        email: formData.email.trim(),
+        contact_person: formData.contactPerson.trim(),
+        phone: formData.phone.trim(),
+        country: formData.country.trim(),
+        notes: formData.notes.trim(),
+      }
 
-    const clientData: Client = {
-      id: editingClient?.id || `c${Date.now()}`,
-      name: formData.name.trim(),
-      company: formData.company.trim() || undefined,
-      email: formData.email.trim() || undefined,
-      contactPerson: formData.contactPerson.trim() || undefined,
-      phone: formData.phone.trim() || undefined,
-      country: formData.country || undefined,
-      notes: formData.notes.trim() || undefined,
-      createdAt: editingClient?.createdAt || new Date().toISOString().split("T")[0],
-      totalRevenue: editingClient?.totalRevenue || 0,
-      activeProjects: editingClient?.activeProjects || 0,
+      if (editingClient) {
+        await workforceApi.updateClient(editingClient.id, payload)
+      } else {
+        await workforceApi.createClient(payload)
+      }
+
+      await loadData()
+      setIsAddDialogOpen(false)
+      resetForm()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save client")
     }
-
-    if (editingClient) {
-      setClients(prev => prev.map(c => c.id === editingClient.id ? clientData : c))
-    } else {
-      setClients(prev => [...prev, clientData])
-    }
-
-    setIsAddDialogOpen(false)
-    resetForm()
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteClient) {
-      setClients(prev => prev.filter(c => c.id !== deleteClient.id))
-      setDeleteClient(null)
+      try {
+        setError(null)
+        await workforceApi.deleteClient(deleteClient.id)
+        await loadData()
+        setDeleteClient(null)
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete client")
+      }
     }
   }
 
   // Get projects for a client
   const getClientProjects = (clientId: string) => {
-    return mockProjects.filter(p => p.client.id === clientId)
+    return projects.filter((project) => project.client.toString() === clientId)
   }
 
   return (
@@ -191,6 +237,18 @@ export default function ClientsPage() {
           Add Client
         </Button>
       </div>
+
+      {error && (
+        <Card className="border-destructive/40">
+          <CardContent className="pt-6 text-sm text-destructive">{error}</CardContent>
+        </Card>
+      )}
+
+      {isLoading && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Loading clients...</CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -436,7 +494,7 @@ export default function ClientsPage() {
                       <div>
                         <div className="font-medium">{project.name}</div>
                         <div className="text-sm text-muted-foreground">
-                          {project.startDate} - {project.endDate}
+                          {project.start_date} - {project.end_date}
                         </div>
                       </div>
                       <div className="text-right">
@@ -444,7 +502,7 @@ export default function ClientsPage() {
                           {project.status}
                         </Badge>
                         <div className="text-sm font-medium mt-1">
-                          ${project.revenue.toLocaleString()}
+                          ${Number(project.revenue || 0).toLocaleString()}
                         </div>
                       </div>
                     </div>
