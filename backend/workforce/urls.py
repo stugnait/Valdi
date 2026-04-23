@@ -7,6 +7,8 @@ from .views import (
     ClientViewSet,
     ProjectViewSet,
     SubscriptionViewSet,
+    InvoiceViewSet,
+    TaxReportViewSet,
     BankConnectionViewSet,
 )
 
@@ -16,6 +18,8 @@ router.register('developers', DeveloperViewSet, basename='developer')
 router.register('clients', ClientViewSet, basename='client')
 router.register('projects', ProjectViewSet, basename='project')
 router.register('subscriptions', SubscriptionViewSet, basename='subscription')
+router.register('invoices', InvoiceViewSet, basename='invoice')
+router.register('tax-reports', TaxReportViewSet, basename='tax-report')
 router.register('bank-connections', BankConnectionViewSet, basename='bank-connection')
 
 urlpatterns = [

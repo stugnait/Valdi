@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { 
   Plus, 
   Search, 
@@ -59,7 +59,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Separator } from "@/components/ui/separator"
-import { mockProjects, mockClients } from "@/lib/types/projects"
+import { ApiProject, workforceApi } from "@/lib/api/workforce"
 
 type InvoiceStatus = "draft" | "sent" | "paid" | "overdue"
 
@@ -89,84 +89,6 @@ interface BankTransaction {
   source: string
 }
 
-// Mock data
-const mockInvoices: Invoice[] = [
-  {
-    id: "inv1",
-    number: "INV-2024-001",
-    projectId: "p1",
-    projectName: "E-commerce App",
-    clientId: "c1",
-    clientName: "Nike",
-    amount: 25500,
-    currency: "USD",
-    status: "paid",
-    issueDate: "2024-01-15",
-    dueDate: "2024-01-30",
-    paidDate: "2024-01-18",
-    description: "Prepayment 30%",
-    linkedTransactionId: "tx1",
-  },
-  {
-    id: "inv2",
-    number: "INV-2024-002",
-    projectId: "p1",
-    projectName: "E-commerce App",
-    clientId: "c1",
-    clientName: "Nike",
-    amount: 34000,
-    currency: "USD",
-    status: "paid",
-    issueDate: "2024-04-01",
-    dueDate: "2024-04-15",
-    paidDate: "2024-04-12",
-    description: "MVP Release 40%",
-    linkedTransactionId: "tx2",
-  },
-  {
-    id: "inv3",
-    number: "INV-2024-003",
-    projectId: "p1",
-    projectName: "E-commerce App",
-    clientId: "c1",
-    clientName: "Nike",
-    amount: 25500,
-    currency: "USD",
-    status: "sent",
-    issueDate: "2024-06-15",
-    dueDate: "2024-07-01",
-    description: "Final Delivery 30%",
-  },
-  {
-    id: "inv4",
-    number: "INV-2024-004",
-    projectId: "p2",
-    projectName: "Music Streaming Dashboard",
-    clientId: "c2",
-    clientName: "Spotify",
-    amount: 12000,
-    currency: "USD",
-    status: "overdue",
-    issueDate: "2024-05-01",
-    dueDate: "2024-05-15",
-    description: "May Hours",
-  },
-  {
-    id: "inv5",
-    number: "INV-2024-005",
-    projectId: "p3",
-    projectName: "Crypto Trading Platform",
-    clientId: "c3",
-    clientName: "CryptoExchange",
-    amount: 45000,
-    currency: "USD",
-    status: "draft",
-    issueDate: "2024-06-01",
-    dueDate: "2024-06-15",
-    description: "Phase 1: Core 30%",
-  },
-]
-
 const mockTransactions: BankTransaction[] = [
   { id: "tx10", date: "2024-06-18", amount: 25500, currency: "USD", description: "Nike Inc - Wire Transfer", source: "wise" },
   { id: "tx11", date: "2024-06-15", amount: 12000, currency: "USD", description: "Spotify AB - Payment", source: "wise" },
@@ -181,7 +103,8 @@ const statusConfig: Record<InvoiceStatus, { label: string; color: string; icon: 
 }
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [projects, setProjects] = useState<ApiProject[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -189,6 +112,7 @@ export default function InvoicesPage() {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
   const [deleteInvoice, setDeleteInvoice] = useState<Invoice | null>(null)
   const [linkingInvoice, setLinkingInvoice] = useState<Invoice | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   
   const [formData, setFormData] = useState({
     projectId: "",
@@ -198,6 +122,43 @@ export default function InvoicesPage() {
     description: "",
   })
 
+
+
+  const activeProjects = useMemo(() => projects.filter(project => project.status === "active"), [projects])
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [invoicesResponse, projectsResponse] = await Promise.all([
+          workforceApi.listInvoices(),
+          workforceApi.listProjects(),
+        ])
+        setProjects(projectsResponse)
+        setInvoices(
+          invoicesResponse.map(invoice => ({
+            id: String(invoice.id),
+            number: invoice.number,
+            projectId: String(invoice.project),
+            projectName: invoice.project_name,
+            clientId: String(invoice.client),
+            clientName: invoice.client_name,
+            amount: Number(invoice.amount),
+            currency: invoice.currency,
+            status: invoice.status,
+            issueDate: invoice.issue_date,
+            dueDate: invoice.due_date,
+            paidDate: invoice.paid_date ?? undefined,
+            description: invoice.description || undefined,
+            linkedTransactionId: invoice.linked_transaction_id || undefined,
+          }))
+        )
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    load()
+  }, [])
   // Stats
   const totalReceivable = invoices
     .filter(i => i.status === "sent" || i.status === "overdue")
@@ -255,70 +216,80 @@ export default function InvoicesPage() {
     setIsAddDialogOpen(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.projectId || !formData.amount || !formData.dueDate) return
-    
-    const project = mockProjects.find(p => p.id === formData.projectId)
+
+    const project = projects.find(p => String(p.id) === formData.projectId)
     if (!project) return
 
-    const invoiceData: Invoice = {
-      id: editingInvoice?.id || `inv${Date.now()}`,
-      number: editingInvoice?.number || `INV-2024-${String(invoices.length + 1).padStart(3, "0")}`,
-      projectId: formData.projectId,
-      projectName: project.name,
-      clientId: project.client.id,
-      clientName: project.client.name,
-      amount: parseFloat(formData.amount),
-      currency: formData.currency,
-      status: editingInvoice?.status || "draft",
-      issueDate: editingInvoice?.issueDate || new Date().toISOString().split("T")[0],
-      dueDate: formData.dueDate,
-      description: formData.description || undefined,
+    if (editingInvoice) {
+      await workforceApi.updateInvoice(editingInvoice.id, {
+        project: Number(formData.projectId),
+        client: project.client,
+        amount: parseFloat(formData.amount),
+        currency: formData.currency,
+        due_date: formData.dueDate,
+        description: formData.description,
+      })
+    } else {
+      await workforceApi.createInvoice({
+        number: `INV-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, "0")}`,
+        project: Number(formData.projectId),
+        client: project.client,
+        amount: parseFloat(formData.amount),
+        currency: formData.currency,
+        status: "draft",
+        issue_date: new Date().toISOString().split("T")[0],
+        due_date: formData.dueDate,
+        description: formData.description,
+      })
     }
 
-    if (editingInvoice) {
-      setInvoices(prev => prev.map(i => i.id === editingInvoice.id ? invoiceData : i))
-    } else {
-      setInvoices(prev => [...prev, invoiceData])
-    }
+    const refreshed = await workforceApi.listInvoices()
+    setInvoices(refreshed.map(invoice => ({
+      id: String(invoice.id),
+      number: invoice.number,
+      projectId: String(invoice.project),
+      projectName: invoice.project_name,
+      clientId: String(invoice.client),
+      clientName: invoice.client_name,
+      amount: Number(invoice.amount),
+      currency: invoice.currency,
+      status: invoice.status,
+      issueDate: invoice.issue_date,
+      dueDate: invoice.due_date,
+      paidDate: invoice.paid_date ?? undefined,
+      description: invoice.description || undefined,
+      linkedTransactionId: invoice.linked_transaction_id || undefined,
+    })))
 
     setIsAddDialogOpen(false)
     resetForm()
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteInvoice) {
+      await workforceApi.deleteInvoice(deleteInvoice.id)
       setInvoices(prev => prev.filter(i => i.id !== deleteInvoice.id))
       setDeleteInvoice(null)
     }
   }
 
-  const handleStatusChange = (invoice: Invoice, newStatus: InvoiceStatus) => {
-    setInvoices(prev => prev.map(i => {
-      if (i.id === invoice.id) {
-        return {
-          ...i,
-          status: newStatus,
-          paidDate: newStatus === "paid" ? new Date().toISOString().split("T")[0] : undefined,
-        }
-      }
-      return i
-    }))
+  const handleStatusChange = async (invoice: Invoice, newStatus: InvoiceStatus) => {
+    const paidDate = newStatus === "paid" ? new Date().toISOString().split("T")[0] : null
+    await workforceApi.updateInvoice(invoice.id, { status: newStatus, paid_date: paidDate })
+    setInvoices(prev => prev.map(i => i.id === invoice.id ? { ...i, status: newStatus, paidDate: paidDate ?? undefined } : i))
   }
 
-  const handleLinkTransaction = (transactionId: string) => {
+  const handleLinkTransaction = async (transactionId: string) => {
     if (linkingInvoice) {
-      setInvoices(prev => prev.map(i => {
-        if (i.id === linkingInvoice.id) {
-          return {
-            ...i,
-            status: "paid" as InvoiceStatus,
-            paidDate: new Date().toISOString().split("T")[0],
-            linkedTransactionId: transactionId,
-          }
-        }
-        return i
-      }))
+      const paidDate = new Date().toISOString().split("T")[0]
+      await workforceApi.updateInvoice(linkingInvoice.id, {
+        status: "paid",
+        paid_date: paidDate,
+        linked_transaction_id: transactionId,
+      })
+      setInvoices(prev => prev.map(i => i.id === linkingInvoice.id ? { ...i, status: "paid", paidDate, linkedTransactionId: transactionId } : i))
       setIsLinkDialogOpen(false)
       setLinkingInvoice(null)
     }
@@ -567,9 +538,9 @@ export default function InvoicesPage() {
                   <SelectValue placeholder="Select project" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockProjects.filter(p => p.status === "active").map(project => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name} - {project.client.name}
+                  {activeProjects.map(project => (
+                    <SelectItem key={project.id} value={String(project.id)}>
+                      {project.name} - {project.client_name}
                     </SelectItem>
                   ))}
                 </SelectContent>

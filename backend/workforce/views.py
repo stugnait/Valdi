@@ -12,7 +12,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from . import serializers as workforce_serializers
 from .crypto import encrypt_token, mask_token
-from .models import Team, Developer, Client, Project, Subscription, BankConnection
+from .models import Team, Developer, Client, Project, Subscription, Invoice, TaxReport, BankConnection
 
 logger = logging.getLogger(__name__)
 SENSITIVE_FIELDS = {'token', 'access_token', 'refresh_token', 'id_token', 'authorization'}
@@ -134,6 +134,32 @@ class SubscriptionViewSet(SafeModelViewSet):
             .select_related('client', 'project')
             .order_by('-updated_at')
         )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class InvoiceViewSet(SafeModelViewSet):
+    serializer_class = workforce_serializers.InvoiceSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            Invoice.objects.filter(created_by=self.request.user)
+            .select_related('project', 'client')
+            .order_by('-issue_date', '-created_at')
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class TaxReportViewSet(SafeModelViewSet):
+    serializer_class = workforce_serializers.TaxReportSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return TaxReport.objects.filter(created_by=self.request.user).order_by('-year', '-quarter')
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

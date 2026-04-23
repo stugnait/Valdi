@@ -1,6 +1,16 @@
 from rest_framework import serializers
 
-from .models import Team, Developer, TeamMembership, Client, Project, Subscription, BankConnection
+from .models import (
+    Team,
+    Developer,
+    TeamMembership,
+    Client,
+    Project,
+    Subscription,
+    Invoice,
+    TaxReport,
+    BankConnection,
+)
 
 
 class TeamMembershipSerializer(serializers.ModelSerializer):
@@ -254,3 +264,65 @@ class BankConnectionSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    project_name = serializers.CharField(source='project.name', read_only=True)
+    client_name = serializers.CharField(source='client.name', read_only=True)
+
+    class Meta:
+        model = Invoice
+        fields = (
+            'id',
+            'number',
+            'project',
+            'project_name',
+            'client',
+            'client_name',
+            'amount',
+            'currency',
+            'status',
+            'issue_date',
+            'due_date',
+            'paid_date',
+            'description',
+            'linked_transaction_id',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'project_name', 'client_name', 'created_at', 'updated_at')
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        project = attrs.get('project') or getattr(self.instance, 'project', None)
+        client = attrs.get('client') or getattr(self.instance, 'client', None)
+
+        if project and project.created_by_id != user.id:
+            raise serializers.ValidationError({'project': 'Не можна використовувати проєкт іншого користувача.'})
+
+        if client and client.created_by_id != user.id:
+            raise serializers.ValidationError({'client': 'Не можна використовувати клієнта іншого користувача.'})
+
+        if project and client and project.client_id != client.id:
+            raise serializers.ValidationError({'project': 'Проєкт має належати вибраному клієнту.'})
+
+        return attrs
+
+
+class TaxReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaxReport
+        fields = (
+            'id',
+            'year',
+            'quarter',
+            'income',
+            'tax_ep',
+            'esv_paid',
+            'total_due',
+            'paid_date',
+            'status',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
