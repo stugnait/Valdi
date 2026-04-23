@@ -1,7 +1,6 @@
 from rest_framework import serializers
 
-from .crypto import encrypt_token, mask_token
-from .models import Team, Developer, TeamMembership, Client, Project, Subscription, BankConnection
+from .models import Team, Developer, TeamMembership, Client, Project, Subscription
 
 
 class TeamMembershipSerializer(serializers.ModelSerializer):
@@ -195,52 +194,3 @@ class SubscriptionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'project': 'Проєкт має належати вибраному клієнту.'})
 
         return attrs
-
-
-class BankConnectionSerializer(serializers.ModelSerializer):
-    token = serializers.CharField(write_only=True, required=False, trim_whitespace=True)
-
-    class Meta:
-        model = BankConnection
-        fields = (
-            'id',
-            'provider',
-            'status',
-            'token',
-            'token_masked',
-            'connected_at',
-            'last_sync',
-            'last_error',
-            'disabled_reason',
-            'created_at',
-            'updated_at',
-        )
-        read_only_fields = (
-            'id',
-            'token_masked',
-            'connected_at',
-            'last_sync',
-            'last_error',
-            'disabled_reason',
-            'created_at',
-            'updated_at',
-            'status',
-        )
-
-    def create(self, validated_data):
-        token = validated_data.pop('token', '').strip()
-        if not token:
-            raise serializers.ValidationError({'token': 'Token is required.'})
-        validated_data['encrypted_token'] = encrypt_token(token)
-        validated_data['token_masked'] = mask_token(token)
-        validated_data['status'] = BankConnection.Status.CONNECTED
-        validated_data['last_error'] = ''
-        validated_data['disabled_reason'] = ''
-        return super().create(validated_data)
-
-    def update(self, instance, validated_data):
-        token = validated_data.pop('token', None)
-        if token:
-            instance.encrypted_token = encrypt_token(token)
-            instance.token_masked = mask_token(token)
-        return super().update(instance, validated_data)

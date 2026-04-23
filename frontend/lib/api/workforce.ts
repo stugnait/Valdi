@@ -98,19 +98,6 @@ export interface ApiSubscription {
   updated_at: string
 }
 
-
-export interface ApiBankConnection {
-  id: number
-  provider: "monobank" | "privat24" | "wise" | "revolut"
-  status: "connected" | "error" | "syncing" | "disabled"
-  token_masked: string
-  connected_at: string
-  last_sync: string | null
-  last_error: string
-  disabled_reason: string
-  created_at: string
-  updated_at: string
-}
 function getAccessToken() {
   if (typeof window === "undefined") return ""
   return localStorage.getItem("access_token") ?? ""
@@ -194,9 +181,4 @@ export const workforceApi = {
   updateSubscription: (id: string | number, payload: Partial<ApiSubscription>) =>
     apiRequest<ApiSubscription>(`/api/subscriptions/${id}/`, { method: "PATCH", body: JSON.stringify(payload) }),
   deleteSubscription: (id: string | number) => apiRequest<void>(`/api/subscriptions/${id}/`, { method: "DELETE" }),
-
-  listBankConnections: () => apiRequest<ApiBankConnection[]>("/api/bank-connections/"),
-  connectBank: (payload: { provider: ApiBankConnection['provider']; token: string }) =>
-    apiRequest<ApiBankConnection>("/api/bank-connections/", { method: "POST", body: JSON.stringify(payload) }),
-  deleteBankConnection: (id: string | number) => apiRequest<void>(`/api/bank-connections/${id}/`, { method: "DELETE" }),
 }
