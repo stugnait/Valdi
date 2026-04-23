@@ -10,7 +10,7 @@ from urllib import error, parse, request
 from django.db import transaction
 from django.utils import timezone as dj_timezone
 
-from workforce.models import BankAccount, BankTransaction
+from ..models import BankAccount, BankTransaction
 
 logger = logging.getLogger(__name__)
 
