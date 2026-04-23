@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, use } from "react"
+import { useEffect, useState, use } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -66,7 +66,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { 
-  mockProjects, 
   type Project, 
   type Invoice,
   type ResourceAllocation,
@@ -75,13 +74,77 @@ import {
   getStatusBadgeVariant,
   getStatusLabel,
 } from "@/lib/types/projects"
+import { ApiProject, workforceApi } from "@/lib/api/workforce"
 import { mockTeams, type TeamMember } from "@/lib/types/teams"
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const initialProject = mockProjects.find((p) => p.id === id)
-  
-  const [project, setProject] = useState<Project | null>(initialProject || null)
+  const [project, setProject] = useState<Project | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const mapApiProject = (apiProject: ApiProject): Project => {
+    const revenue = Number(apiProject.revenue || 0)
+    const laborCost = Number(apiProject.labor_cost || 0)
+    const directOverheads = Number(apiProject.direct_overheads || 0)
+    const netProfit = revenue - laborCost - directOverheads
+    const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0
+    const totalContractValue = apiProject.total_contract_value ? Number(apiProject.total_contract_value) : undefined
+    const budgetUsedPercent = totalContractValue && totalContractValue > 0
+      ? ((laborCost + directOverheads) / totalContractValue) * 100
+      : 0
+
+    return {
+      id: apiProject.id.toString(),
+      name: apiProject.name,
+      client: {
+        id: apiProject.client.toString(),
+        name: apiProject.client_name,
+        createdAt: apiProject.created_at,
+        totalRevenue: 0,
+        activeProjects: 0,
+      },
+      status: apiProject.status,
+      startDate: apiProject.start_date,
+      endDate: apiProject.end_date,
+      tags: [],
+      billingModel: apiProject.billing_model,
+      currency: apiProject.currency,
+      totalContractValue,
+      clientHourlyRate: apiProject.client_hourly_rate ? Number(apiProject.client_hourly_rate) : undefined,
+      monthlyCap: apiProject.monthly_cap ?? undefined,
+      billingCycle: apiProject.billing_cycle ?? undefined,
+      taxReservePercent: apiProject.tax_reserve_percent ? Number(apiProject.tax_reserve_percent) : undefined,
+      revenue,
+      laborCost,
+      directOverheads,
+      bufferPercent: Number(apiProject.buffer_percent || 0),
+      allocations: [],
+      invoices: [],
+      expenses: [],
+      budgetUsedPercent,
+      netProfit,
+      profitMargin,
+    }
+  }
+
+  useEffect(() => {
+    const loadProject = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const apiProject = await workforceApi.getProject(id)
+        setProject(mapApiProject(apiProject))
+      } catch (loadError) {
+        setProject(null)
+        setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проект")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void loadProject()
+  }, [id])
   
   // Invoice CRUD
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false)
@@ -119,10 +182,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   // Get all team members for allocation
   const allMembers = mockTeams.flatMap(t => t.members.map(m => ({ ...m, teamId: t.id, teamName: t.name })))
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-muted-foreground">Завантаження проекту...</p>
+      </div>
+    )
+  }
+
   if (!project) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-muted-foreground">Проект не знайдено</p>
+        <p className="text-muted-foreground">{error || "Проект не знайдено"}</p>
         <Button variant="outline" className="mt-4" asChild>
           <Link href="/dashboard/projects">Повернутися до Project Hub</Link>
         </Button>

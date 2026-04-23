@@ -202,6 +202,7 @@ export const workforceApi = {
   deleteClient: (id: string | number) => apiRequest<void>(`/api/clients/${id}/`, { method: "DELETE" }),
 
   listProjects: () => apiRequest<ApiProject[]>("/api/projects/"),
+  getProject: (id: string | number) => apiRequest<ApiProject>(`/api/projects/${id}/`),
   createProject: (payload: Partial<ApiProject>) =>
     apiRequest<ApiProject>("/api/projects/", { method: "POST", body: JSON.stringify(payload) }),
   updateProject: (id: string | number, payload: Partial<ApiProject>) =>
