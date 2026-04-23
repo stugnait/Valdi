@@ -9,6 +9,7 @@ from .models import (
     Subscription,
     Invoice,
     TaxReport,
+    AutomationRule,
     BankConnection,
     RecurringExpense,
     VariableExpense,
@@ -266,6 +267,23 @@ class TaxReportSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+
+class AutomationRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AutomationRule
+        fields = (
+            'id',
+            'name',
+            'is_active',
+            'conditions',
+            'actions',
+            'match_count',
+            'last_match_date',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'match_count', 'last_match_date', 'created_at', 'updated_at')
 
 
 class BankConnectionSerializer(serializers.ModelSerializer):
