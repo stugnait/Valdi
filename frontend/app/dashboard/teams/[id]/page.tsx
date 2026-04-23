@@ -75,6 +75,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
+const MONTHLY_HOURS = 160
 
 export default function TeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -92,6 +93,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     role: "",
     baseRate: "",
     rateType: "monthly" as "monthly" | "hourly",
+    teamOverheadShare: "0",
+    companyOverheadShare: "280",
     skills: [] as Skill[],
     teamMemberships: [] as TeamMembership[],
   })
@@ -107,12 +110,15 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     category: "",
   })
 
-  const toUiTeam = (apiTeam: ApiTeam, developersById: Map<number, ApiDeveloper>): Team => {
+  const toUiTeam = (
+    apiTeam: ApiTeam,
+    developersById: Map<number, ApiDeveloper>,
+    totals: { revenue: number; laborCost: number }
+  ): Team => {
     const members = apiTeam.memberships.map((membership) => {
       const developer = developersById.get(membership.developer)
-      const baseRate = Number(developer?.hourly_rate ?? 0) * 160
+      const baseRate = Number(developer?.hourly_rate ?? 0) * MONTHLY_HOURS
       const utilization = membership.allocation
-      const revenue = baseRate * 1.4
 
       return {
         id: String(membership.developer),
@@ -125,12 +131,20 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         companyOverheadShare: 280,
         skills: [],
         utilization,
-        revenue,
+        revenue: 0,
         teamMemberships: [{ teamId: String(apiTeam.id), teamName: apiTeam.name, allocation: membership.allocation }],
       }
     })
-    const burnRate = members.reduce((sum, member) => sum + member.baseRate * (member.utilization / 100), 0)
-    const totalRevenue = members.reduce((sum, member) => sum + member.revenue * (member.utilization / 100), 0)
+    const membersWithCost = members.map((member) => ({
+      ...member,
+      monthlyCost: (member.baseRate + member.teamOverheadShare + member.companyOverheadShare) * (member.utilization / 100),
+    }))
+    const burnRate = membersWithCost.reduce((sum, member) => sum + member.monthlyCost, 0)
+    const totalRevenue = totals.laborCost > 0 ? (burnRate / totals.laborCost) * totals.revenue : 0
+    const membersWithRevenue = membersWithCost.map((member) => ({
+      ...member,
+      revenue: burnRate > 0 ? (member.monthlyCost / burnRate) * totalRevenue : 0,
+    }))
     const utilization = members.length > 0
       ? Math.round(members.reduce((sum, member) => sum + member.utilization, 0) / members.length)
       : 0
@@ -153,7 +167,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       burnRate,
       utilization,
       efficiencyScore: burnRate > 0 ? totalRevenue / burnRate : 0,
-      members,
+      members: membersWithRevenue,
       overheads: [],
       burnRateHistory,
     }
@@ -172,12 +186,20 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     setIsLoading(true)
     setError("")
     try {
-      const [apiTeam, developers] = await Promise.all([
+      const [apiTeam, developers, projects] = await Promise.all([
         workforceApi.getTeam(id),
         workforceApi.listDevelopers(),
+        workforceApi.listProjects(),
       ])
+      const totals = projects.reduce(
+        (acc, project) => ({
+          revenue: acc.revenue + Number(project.revenue ?? 0),
+          laborCost: acc.laborCost + Number(project.labor_cost ?? 0),
+        }),
+        { revenue: 0, laborCost: 0 }
+      )
       const developersById = new Map(developers.map((developer) => [developer.id, developer]))
-      setTeam(toUiTeam(apiTeam, developersById))
+      setTeam(toUiTeam(apiTeam, developersById, totals))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося завантажити команду")
     } finally {
@@ -219,18 +241,21 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
 
     try {
       const baseRate = parseFloat(memberForm.baseRate) || 0
+      const hourlyRate = memberForm.rateType === "monthly" ? baseRate / MONTHLY_HOURS : baseRate
+      const teamOverheadShare = parseFloat(memberForm.teamOverheadShare) || 0
+      const companyOverheadShare = parseFloat(memberForm.companyOverheadShare) || 0
       const apiDeveloper = selectedMember
         ? await workforceApi.updateDeveloper(selectedMember.id, {
             full_name: memberForm.name,
             email: memberForm.email,
             role: memberForm.role,
-            hourly_rate: baseRate,
+            hourly_rate: hourlyRate,
           })
         : await workforceApi.createDeveloper({
             full_name: memberForm.name,
             email: memberForm.email,
             role: memberForm.role,
-            hourly_rate: baseRate,
+            hourly_rate: hourlyRate,
             is_active: true,
           })
 
@@ -241,8 +266,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: memberForm.role,
       baseRate,
       rateType: memberForm.rateType,
-      teamOverheadShare: 0,
-      companyOverheadShare: 280,
+      teamOverheadShare,
+      companyOverheadShare,
       skills: memberForm.skills,
       utilization: 0,
       revenue: 0,
@@ -287,6 +312,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: member.role,
       baseRate: member.baseRate.toString(),
       rateType: member.rateType,
+      teamOverheadShare: member.teamOverheadShare.toString(),
+      companyOverheadShare: member.companyOverheadShare.toString(),
       skills: member.skills,
       teamMemberships: member.teamMemberships,
     })
@@ -302,6 +329,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: "",
       baseRate: "",
       rateType: "monthly",
+      teamOverheadShare: "0",
+      companyOverheadShare: "280",
       skills: [],
       teamMemberships: [],
     })
@@ -916,6 +945,28 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                     <SelectItem value="hourly">Погодинна</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="member-team-overhead">Team Overhead ($/міс)</Label>
+                <Input
+                  id="member-team-overhead"
+                  type="number"
+                  value={memberForm.teamOverheadShare}
+                  onChange={(e) => setMemberForm({ ...memberForm, teamOverheadShare: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="member-company-overhead">Company Overhead ($/міс)</Label>
+                <Input
+                  id="member-company-overhead"
+                  type="number"
+                  value={memberForm.companyOverheadShare}
+                  onChange={(e) => setMemberForm({ ...memberForm, companyOverheadShare: e.target.value })}
+                  placeholder="280"
+                />
               </div>
             </div>
             <div className="space-y-2">
