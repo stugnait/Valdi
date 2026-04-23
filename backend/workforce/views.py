@@ -1,8 +1,15 @@
 from django.db import OperationalError, ProgrammingError
+from django.utils import timezone
 from rest_framework import status
+from rest_framework.decorators import action
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
+from urllib import error as url_error, parse as url_parse, request as url_request
+import hashlib
+import json
+from datetime import datetime, timedelta
 
 from .models import Team, Developer, Client, Project, Subscription
 from .serializers import (
