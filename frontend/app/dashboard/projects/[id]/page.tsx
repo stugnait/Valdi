@@ -162,6 +162,36 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     description: apiInvoice.description || undefined,
   })
 
+  const buildDefaultAllocationsFromTeams = (
+    availableTeams: ApiTeam[],
+    availableDevelopers: ApiDeveloper[]
+  ): ResourceAllocation[] => {
+    const developerRateById = availableDevelopers.reduce<Record<number, number>>((acc, developer) => {
+      acc[developer.id] = Number(developer.hourly_rate || 0)
+      return acc
+    }, {})
+
+    return availableTeams.flatMap((team) =>
+      team.memberships.map((membership) => {
+        const hourlyRate = developerRateById[membership.developer] || 0
+        const memberRole = availableDevelopers.find((developer) => developer.id === membership.developer)?.role || "Developer"
+        const defaultAllocation = membership.allocation || 100
+        const monthlyCost = hourlyRate * 160 * (defaultAllocation / 100)
+
+        return {
+          id: `alloc-${team.id}-${membership.developer}`,
+          memberId: `${team.id}-${membership.developer}`,
+          memberName: membership.developer_name || `Developer #${membership.developer}`,
+          memberRole,
+          teamId: String(team.id),
+          teamName: team.name,
+          allocation: defaultAllocation,
+          monthlyCost,
+        }
+      })
+    )
+  }
+
   useEffect(() => {
     const loadProject = async () => {
       try {
@@ -194,7 +224,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           }
         }
 
-        setProject({ ...mappedProject, invoices: projectInvoices, allocations: persistedAllocations })
+        const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse)
+        const initialAllocations = persistedAllocations.length > 0 ? persistedAllocations : fallbackAllocations
+
+        setProject({ ...mappedProject, invoices: projectInvoices, allocations: initialAllocations })
       } catch (loadError) {
         setProject(null)
         setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проект")
