@@ -57,6 +57,12 @@ class MonobankAPIError(Exception):
     pass
 
 
+class MonobankRateLimitError(MonobankAPIError):
+    def __init__(self, message: str, *, retry_after: int | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 @dataclass
 class SyncResult:
     account: BankAccount
@@ -106,6 +112,13 @@ class MonobankClient:
                     continue
 
                 message = exc.read().decode('utf-8', errors='ignore')
+                if exc.code == 429:
+                    retry_after = exc.headers.get('Retry-After')
+                    retry_after_seconds = int(retry_after) if retry_after and retry_after.isdigit() else None
+                    raise MonobankRateLimitError(
+                        f'Monobank rate limit reached: {message or "Too many requests"}',
+                        retry_after=retry_after_seconds,
+                    ) from exc
                 raise MonobankAPIError(f'Monobank request failed ({exc.code}): {message}') from exc
             except error.URLError as exc:
                 if attempt < self.max_retries:

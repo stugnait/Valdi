@@ -7,7 +7,7 @@ from django.db import OperationalError, ProgrammingError
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import Throttled, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -28,7 +28,7 @@ from .models import (
     RecurringExpense,
     VariableExpense,
 )
-from .services.monobank import MonobankAPIError, sync_accounts_and_statements
+from .services.monobank import MonobankAPIError, MonobankRateLimitError, sync_accounts_and_statements
 
 logger = logging.getLogger(__name__)
 SENSITIVE_FIELDS = {'token', 'access_token', 'refresh_token', 'id_token', 'authorization'}
@@ -259,6 +259,16 @@ class BankConnectionViewSet(SafeModelViewSet):
                 user=connection.created_by,
                 sync_results=sync_results,
             )
+        except MonobankRateLimitError as exc:
+            connection.status = BankConnection.Status.ERROR
+            retry_after = exc.retry_after or 60
+            connection.last_error = f'Rate limit exceeded. Retry in ~{retry_after} sec.'
+            connection.last_sync = timezone.now()
+            connection.save(update_fields=['status', 'last_error', 'last_sync', 'updated_at'])
+            raise Throttled(
+                wait=retry_after,
+                detail='Monobank тимчасово обмежив запити. Спробуй повторити синк трохи пізніше.',
+            ) from exc
         except MonobankAPIError as exc:
             connection.status = BankConnection.Status.ERROR
             connection.last_error = str(exc)
