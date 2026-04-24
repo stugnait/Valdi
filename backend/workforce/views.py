@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from . import serializers as workforce_serializers
-from .crypto import encrypt_token, mask_token
+from .crypto import decrypt_token, encrypt_token, mask_token
 from .models import (
     Team,
     Developer,
@@ -28,6 +28,7 @@ from .models import (
     RecurringExpense,
     VariableExpense,
 )
+from .services.monobank import MonobankAPIError, sync_accounts_and_statements
 
 logger = logging.getLogger(__name__)
 SENSITIVE_FIELDS = {'token', 'access_token', 'refresh_token', 'id_token', 'authorization'}
@@ -199,15 +200,20 @@ class BankConnectionViewSet(SafeModelViewSet):
         return BankConnection.objects.filter(created_by=self.request.user).order_by('-updated_at')
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        connection = serializer.save(created_by=self.request.user)
+        if connection.provider == BankConnection.Provider.MONOBANK:
+            self._sync_monobank_connection(connection)
 
     @action(detail=True, methods=['post'], url_path='sync')
     def sync(self, request, pk=None):
         connection = self.get_object()
-        connection.status = BankConnection.Status.CONNECTED
-        connection.last_sync = timezone.now()
-        connection.last_error = ''
-        connection.save(update_fields=['status', 'last_sync', 'last_error', 'updated_at'])
+        if connection.provider == BankConnection.Provider.MONOBANK:
+            self._sync_monobank_connection(connection)
+        else:
+            connection.status = BankConnection.Status.CONNECTED
+            connection.last_sync = timezone.now()
+            connection.last_error = ''
+            connection.save(update_fields=['status', 'last_sync', 'last_error', 'updated_at'])
         serializer = self.get_serializer(connection)
         return Response(serializer.data)
 
@@ -233,8 +239,65 @@ class BankConnectionViewSet(SafeModelViewSet):
                 'updated_at',
             ]
         )
+        if connection.provider == BankConnection.Provider.MONOBANK:
+            self._sync_monobank_connection(connection)
         serializer = self.get_serializer(connection)
         return Response(serializer.data)
+
+    def _sync_monobank_connection(self, connection):
+        connection.status = BankConnection.Status.SYNCING
+        connection.last_error = ''
+        connection.save(update_fields=['status', 'last_error', 'updated_at'])
+
+        try:
+            token = decrypt_token(connection.encrypted_token)
+            sync_results = sync_accounts_and_statements(
+                user=connection.created_by,
+                token=token,
+            )
+            self._sync_variable_expenses_from_monobank(
+                user=connection.created_by,
+                sync_results=sync_results,
+            )
+        except MonobankAPIError as exc:
+            connection.status = BankConnection.Status.ERROR
+            connection.last_error = str(exc)
+            connection.last_sync = timezone.now()
+            connection.save(update_fields=['status', 'last_error', 'last_sync', 'updated_at'])
+            raise ValidationError({'detail': 'Не вдалося синхронізувати Monobank. Перевір токен та повтори спробу.'}) from exc
+        except Exception as exc:  # noqa: BLE001
+            logger.exception('Unexpected Monobank sync error for connection=%s', connection.id)
+            connection.status = BankConnection.Status.ERROR
+            connection.last_error = str(exc)
+            connection.last_sync = timezone.now()
+            connection.save(update_fields=['status', 'last_error', 'last_sync', 'updated_at'])
+            raise ValidationError({'detail': 'Під час синхронізації сталася неочікувана помилка.'}) from exc
+
+        connection.status = BankConnection.Status.CONNECTED
+        connection.last_sync = timezone.now()
+        connection.last_error = ''
+        connection.disabled_reason = ''
+        connection.save(update_fields=['status', 'last_sync', 'last_error', 'disabled_reason', 'updated_at'])
+
+    @staticmethod
+    def _sync_variable_expenses_from_monobank(*, user, sync_results):
+        for result in sync_results:
+            debit_transactions = result.account.transactions.filter(direction=result.account.transactions.model.Direction.DEBIT)
+            for transaction in debit_transactions:
+                VariableExpense.objects.update_or_create(
+                    created_by=user,
+                    external_tx_id=transaction.external_tx_id,
+                    defaults={
+                        'name': transaction.description[:180] or transaction.counterparty[:180] or 'Card transaction',
+                        'amount': abs(transaction.amount),
+                        'currency': transaction.currency,
+                        'category': transaction.category or 'other',
+                        'source': VariableExpense.Source.MONOBANK,
+                        'expense_date': transaction.occurred_at.date(),
+                        'description': transaction.description,
+                        'allocation_type': VariableExpense.AllocationType.NONE,
+                    },
+                )
 
 
 class RecurringExpenseViewSet(SafeModelViewSet):
