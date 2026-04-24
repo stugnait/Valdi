@@ -371,7 +371,7 @@ class BankAccount(models.Model):
         related_name='bank_accounts',
     )
     iban = models.CharField(max_length=64, blank=True)
-    masked_pan = models.CharField(max_length=32, blank=True)
+    masked_pan = models.CharField(max_length=128, blank=True)
     holder = models.CharField(max_length=150, blank=True)
     currency = models.CharField(max_length=3, default='UAH')
     timezone = models.CharField(max_length=64, default='UTC')
