@@ -193,6 +193,8 @@ def _fetch_statement_chunks(*, client: MonobankClient, account: BankAccount, fro
 def _upsert_bank_account(*, user, account_data: dict[str, Any], holder: str) -> BankAccount:
     currency = normalize_currency(account_data.get('currencyCode'))
     balance = minor_to_major(account_data.get('balance', 0))
+    masked_pan = ','.join(account_data.get('maskedPan', []))
+    max_pan_length = BankAccount._meta.get_field('masked_pan').max_length or 128
 
     account, _ = BankAccount.objects.update_or_create(
         provider=BankAccount.Provider.MONOBANK,
@@ -200,7 +202,7 @@ def _upsert_bank_account(*, user, account_data: dict[str, Any], holder: str) -> 
         created_by=user,
         defaults={
             'iban': account_data.get('iban', ''),
-            'masked_pan': ','.join(account_data.get('maskedPan', [])),
+            'masked_pan': masked_pan[:max_pan_length],
             'holder': holder,
             'currency': currency,
             'timezone': 'UTC',
