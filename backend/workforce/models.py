@@ -531,6 +531,7 @@ class VariableExpense(models.Model):
     source = models.CharField(max_length=32, choices=Source.choices, default=Source.MONOBANK)
     expense_date = models.DateField()
     receipt_url = models.CharField(max_length=300, blank=True)
+    external_tx_id = models.CharField(max_length=128, blank=True, db_index=True)
     description = models.TextField(blank=True)
     allocation_type = models.CharField(max_length=16, choices=AllocationType.choices, default=AllocationType.ALL)
     assignee = models.ForeignKey(
