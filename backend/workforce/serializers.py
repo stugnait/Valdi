@@ -392,6 +392,7 @@ class VariableExpenseSerializer(serializers.ModelSerializer):
             'source',
             'expense_date',
             'receipt_url',
+            'external_tx_id',
             'description',
             'allocation_type',
             'assignee',
@@ -400,7 +401,7 @@ class VariableExpenseSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('id', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'external_tx_id', 'created_at', 'updated_at')
 
     def validate(self, attrs):
         user = self.context['request'].user
