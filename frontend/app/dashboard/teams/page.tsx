@@ -47,6 +47,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { type Team } from "@/lib/types/teams"
 import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
+import { deleteTeamUiMeta, getTeamUiMeta, setTeamUiMeta } from "@/lib/storage/team-ui"
 
 const colorOptions = [
   { name: "Blue", value: "#2563eb" },
@@ -78,7 +79,8 @@ export default function TeamsHubPage() {
     totals: { revenue: number; laborCost: number }
   ): Team => {
     const normalizedId = String(team.id)
-    const color = colorOptions[team.id % colorOptions.length]?.value ?? "#2563eb"
+    const defaultColor = colorOptions[team.id % colorOptions.length]?.value ?? "#2563eb"
+    const color = getTeamUiMeta(String(team.id)).color ?? defaultColor
     const members = team.memberships.map((membership) => {
       const developer = developersById.get(membership.developer)
       const baseRate = Number(developer?.hourly_rate ?? 0) * MONTHLY_HOURS
@@ -155,6 +157,13 @@ export default function TeamsHubPage() {
         name: formData.name.trim(),
         description: formData.description.trim(),
       })
+      const teamsData = await workforceApi.listTeams()
+      const createdTeam = teamsData
+        .filter((team) => team.name === formData.name.trim())
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+      if (createdTeam) {
+        setTeamUiMeta(String(createdTeam.id), { color: formData.color })
+      }
       await loadTeams()
       setIsCreateOpen(false)
       setFormData({ name: "", description: "", color: "#2563eb" })
@@ -170,6 +179,7 @@ export default function TeamsHubPage() {
         name: formData.name.trim(),
         description: formData.description.trim(),
       })
+      setTeamUiMeta(selectedTeam.id, { color: formData.color })
       await loadTeams()
       setIsEditOpen(false)
       setSelectedTeam(null)
@@ -183,6 +193,7 @@ export default function TeamsHubPage() {
     if (!selectedTeam) return
     try {
       await workforceApi.deleteTeam(selectedTeam.id)
+      deleteTeamUiMeta(selectedTeam.id)
       setTeams((prev) => prev.filter((team) => team.id !== selectedTeam.id))
       setIsDeleteOpen(false)
       setSelectedTeam(null)

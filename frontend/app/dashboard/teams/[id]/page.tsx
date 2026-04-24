@@ -66,6 +66,14 @@ import {
 } from "@/lib/types/teams"
 import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
 import {
+  deleteMemberUiData,
+  getMemberUiData,
+  getTeamOverheads,
+  getTeamUiMeta,
+  setMemberUiData,
+  setTeamOverheads,
+} from "@/lib/storage/team-ui"
+import {
   Area,
   AreaChart,
   CartesianGrid,
@@ -125,6 +133,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       const baseRate = Number(developer?.hourly_rate ?? 0) * MONTHLY_HOURS
       const utilization = membership.allocation
 
+      const savedMemberUi = getMemberUiData(String(membership.developer))
       return {
         id: String(membership.developer),
         name: membership.developer_name ?? developer?.full_name ?? "Developer",
@@ -132,9 +141,9 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         role: developer?.role ?? "",
         baseRate,
         rateType: "monthly" as const,
-        teamOverheadShare: 0,
-        companyOverheadShare: 280,
-        skills: [],
+        teamOverheadShare: savedMemberUi.teamOverheadShare ?? 0,
+        companyOverheadShare: savedMemberUi.companyOverheadShare ?? 280,
+        skills: savedMemberUi.skills ?? [],
         utilization,
         revenue: 0,
         teamMemberships: [{ teamId: String(apiTeam.id), teamName: apiTeam.name, allocation: membership.allocation }],
@@ -167,13 +176,13 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       id: String(apiTeam.id),
       name: apiTeam.name,
       description: apiTeam.description,
-      color: "#2563eb",
+      color: getTeamUiMeta(String(apiTeam.id)).color ?? "#2563eb",
       headcount: members.length,
       burnRate,
       utilization,
       efficiencyScore: burnRate > 0 ? totalRevenue / burnRate : 0,
       members: membersWithRevenue,
-      overheads: [],
+      overheads: getTeamOverheads(String(apiTeam.id)),
       burnRateHistory,
     }
   }
@@ -280,6 +289,11 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         ? memberForm.teamMemberships 
         : [{ teamId: team.id, teamName: team.name, allocation: 100 }],
     }
+      setMemberUiData(newMember.id, {
+        teamOverheadShare,
+        companyOverheadShare,
+        skills: newMember.skills,
+      })
 
       if (selectedMember) {
         const updatedMembers = team.members.map(m => m.id === selectedMember.id ? newMember : m)
@@ -299,6 +313,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     if (!team || !selectedMember) return
     try {
       await workforceApi.deleteDeveloper(selectedMember.id)
+      deleteMemberUiData(selectedMember.id)
       const updatedMembers = team.members.filter(m => m.id !== selectedMember.id)
       await syncTeamMemberships(updatedMembers)
       await loadTeam()
@@ -368,27 +383,26 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       category: overheadForm.category,
     }
 
-    if (selectedOverhead) {
-      setTeam({
-        ...team,
-        overheads: team.overheads.map(o => o.id === selectedOverhead.id ? newOverhead : o),
-      })
-    } else {
-      setTeam({
-        ...team,
-        overheads: [...team.overheads, newOverhead],
-      })
-    }
+    const updatedOverheads = selectedOverhead
+      ? team.overheads.map(o => o.id === selectedOverhead.id ? newOverhead : o)
+      : [...team.overheads, newOverhead]
+    setTeam({
+      ...team,
+      overheads: updatedOverheads,
+    })
+    setTeamOverheads(team.id, updatedOverheads)
 
     closeOverheadDialog()
   }
 
   const handleDeleteOverhead = () => {
     if (!team || !selectedOverhead) return
+    const updatedOverheads = team.overheads.filter(o => o.id !== selectedOverhead.id)
     setTeam({
       ...team,
-      overheads: team.overheads.filter(o => o.id !== selectedOverhead.id),
+      overheads: updatedOverheads,
     })
+    setTeamOverheads(team.id, updatedOverheads)
     setIsDeleteOverheadOpen(false)
     setSelectedOverhead(null)
   }
