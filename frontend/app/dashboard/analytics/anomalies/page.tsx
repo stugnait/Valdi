@@ -1,20 +1,16 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useMemo } from "react"
 import { 
   AlertTriangle, 
   TrendingUp, 
   TrendingDown, 
-  Users,
-  DollarSign,
   Info,
   Target,
   FileQuestion,
   Clock,
   Flame,
-  ArrowRight,
   CheckCircle2,
-  XCircle,
   AlertCircle
 } from "lucide-react"
 import { 
@@ -117,17 +113,16 @@ function useUncategorizedData() {
     }
 
     // Simulate uncategorized transactions
-    const uncategorized = [
-      { id: "u1", name: "Card Payment", amount: 450, date: daysAgo(3), source: "monobank" },
-      { id: "u2", name: "Wire Transfer", amount: 1200, date: daysAgo(6), source: "privat24" },
-      { id: "u3", name: "Unknown Merchant", amount: 85, date: daysAgo(10), source: "monobank" },
-      { id: "u4", name: "Subscription", amount: 29, date: daysAgo(13), source: "wise" },
-      { id: "u5", name: "ATM Withdrawal", amount: 200, date: daysAgo(16), source: "monobank" },
+    const demoTransactions = [
+      { id: "u1", name: "Card Payment", amount: 450, daysAgo: 3, source: "monobank" },
+      { id: "u2", name: "Wire Transfer", amount: 1200, daysAgo: 6, source: "privat24" },
+      { id: "u3", name: "Unknown Merchant", amount: 85, daysAgo: 10, source: "monobank" },
+      { id: "u4", name: "Subscription", amount: 29, daysAgo: 13, source: "wise" },
+      { id: "u5", name: "ATM Withdrawal", amount: 200, daysAgo: 16, source: "monobank" },
     ]
 
-    const uncategorized = demoTransactions.map(tx => {
-      const txDate = new Date(now)
-      txDate.setDate(now.getDate() - tx.daysAgo)
+    const uncategorized = demoTransactions.map((tx) => {
+      const txDate = new Date(daysAgo(tx.daysAgo))
 
       return {
         id: tx.id,
