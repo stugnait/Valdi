@@ -57,6 +57,12 @@ class MonobankAPIError(Exception):
     pass
 
 
+class MonobankRateLimitError(MonobankAPIError):
+    def __init__(self, message: str, *, retry_after: int | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 @dataclass
 class SyncResult:
     account: BankAccount
@@ -106,6 +112,13 @@ class MonobankClient:
                     continue
 
                 message = exc.read().decode('utf-8', errors='ignore')
+                if exc.code == 429:
+                    retry_after = exc.headers.get('Retry-After')
+                    retry_after_seconds = int(retry_after) if retry_after and retry_after.isdigit() else None
+                    raise MonobankRateLimitError(
+                        f'Monobank rate limit reached: {message or "Too many requests"}',
+                        retry_after=retry_after_seconds,
+                    ) from exc
                 raise MonobankAPIError(f'Monobank request failed ({exc.code}): {message}') from exc
             except error.URLError as exc:
                 if attempt < self.max_retries:
@@ -193,6 +206,8 @@ def _fetch_statement_chunks(*, client: MonobankClient, account: BankAccount, fro
 def _upsert_bank_account(*, user, account_data: dict[str, Any], holder: str) -> BankAccount:
     currency = normalize_currency(account_data.get('currencyCode'))
     balance = minor_to_major(account_data.get('balance', 0))
+    masked_pan = ','.join(account_data.get('maskedPan', []))
+    max_pan_length = BankAccount._meta.get_field('masked_pan').max_length or 128
 
     account, _ = BankAccount.objects.update_or_create(
         provider=BankAccount.Provider.MONOBANK,
@@ -200,7 +215,7 @@ def _upsert_bank_account(*, user, account_data: dict[str, Any], holder: str) -> 
         created_by=user,
         defaults={
             'iban': account_data.get('iban', ''),
-            'masked_pan': ','.join(account_data.get('maskedPan', [])),
+            'masked_pan': masked_pan[:max_pan_length],
             'holder': holder,
             'currency': currency,
             'timezone': 'UTC',
