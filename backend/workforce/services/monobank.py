@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Any
 from urllib import error, parse, request
 
-from django.db import transaction
+from django.db import DataError, transaction
 from django.utils import timezone as dj_timezone
 
 from ..models import BankAccount, BankTransaction
@@ -204,26 +204,44 @@ def _fetch_statement_chunks(*, client: MonobankClient, account: BankAccount, fro
 
 
 def _upsert_bank_account(*, user, account_data: dict[str, Any], holder: str) -> BankAccount:
-    currency = normalize_currency(account_data.get('currencyCode'))
-    balance = minor_to_major(account_data.get('balance', 0))
-    masked_pan = ','.join(account_data.get('maskedPan', []))
-    max_pan_length = BankAccount._meta.get_field('masked_pan').max_length or 128
+    def fit(field_name: str, value: str) -> str:
+        max_length = BankAccount._meta.get_field(field_name).max_length
+        if not max_length:
+            return value
+        return value[:max_length]
 
-    account, _ = BankAccount.objects.update_or_create(
-        provider=BankAccount.Provider.MONOBANK,
-        external_account_id=account_data['id'],
-        created_by=user,
-        defaults={
-            'iban': account_data.get('iban', ''),
-            'masked_pan': masked_pan[:max_pan_length],
-            'holder': holder,
-            'currency': currency,
-            'timezone': 'UTC',
-            'balance': balance,
-            'raw_data': account_data,
-        },
-    )
-    return account
+    currency = fit('currency', normalize_currency(account_data.get('currencyCode')))
+    balance = minor_to_major(account_data.get('balance', 0))
+    masked_pan_raw = ','.join(account_data.get('maskedPan', []))
+    masked_pan_model_len = BankAccount._meta.get_field('masked_pan').max_length or 128
+    masked_pan_lengths = [masked_pan_model_len]
+    if masked_pan_model_len > 32:
+        # Backward-compat: some environments still have old DB schema with varchar(32).
+        masked_pan_lengths.append(32)
+
+    for pan_length in masked_pan_lengths:
+        try:
+            account, _ = BankAccount.objects.update_or_create(
+                provider=BankAccount.Provider.MONOBANK,
+                external_account_id=fit('external_account_id', str(account_data['id'])),
+                created_by=user,
+                defaults={
+                    'iban': fit('iban', account_data.get('iban', '')),
+                    'masked_pan': masked_pan_raw[:pan_length],
+                    'holder': fit('holder', holder),
+                    'currency': currency,
+                    'timezone': fit('timezone', 'UTC'),
+                    'balance': balance,
+                    'raw_data': account_data,
+                },
+            )
+            return account
+        except DataError:
+            if pan_length == masked_pan_lengths[-1]:
+                raise
+            continue
+
+    raise RuntimeError('Failed to upsert bank account')
 
 
 def _upsert_transaction(*, account: BankAccount, tx_data: dict[str, Any]) -> tuple[BankTransaction, bool]:
