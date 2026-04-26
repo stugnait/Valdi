@@ -67,6 +67,10 @@ interface MonthlyIncome {
 
 // Exchange rate UAH/USD
 const UAH_USD_RATE = 41.5
+const formatUah = (amount: number) =>
+  new Intl.NumberFormat("uk-UA", { style: "currency", currency: "UAH", maximumFractionDigits: 0 }).format(amount)
+const formatUsd = (amount: number) =>
+  new Intl.NumberFormat("uk-UA", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount)
 
 export default function TaxReportsPage() {
   const [selectedYear, setSelectedYear] = useState("2024")
@@ -136,7 +140,7 @@ export default function TaxReportsPage() {
   const handleExportCSV = () => {
     // In production, this would generate and download a CSV file
     const csvContent = [
-      ["Month", "Income (UAH)", "Income (USD)", "Tax 5% (UAH)", "ESV (UAH)"],
+      ["Місяць", "Дохід (грн)", "Дохід (USD)", "Податок 5% (грн)", "ЄСВ (грн)"],
       ...mockMonthlyIncome.map(m => [
         m.month,
         m.income,
@@ -150,7 +154,7 @@ export default function TaxReportsPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `tax-report-${selectedYear}-${selectedQuarter}.csv`
+    a.download = `податковий-звіт-${selectedYear}-${selectedQuarter}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -160,9 +164,9 @@ export default function TaxReportsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Tax Reports</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Податкові звіти</h1>
           <p className="text-sm text-muted-foreground">
-            FOP Group 3 tax calculations and reporting
+            Розрахунок і звітність податків для ФОП 3 групи
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -177,7 +181,7 @@ export default function TaxReportsPage() {
           </Select>
           <Button onClick={handleExportCSV} variant="outline" className="gap-2">
             <Download className="size-4" />
-            Export CSV
+            Експорт CSV
           </Button>
         </div>
       </div>
@@ -186,46 +190,46 @@ export default function TaxReportsPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Income YTD</CardTitle>
+            <CardTitle className="text-sm font-medium">Загальний дохід від початку року</CardTitle>
             <TrendingUp className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">&#8372;{totalIncomeYTD.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatUah(totalIncomeYTD)}</div>
             <p className="text-xs text-muted-foreground">
-              ${Math.round(totalIncomeYTD / UAH_USD_RATE).toLocaleString()} USD
+              {formatUsd(Math.round(totalIncomeYTD / UAH_USD_RATE))}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tax Due (5% EP)</CardTitle>
+            <CardTitle className="text-sm font-medium">ЄП до сплати (5%)</CardTitle>
             <Percent className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">&#8372;{Math.round(totalTaxEP).toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatUah(Math.round(totalTaxEP))}</div>
             <p className="text-xs text-muted-foreground">
-              5% of total income
+              5% від загального доходу
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">ESV Due</CardTitle>
+            <CardTitle className="text-sm font-medium">ЄСВ до сплати</CardTitle>
             <Coins className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">&#8372;{Math.round(totalESV).toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatUah(Math.round(totalESV))}</div>
             <p className="text-xs text-muted-foreground">
-              {monthsWorked} months x &#8372;{ESV_MONTHLY.toLocaleString()}
+              {monthsWorked} міс. × {formatUah(ESV_MONTHLY)}
             </p>
           </CardContent>
         </Card>
 
         <Card className={remainingDue > 0 ? "border-amber-200 bg-amber-50/50" : "border-emerald-200 bg-emerald-50/50"}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Remaining to Pay</CardTitle>
+            <CardTitle className="text-sm font-medium">Залишок до сплати</CardTitle>
             {remainingDue > 0 ? (
               <AlertTriangle className="size-4 text-amber-600" />
             ) : (
@@ -234,10 +238,10 @@ export default function TaxReportsPage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${remainingDue > 0 ? "text-amber-700" : "text-emerald-700"}`}>
-              &#8372;{Math.round(remainingDue).toLocaleString()}
+              {formatUah(Math.round(remainingDue))}
             </div>
             <p className="text-xs text-muted-foreground">
-              Until end of {selectedQuarter} {selectedYear}
+              До кінця {selectedQuarter} {selectedYear}
             </p>
           </CardContent>
         </Card>
@@ -250,10 +254,10 @@ export default function TaxReportsPage() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Calculator className="size-5" />
-                Tax Estimator
+                Податковий калькулятор
               </CardTitle>
               <CardDescription>
-                Automatic calculation based on received payments
+                Автоматичний розрахунок на основі отриманих оплат
               </CardDescription>
             </div>
             <TooltipProvider>
@@ -263,7 +267,7 @@ export default function TaxReportsPage() {
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p>
-                    Calculations based on FOP Group 3 rates: 5% EP (Single Tax) + ESV (22% of min wage = &#8372;{ESV_MONTHLY.toLocaleString()}/month)
+                    Розрахунок за ставками ФОП 3 групи: 5% ЄП + ЄСВ (22% від мінімальної зарплати = {formatUah(ESV_MONTHLY)}/міс.)
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -274,7 +278,7 @@ export default function TaxReportsPage() {
           <div className="grid gap-6 md:grid-cols-2">
             {/* Monthly Breakdown */}
             <div>
-              <h4 className="text-sm font-medium mb-4">Monthly Income Breakdown</h4>
+              <h4 className="text-sm font-medium mb-4">Розбивка доходу по місяцях</h4>
               <div className="space-y-3">
                 {mockMonthlyIncome.map(month => {
                   const tax = month.income * TAX_RATE_EP
@@ -285,13 +289,13 @@ export default function TaxReportsPage() {
                           {new Date(month.month + "-01").toLocaleDateString("uk-UA", { month: "long", year: "numeric" })}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {month.invoices} invoices
+                          {month.invoices} інвойс(ів)
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-medium">&#8372;{month.income.toLocaleString()}</div>
+                        <div className="font-medium">{formatUah(month.income)}</div>
                         <div className="text-sm text-muted-foreground">
-                          Tax: &#8372;{Math.round(tax).toLocaleString()}
+                          Податок: {formatUah(Math.round(tax))}
                         </div>
                       </div>
                     </div>
@@ -302,35 +306,35 @@ export default function TaxReportsPage() {
 
             {/* Summary */}
             <div className="space-y-4">
-              <h4 className="text-sm font-medium">Tax Calculation Summary</h4>
+              <h4 className="text-sm font-medium">Підсумок розрахунку податків</h4>
               <div className="p-4 bg-muted/50 rounded-lg space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Income</span>
-                  <span className="font-medium">&#8372;{totalIncomeYTD.toLocaleString()}</span>
+                  <span className="text-muted-foreground">Загальний дохід</span>
+                  <span className="font-medium">{formatUah(totalIncomeYTD)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">5% Single Tax (EP)</span>
-                  <span className="font-medium">&#8372;{Math.round(totalTaxEP).toLocaleString()}</span>
+                  <span className="text-muted-foreground">ЄП 5%</span>
+                  <span className="font-medium">{formatUah(Math.round(totalTaxEP))}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">ESV ({monthsWorked} months)</span>
-                  <span className="font-medium">&#8372;{Math.round(totalESV).toLocaleString()}</span>
+                  <span className="text-muted-foreground">ЄСВ ({monthsWorked} міс.)</span>
+                  <span className="font-medium">{formatUah(Math.round(totalESV))}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-lg">
-                  <span className="font-semibold">Total Due</span>
-                  <span className="font-bold">&#8372;{Math.round(totalDue).toLocaleString()}</span>
+                  <span className="font-semibold">Усього до сплати</span>
+                  <span className="font-bold">{formatUah(Math.round(totalDue))}</span>
                 </div>
                 <div className="flex justify-between text-emerald-600">
-                  <span>Already Paid</span>
-                  <span className="font-medium">- &#8372;{totalPaid.toLocaleString()}</span>
+                  <span>Вже сплачено</span>
+                  <span className="font-medium">- {formatUah(totalPaid)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-lg">
-                  <span className="font-semibold">Remaining</span>
+                  <span className="font-semibold">Залишок</span>
                   <span className={`font-bold ${remainingDue > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                    &#8372;{Math.round(remainingDue).toLocaleString()}
+                    {formatUah(Math.round(remainingDue))}
                   </span>
                 </div>
               </div>
@@ -339,9 +343,9 @@ export default function TaxReportsPage() {
                 <div className="flex items-start gap-2">
                   <Info className="size-4 text-blue-600 mt-0.5" />
                   <div className="text-sm text-blue-800">
-                    <p className="font-medium">Next Payment Deadline</p>
+                    <p className="font-medium">Найближчий дедлайн оплати</p>
                     <p className="text-blue-600">
-                      Q2 2024 taxes due by July 19, 2024
+                      Податки за Q2 2024 потрібно сплатити до 19 липня 2024
                     </p>
                   </div>
                 </div>
@@ -358,15 +362,15 @@ export default function TaxReportsPage() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="size-5" />
-                Quarterly Summary
+                Квартальний підсумок
               </CardTitle>
               <CardDescription>
-                Tax payments by quarter
+                Сплата податків по кварталах
               </CardDescription>
             </div>
             <Button variant="outline" size="sm" className="gap-2" onClick={handleExportCSV}>
               <FileSpreadsheet className="size-4" />
-              Export for Accountant
+              Експорт для бухгалтера
             </Button>
           </div>
         </CardHeader>
@@ -374,36 +378,36 @@ export default function TaxReportsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Quarter</TableHead>
-                <TableHead className="text-right">Income</TableHead>
-                <TableHead className="text-right">Tax 5%</TableHead>
-                <TableHead className="text-right">ESV</TableHead>
-                <TableHead className="text-right">Total Due</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Квартал</TableHead>
+                <TableHead className="text-right">Дохід</TableHead>
+                <TableHead className="text-right">ЄП 5%</TableHead>
+                <TableHead className="text-right">ЄСВ</TableHead>
+                <TableHead className="text-right">Усього до сплати</TableHead>
+                <TableHead>Статус</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {mockQuarters.map(quarter => (
                 <TableRow key={quarter.quarter}>
                   <TableCell className="font-medium">{quarter.quarter}</TableCell>
-                  <TableCell className="text-right">&#8372;{quarter.income.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">&#8372;{quarter.taxEP.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">&#8372;{Math.round(quarter.esvPaid).toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-medium">&#8372;{Math.round(quarter.totalDue).toLocaleString()}</TableCell>
+                  <TableCell className="text-right">{formatUah(quarter.income)}</TableCell>
+                  <TableCell className="text-right">{formatUah(quarter.taxEP)}</TableCell>
+                  <TableCell className="text-right">{formatUah(Math.round(quarter.esvPaid))}</TableCell>
+                  <TableCell className="text-right font-medium">{formatUah(Math.round(quarter.totalDue))}</TableCell>
                   <TableCell>
                     {quarter.status === "paid" ? (
                       <Badge className="bg-emerald-100 text-emerald-800 gap-1">
                         <CheckCircle2 className="size-3" />
-                        Paid {quarter.paidDate && new Date(quarter.paidDate).toLocaleDateString("uk-UA")}
+                        Сплачено {quarter.paidDate && new Date(quarter.paidDate).toLocaleDateString("uk-UA")}
                       </Badge>
                     ) : quarter.status === "pending" ? (
                       <Badge className="bg-amber-100 text-amber-800">
-                        Pending
+                        Очікує оплату
                       </Badge>
                     ) : (
                       <Badge className="bg-red-100 text-red-800 gap-1">
                         <AlertTriangle className="size-3" />
-                        Overdue
+                        Прострочено
                       </Badge>
                     )}
                   </TableCell>
@@ -418,32 +422,32 @@ export default function TaxReportsPage() {
       {currentQuarter && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Current Quarter Progress</CardTitle>
+            <CardTitle className="text-lg">Прогрес поточного кварталу</CardTitle>
             <CardDescription>
-              {currentQuarter.quarter} - Estimated based on current income
+              {currentQuarter.quarter} — орієнтовно на основі поточного доходу
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between text-sm">
-                <span>Income Progress</span>
+                <span>Прогрес доходу</span>
                 <span className="font-medium">
-                  &#8372;{currentQuarter.income.toLocaleString()} / ~&#8372;{Math.round(totalIncomeYTD / 2).toLocaleString()} (estimated)
+                  {formatUah(currentQuarter.income)} / ~{formatUah(Math.round(totalIncomeYTD / 2))} (орієнтовно)
                 </span>
               </div>
               <Progress value={Math.min(quarterProgress, 100)} className="h-2" />
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="p-3 bg-muted/50 rounded-lg">
-                  <div className="text-sm text-muted-foreground">Tax Due</div>
-                  <div className="font-bold text-lg">&#8372;{currentQuarter.taxEP.toLocaleString()}</div>
+                  <div className="text-sm text-muted-foreground">ЄП до сплати</div>
+                  <div className="font-bold text-lg">{formatUah(currentQuarter.taxEP)}</div>
                 </div>
                 <div className="p-3 bg-muted/50 rounded-lg">
-                  <div className="text-sm text-muted-foreground">ESV Due</div>
-                  <div className="font-bold text-lg">&#8372;{Math.round(currentQuarter.esvPaid).toLocaleString()}</div>
+                  <div className="text-sm text-muted-foreground">ЄСВ до сплати</div>
+                  <div className="font-bold text-lg">{formatUah(Math.round(currentQuarter.esvPaid))}</div>
                 </div>
                 <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                  <div className="text-sm text-amber-700">Total to Pay</div>
-                  <div className="font-bold text-lg text-amber-800">&#8372;{Math.round(currentQuarter.totalDue).toLocaleString()}</div>
+                  <div className="text-sm text-amber-700">Усього до сплати</div>
+                  <div className="font-bold text-lg text-amber-800">{formatUah(Math.round(currentQuarter.totalDue))}</div>
                 </div>
               </div>
             </div>
