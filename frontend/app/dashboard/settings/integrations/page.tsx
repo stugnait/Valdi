@@ -51,32 +51,22 @@ import { Switch } from "@/components/ui/switch"
 import { ApiError, integrationsApi } from "@/lib/api/integrations"
 import { type IntegrationConnectionDto, type IntegrationProvider } from "@/lib/types/integrations"
 
-const bankProviders: Record<IntegrationProvider, { name: string; icon: string; tokenField: string; docs: string }> = {
+const bankProviders: Partial<Record<IntegrationProvider, { name: string; icon: string; tokenField: string; docs: string }>> = {
   monobank: {
     name: "Monobank",
     icon: "M",
     tokenField: "X-Token",
     docs: "https://api.monobank.ua/docs",
   },
-  privat24: {
-    name: "Privat24",
-    icon: "P",
-    tokenField: "API Token",
-    docs: "https://api.privatbank.ua",
-  },
-  wise: {
-    name: "Wise",
-    icon: "W",
-    tokenField: "API Key",
-    docs: "https://api-docs.wise.com",
-  },
-  revolut: {
-    name: "Revolut",
-    icon: "R",
-    tokenField: "Access Token",
-    docs: "https://developer.revolut.com",
-  },
 }
+
+const getProviderMeta = (provider: IntegrationProvider) =>
+  bankProviders[provider] ?? {
+    name: provider,
+    icon: provider.slice(0, 1).toUpperCase(),
+    tokenField: "Token",
+    docs: "",
+  }
 
 export default function IntegrationsPage() {
   const [connections, setConnections] = useState<IntegrationConnectionDto[]>([])
@@ -357,7 +347,7 @@ export default function IntegrationsPage() {
         ) : null}
 
         {!isLoading && connections.map((connection) => {
-          const provider = bankProviders[connection.provider]
+          const provider = getProviderMeta(connection.provider)
           const isExpanded = expandedConnection === connection.id
           const needsReconnect = connection.requires_reconnect || connection.last_error_text?.toLowerCase().includes("token")
 
@@ -525,20 +515,20 @@ export default function IntegrationsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(bankProviders).map(([key, provider]) => (
+                  {(["monobank"] as IntegrationProvider[]).map((key) => { const provider = getProviderMeta(key); return (
                     <SelectItem key={key} value={key}>
                       <div className="flex items-center gap-2">
                         <span className="font-bold">{provider.icon}</span>
                         {provider.name}
                       </div>
                     </SelectItem>
-                  ))}
+                  )})}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="token">{bankProviders[addData.provider].tokenField}</Label>
+              <Label htmlFor="token">{getProviderMeta(addData.provider).tokenField}</Label>
               <Input
                 id="token"
                 type="password"
@@ -549,12 +539,12 @@ export default function IntegrationsPage() {
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Link2 className="size-3" />
                 <a
-                  href={bankProviders[addData.provider].docs}
+                  href={getProviderMeta(addData.provider).docs}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"
                 >
-                  How to get your {bankProviders[addData.provider].tokenField}
+                  How to get your {getProviderMeta(addData.provider).tokenField}
                 </a>
               </p>
             </div>
@@ -578,14 +568,14 @@ export default function IntegrationsPage() {
             <DialogTitle>Reconnect integration</DialogTitle>
             <DialogDescription>
               {reconnectTarget
-                ? `Connection to ${bankProviders[reconnectTarget.provider].name} is unauthorized (401). Add a new token to continue sync.`
+                ? `Connection to ${getProviderMeta(reconnectTarget.provider).name} is unauthorized (401). Add a new token to continue sync.`
                 : ""}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2 py-2">
             <Label htmlFor="reconnect-token">
-              {reconnectTarget ? bankProviders[reconnectTarget.provider].tokenField : "Token"}
+              {reconnectTarget ? getProviderMeta(reconnectTarget.provider).tokenField : "Token"}
             </Label>
             <Input
               id="reconnect-token"
@@ -613,7 +603,7 @@ export default function IntegrationsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Disconnect Bank</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to disconnect {deleteConnection && bankProviders[deleteConnection.provider].name}?
+              Are you sure you want to disconnect {deleteConnection && getProviderMeta(deleteConnection.provider).name}?
               Transaction sync will stop and you&apos;ll need to reconnect to resume.
             </AlertDialogDescription>
           </AlertDialogHeader>
