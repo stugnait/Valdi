@@ -1,34 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { 
-  Save,
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  Briefcase,
-  Calendar,
-  Camera,
-  Lock,
-  Bell,
-  Shield,
-  Eye,
-  EyeOff,
-  Check,
-  AlertCircle,
-  Globe,
-  Linkedin,
-  Github,
-  Zap,
-  ArrowRight,
-  Clock,
-} from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useEffect, useMemo, useState } from "react"
+import { Mail, User } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
@@ -223,79 +197,18 @@ export default function ProfilePage() {
       setShowSuccessAlert(true)
       setTimeout(() => setShowSuccessAlert(false), 3000)
     }
-  }
+  }, [])
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return ""
-
-    return new Date(dateString).toLocaleDateString("uk-UA", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
-  }
-
-  const formatDateTime = (dateString: string) => {
-    if (!dateString) return ""
-
-    return new Date(dateString).toLocaleString("uk-UA", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
-
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase()
-  }
-
-  const fullName = `${profile.firstName} ${profile.lastName}`.trim()
-  const fallbackName = profile.email.split("@")[0] || "Користувач"
-  const displayName = fullName || fallbackName
-  const avatarInitials = getInitials(profile.firstName, profile.lastName) || displayName[0]?.toUpperCase() || "U"
-
-  const isPasswordValid = passwordData.new.length >= 8 && passwordData.new === passwordData.confirm
+  const displayName = useMemo(() => {
+    if (!user) return ""
+    return user.username || user.email.split("@")[0] || "User"
+  }, [user])
 
   return (
-    <div className="space-y-6">
-      {/* Success Alert */}
-      {showSuccessAlert && (
-        <Alert className="bg-green-50 border-green-200">
-          <Check className="size-4 text-green-600" />
-          <AlertDescription className="text-green-800">
-            Зміни успішно збережено
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Профіль</h1>
-          <p className="text-sm text-muted-foreground">
-            Керуйте своїми персональними даними та налаштуваннями
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {isEditing ? (
-            <>
-              <Button variant="outline" onClick={handleCancelEdit}>
-                Скасувати
-              </Button>
-              <Button onClick={handleSaveProfile} disabled={!hasChanges} className="gap-2">
-                <Save className="size-4" />
-                Зберегти
-              </Button>
-            </>
-          ) : (
-            <Button onClick={() => setIsEditing(true)} variant="outline" className="gap-2">
-              <User className="size-4" />
-              Редагувати профіль
-            </Button>
-          )}
-        </div>
+    <div className="space-y-6 p-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Профіль</h1>
+        <p className="text-sm text-muted-foreground">Дані завантажуються з backend endpoint `/api/auth/me/`.</p>
       </div>
 
       {/* Profile Card */}
@@ -959,19 +872,11 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
-              Скасувати
-            </Button>
-            <Button 
-              onClick={handleChangePassword}
-              disabled={!isPasswordValid || !passwordData.current}
-            >
-              Змінити пароль
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Alert>
+        <AlertDescription>
+          Редагування профілю та налаштувань безпеки тимчасово приховано, доки не будуть готові відповідні backend endpoint-и для update/change-password.
+        </AlertDescription>
+      </Alert>
     </div>
   )
 }

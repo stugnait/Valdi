@@ -234,6 +234,44 @@ class Subscription(models.Model):
         return f'{self.client.name}: {self.plan_name}'
 
 
+class SubscriptionPayment(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        COMPLETED = 'completed', 'Completed'
+        FAILED = 'failed', 'Failed'
+        REFUNDED = 'refunded', 'Refunded'
+
+    subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(
+        max_length=3,
+        choices=Subscription.Currency.choices,
+        default=Subscription.Currency.USD,
+    )
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    payment_date = models.DateField(null=True, blank=True)
+    due_date = models.DateField()
+    invoice_number = models.CharField(max_length=64, blank=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='subscription_payments',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-due_date', '-created_at')
+        indexes = [
+            models.Index(fields=('created_by', 'subscription')),
+            models.Index(fields=('status',)),
+        ]
+
+    def __str__(self):
+        return f'{self.subscription_id}:{self.amount} {self.currency}'
+
+
 class Invoice(models.Model):
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'
@@ -556,3 +594,21 @@ class VariableExpense(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ManualCashBalance(models.Model):
+    amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    updated_by = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='manual_cash_balance',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Manual cash balance'
+        verbose_name_plural = 'Manual cash balances'
+
+    def __str__(self):
+        return f'{self.updated_by_id}: {self.amount}'
