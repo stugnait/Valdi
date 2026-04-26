@@ -11,9 +11,10 @@ const formatCurrency = (value: number) => `$${value.toLocaleString()}`
 const formatPercent = (value: number) => `${value.toFixed(1)}%`
 
 export default function GlobalHealthPage() {
-  const [overview, setOverview] = useState<ApiAnalyticsOverview | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [period, setPeriod] = useState("month")
+  const [analyticsOverview, setAnalyticsOverview] = useState<ApiAnalyticsOverview | null>(null)
+  const [isLoadingOverview, setIsLoadingOverview] = useState(true)
+  const [overviewError, setOverviewError] = useState<string | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -38,17 +39,80 @@ export default function GlobalHealthPage() {
     }
   }, [])
 
-  const health = overview?.health
-  const costStructure = useMemo(() => health?.cost_structure ?? [], [health])
+  const financialData = analyticsOverview
+    ? {
+        totalRevenue: analyticsOverview.health.total_revenue,
+        totalLaborCost: analyticsOverview.health.total_labor_cost,
+        monthlyRecurring: analyticsOverview.health.monthly_recurring,
+        monthlyVariable: analyticsOverview.health.monthly_variable,
+        totalMonthlyCosts: analyticsOverview.health.total_monthly_costs,
+        taxReserve: analyticsOverview.health.tax_reserve,
+        monthlyESV: analyticsOverview.health.monthly_esv,
+        monthlyDepreciation: analyticsOverview.health.monthly_depreciation,
+        ebitda: analyticsOverview.health.ebitda,
+        netProfit: analyticsOverview.health.net_profit,
+        currentCash: analyticsOverview.health.current_cash,
+        monthlyBurn: analyticsOverview.health.monthly_burn,
+        runwayMonths: analyticsOverview.health.runway_months,
+        profitMargin: analyticsOverview.health.profit_margin,
+      }
+    : {
+        totalRevenue: 0,
+        totalLaborCost: 0,
+        monthlyRecurring: 0,
+        monthlyVariable: 0,
+        totalMonthlyCosts: 0,
+        taxReserve: 0,
+        monthlyESV: 0,
+        monthlyDepreciation: 0,
+        ebitda: 0,
+        netProfit: 0,
+        currentCash: 0,
+        monthlyBurn: 0,
+        runwayMonths: 0,
+        profitMargin: 0,
+      }
+
+  const sankeyData = analyticsOverview
+    ? {
+        sources: analyticsOverview.health.sankey.sources.map((source) => ({
+          id: String(source.id),
+          name: source.name,
+          amount: source.amount,
+        })),
+        destinations: analyticsOverview.health.sankey.destinations.map((destination) => ({
+          id: String(destination.id),
+          name: destination.name,
+          amount: destination.amount,
+          color: destination.color ?? "#6B7280",
+        })),
+        totalIncome: analyticsOverview.health.sankey.total_income,
+      }
+    : {
+        sources: [],
+        destinations: [],
+        totalIncome: 0,
+      }
 
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-6 p-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg"><Coffee className="h-6 w-6 text-primary" /></div>
-          <div>
-            <h1 className="text-2xl font-bold">Global Health</h1>
-            <p className="text-muted-foreground">API-driven financial health dashboard</p>
+        {/* Header */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Coffee className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">Global Health</h1>
+              <p className="text-muted-foreground">
+                {isLoadingOverview
+                  ? "Loading analytics overview..."
+                  : overviewError
+                    ? `Analytics unavailable (${overviewError})`
+                    : "Connected to backend analytics overview"}
+              </p>
+            </div>
           </div>
         </div>
 
