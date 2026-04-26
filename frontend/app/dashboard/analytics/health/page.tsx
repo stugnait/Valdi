@@ -102,6 +102,13 @@ export default function GlobalHealthPage() {
               <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Burn / month (OpEx)</p><p className="text-2xl font-bold">{formatCurrency(health.monthly_burn)}</p></CardContent></Card>
             </div>
 
+            <Alert>
+              <AlertDescription>
+                Values are fetched from <span className="font-mono">GET /api/analytics/overview/</span>.
+                Net Profit = EBITDA − Tax Reserve − Depreciation. Burn/month = Labor + Recurring + Variable + Tax Reserve.
+              </AlertDescription>
+            </Alert>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-2">
                 <CardHeader>
