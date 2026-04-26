@@ -98,6 +98,22 @@ export interface ApiSubscription {
   updated_at: string
 }
 
+export interface ApiSubscriptionPayment {
+  id: number
+  subscription: number
+  subscription_plan_name: string
+  client_name: string
+  amount: string | number
+  currency: "USD" | "EUR" | "UAH"
+  status: "pending" | "completed" | "failed" | "refunded"
+  payment_date: string | null
+  due_date: string
+  invoice_number: string
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
 export interface ApiInvoice {
   id: number
   number: string
@@ -301,6 +317,7 @@ export const workforceApi = {
   deleteProject: (id: string | number) => apiRequest<void>(`/api/projects/${id}/`, { method: "DELETE" }),
 
   listSubscriptions: () => apiRequest<ApiSubscription[]>("/api/subscriptions/"),
+  listSubscriptionPayments: () => apiRequest<ApiSubscriptionPayment[]>("/api/subscription-payments/"),
   createSubscription: (payload: Partial<ApiSubscription>) =>
     apiRequest<ApiSubscription>("/api/subscriptions/", { method: "POST", body: JSON.stringify(payload) }),
   updateSubscription: (id: string | number, payload: Partial<ApiSubscription>) =>
