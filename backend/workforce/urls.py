@@ -7,6 +7,7 @@ from .views import (
     ClientViewSet,
     ProjectViewSet,
     SubscriptionViewSet,
+    SubscriptionPaymentViewSet,
     InvoiceViewSet,
     TaxReportViewSet,
     AutomationRuleViewSet,
@@ -23,6 +24,7 @@ router.register('developers', DeveloperViewSet, basename='developer')
 router.register('clients', ClientViewSet, basename='client')
 router.register('projects', ProjectViewSet, basename='project')
 router.register('subscriptions', SubscriptionViewSet, basename='subscription')
+router.register('subscription-payments', SubscriptionPaymentViewSet, basename='subscription-payment')
 router.register('invoices', InvoiceViewSet, basename='invoice')
 router.register('tax-reports', TaxReportViewSet, basename='tax-report')
 router.register('automation-rules', AutomationRuleViewSet, basename='automation-rule')

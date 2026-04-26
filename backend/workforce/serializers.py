@@ -7,6 +7,7 @@ from .models import (
     Client,
     Project,
     Subscription,
+    SubscriptionPayment,
     Invoice,
     TaxReport,
     AutomationRule,
@@ -208,6 +209,42 @@ class SubscriptionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'project': 'Проєкт має належати вибраному клієнту.'})
 
         return attrs
+
+
+class SubscriptionPaymentSerializer(serializers.ModelSerializer):
+    subscription_plan_name = serializers.CharField(source='subscription.plan_name', read_only=True)
+    client_name = serializers.CharField(source='subscription.client.name', read_only=True)
+
+    class Meta:
+        model = SubscriptionPayment
+        fields = (
+            'id',
+            'subscription',
+            'subscription_plan_name',
+            'client_name',
+            'amount',
+            'currency',
+            'status',
+            'payment_date',
+            'due_date',
+            'invoice_number',
+            'notes',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = (
+            'id',
+            'created_at',
+            'updated_at',
+            'subscription_plan_name',
+            'client_name',
+        )
+
+    def validate_subscription(self, value):
+        user = self.context['request'].user
+        if value.created_by_id != user.id:
+            raise serializers.ValidationError('Не можна використовувати підписку іншого користувача.')
+        return value
 
 
 class InvoiceSerializer(serializers.ModelSerializer):

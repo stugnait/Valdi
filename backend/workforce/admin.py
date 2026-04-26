@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Team, Developer, TeamMembership, Client, Project, Subscription
+from .models import Team, Developer, TeamMembership, Client, Project, Subscription, SubscriptionPayment
 
 
 @admin.register(Team)
@@ -41,3 +41,10 @@ class SubscriptionAdmin(admin.ModelAdmin):
     list_display = ('plan_name', 'client', 'status', 'amount', 'currency', 'next_billing_date', 'created_by')
     list_filter = ('status', 'currency', 'billing_cycle')
     search_fields = ('plan_name', 'client__name', 'project__name')
+
+
+@admin.register(SubscriptionPayment)
+class SubscriptionPaymentAdmin(admin.ModelAdmin):
+    list_display = ('subscription', 'status', 'amount', 'currency', 'due_date', 'payment_date', 'created_by')
+    list_filter = ('status', 'currency')
+    search_fields = ('subscription__plan_name', 'subscription__client__name', 'invoice_number')

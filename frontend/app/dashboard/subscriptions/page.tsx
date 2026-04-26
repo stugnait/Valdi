@@ -86,7 +86,7 @@ import {
   getBillingCycleLabel,
   calculateSubscriptionMetrics,
 } from "@/lib/types/projects"
-import { ApiClient, ApiProject, ApiSubscription, workforceApi } from "@/lib/api/workforce"
+import { ApiClient, ApiProject, ApiSubscription, ApiSubscriptionPayment, workforceApi } from "@/lib/api/workforce"
 
 const statusFilters: SubscriptionStatus[] = ["active", "pending", "paused", "cancelled", "expired"]
 
@@ -161,16 +161,47 @@ export default function SubscriptionsPage() {
     updatedAt: subscription.updated_at,
   })
 
+  const mapApiPayment = (payment: ApiSubscriptionPayment) => ({
+    id: payment.id.toString(),
+    subscriptionId: payment.subscription.toString(),
+    amount: Number(payment.amount || 0),
+    currency: payment.currency,
+    status: payment.status,
+    paymentDate: payment.payment_date || "",
+    dueDate: payment.due_date,
+    invoiceNumber: payment.invoice_number || undefined,
+    notes: payment.notes || undefined,
+  })
+
   const loadData = async () => {
     try {
       setIsLoading(true)
       setError(null)
-      const [subscriptionsResponse, clientsResponse, projectsResponse] = await Promise.all([
+      const [subscriptionsResponse, clientsResponse, projectsResponse, subscriptionPaymentsResponse] = await Promise.all([
         workforceApi.listSubscriptions(),
         workforceApi.listClients(),
         workforceApi.listProjects(),
+        workforceApi.listSubscriptionPayments(),
       ])
-      setSubscriptions(subscriptionsResponse.map(mapApiSubscription))
+      const paymentsBySubscription = subscriptionPaymentsResponse
+        .map(mapApiPayment)
+        .reduce<Record<string, ReturnType<typeof mapApiPayment>[]>>((acc, payment) => {
+          if (!acc[payment.subscriptionId]) {
+            acc[payment.subscriptionId] = []
+          }
+          acc[payment.subscriptionId].push(payment)
+          return acc
+        }, {})
+
+      setSubscriptions(
+        subscriptionsResponse.map((subscription) => {
+          const mappedSubscription = mapApiSubscription(subscription)
+          return {
+            ...mappedSubscription,
+            payments: paymentsBySubscription[mappedSubscription.id] || [],
+          }
+        })
+      )
       setClients(clientsResponse)
       setProjects(projectsResponse)
     } catch (loadError) {

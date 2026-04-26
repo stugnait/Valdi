@@ -21,6 +21,7 @@ from .models import (
     Client,
     Project,
     Subscription,
+    SubscriptionPayment,
     Invoice,
     TaxReport,
     AutomationRule,
@@ -154,6 +155,45 @@ class SubscriptionViewSet(SafeModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+class SubscriptionPaymentViewSet(SafeModelViewSet):
+    serializer_class = workforce_serializers.SubscriptionPaymentSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return (
+            SubscriptionPayment.objects.filter(created_by=self.request.user)
+            .select_related('subscription', 'subscription__client')
+            .order_by('-due_date', '-created_at')
+        )
+
+    def perform_create(self, serializer):
+        payment = serializer.save(created_by=self.request.user)
+        self._sync_subscription_total_paid(payment.subscription_id)
+
+    def perform_update(self, serializer):
+        previous_subscription_id = serializer.instance.subscription_id
+        payment = serializer.save()
+        self._sync_subscription_total_paid(previous_subscription_id)
+        if previous_subscription_id != payment.subscription_id:
+            self._sync_subscription_total_paid(payment.subscription_id)
+
+    def perform_destroy(self, instance):
+        subscription_id = instance.subscription_id
+        instance.delete()
+        self._sync_subscription_total_paid(subscription_id)
+
+    def _sync_subscription_total_paid(self, subscription_id: int):
+        completed_total = (
+            SubscriptionPayment.objects.filter(
+                subscription_id=subscription_id,
+                created_by=self.request.user,
+                status=SubscriptionPayment.Status.COMPLETED,
+            ).aggregate(total=Sum('amount'))['total']
+            or Decimal('0')
+        )
+        Subscription.objects.filter(id=subscription_id, created_by=self.request.user).update(total_paid=completed_total)
 
 
 class InvoiceViewSet(SafeModelViewSet):
