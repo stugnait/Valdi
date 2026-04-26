@@ -11,7 +11,6 @@ const formatCurrency = (value: number) => `$${value.toLocaleString()}`
 const formatPercent = (value: number) => `${value.toFixed(1)}%`
 
 export default function GlobalHealthPage() {
-  const [period, setPeriod] = useState("month")
   const [analyticsOverview, setAnalyticsOverview] = useState<ApiAnalyticsOverview | null>(null)
   const [isLoadingOverview, setIsLoadingOverview] = useState(true)
   const [overviewError, setOverviewError] = useState<string | null>(null)
@@ -20,16 +19,16 @@ export default function GlobalHealthPage() {
     let isMounted = true
     const load = async () => {
       try {
-        setIsLoading(true)
+        setIsLoadingOverview(true)
         const payload = await workforceApi.getAnalyticsOverview()
         if (!isMounted) return
-        setOverview(payload)
-        setError(null)
+        setAnalyticsOverview(payload)
+        setOverviewError(null)
       } catch (loadError) {
         if (!isMounted) return
-        setError(loadError instanceof Error ? loadError.message : "Unable to load analytics")
+        setOverviewError(loadError instanceof Error ? loadError.message : "Unable to load analytics")
       } finally {
-        if (isMounted) setIsLoading(false)
+        if (isMounted) setIsLoadingOverview(false)
       }
     }
 
@@ -39,60 +38,26 @@ export default function GlobalHealthPage() {
     }
   }, [])
 
-  const financialData = analyticsOverview
-    ? {
-        totalRevenue: analyticsOverview.health.total_revenue,
-        totalLaborCost: analyticsOverview.health.total_labor_cost,
-        monthlyRecurring: analyticsOverview.health.monthly_recurring,
-        monthlyVariable: analyticsOverview.health.monthly_variable,
-        totalMonthlyCosts: analyticsOverview.health.total_monthly_costs,
-        taxReserve: analyticsOverview.health.tax_reserve,
-        monthlyESV: analyticsOverview.health.monthly_esv,
-        monthlyDepreciation: analyticsOverview.health.monthly_depreciation,
-        ebitda: analyticsOverview.health.ebitda,
-        netProfit: analyticsOverview.health.net_profit,
-        currentCash: analyticsOverview.health.current_cash,
-        monthlyBurn: analyticsOverview.health.monthly_burn,
-        runwayMonths: analyticsOverview.health.runway_months,
-        profitMargin: analyticsOverview.health.profit_margin,
-      }
-    : {
-        totalRevenue: 0,
-        totalLaborCost: 0,
-        monthlyRecurring: 0,
-        monthlyVariable: 0,
-        totalMonthlyCosts: 0,
-        taxReserve: 0,
-        monthlyESV: 0,
-        monthlyDepreciation: 0,
-        ebitda: 0,
-        netProfit: 0,
-        currentCash: 0,
-        monthlyBurn: 0,
-        runwayMonths: 0,
-        profitMargin: 0,
-      }
+  const health = analyticsOverview?.health
 
-  const sankeyData = analyticsOverview
-    ? {
-        sources: analyticsOverview.health.sankey.sources.map((source) => ({
-          id: String(source.id),
-          name: source.name,
-          amount: source.amount,
-        })),
-        destinations: analyticsOverview.health.sankey.destinations.map((destination) => ({
-          id: String(destination.id),
-          name: destination.name,
-          amount: destination.amount,
-          color: destination.color ?? "#6B7280",
-        })),
-        totalIncome: analyticsOverview.health.sankey.total_income,
-      }
-    : {
-        sources: [],
-        destinations: [],
-        totalIncome: 0,
-      }
+  const costStructure = useMemo(() => {
+    if (!health) return []
+
+    const totalMonthlyCosts = health.total_monthly_costs || 1
+    const items = [
+      { label: "Labor", amount: health.total_labor_cost },
+      { label: "Recurring", amount: health.monthly_recurring },
+      { label: "Variable", amount: health.monthly_variable },
+      { label: "Tax reserve", amount: health.tax_reserve },
+      { label: "ESV", amount: health.monthly_esv },
+      { label: "Depreciation", amount: health.monthly_depreciation },
+    ]
+
+    return items.map((item) => ({
+      ...item,
+      percent: (item.amount / totalMonthlyCosts) * 100,
+    }))
+  }, [health])
 
   return (
     <TooltipProvider>
@@ -116,8 +81,8 @@ export default function GlobalHealthPage() {
           </div>
         </div>
 
-        {isLoading && <Alert><AlertDescription>Loading analytics overview…</AlertDescription></Alert>}
-        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+        {isLoadingOverview && <Alert><AlertDescription>Loading analytics overview…</AlertDescription></Alert>}
+        {overviewError && <Alert variant="destructive"><AlertDescription>{overviewError}</AlertDescription></Alert>}
 
         {health && (
           <>
