@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { Coffee, Gauge, Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { workforceApi, type ApiAnalyticsOverview } from "@/lib/api/workforce"
 
@@ -81,8 +80,14 @@ export default function GlobalHealthPage() {
           </div>
         </div>
 
-        {isLoadingOverview && <Alert><AlertDescription>Loading analytics overview…</AlertDescription></Alert>}
-        {overviewError && <Alert variant="destructive"><AlertDescription>{overviewError}</AlertDescription></Alert>}
+        {isLoadingOverview && (
+          <div className="rounded-md border px-4 py-3 text-sm text-muted-foreground">Loading analytics overview…</div>
+        )}
+        {overviewError && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {overviewError}
+          </div>
+        )}
 
         {health && (
           <>
