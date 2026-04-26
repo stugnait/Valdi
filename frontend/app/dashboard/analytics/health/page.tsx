@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Coffee, Gauge, Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -40,24 +40,7 @@ export default function GlobalHealthPage() {
 
   const health = analyticsOverview?.health
 
-  const costStructure = useMemo(() => {
-    if (!health) return []
-
-    const totalMonthlyCosts = health.total_monthly_costs || 1
-    const items = [
-      { label: "Labor", amount: health.total_labor_cost },
-      { label: "Recurring", amount: health.monthly_recurring },
-      { label: "Variable", amount: health.monthly_variable },
-      { label: "Tax reserve", amount: health.tax_reserve },
-      { label: "ESV", amount: health.monthly_esv },
-      { label: "Depreciation", amount: health.monthly_depreciation },
-    ]
-
-    return items.map((item) => ({
-      ...item,
-      percent: (item.amount / totalMonthlyCosts) * 100,
-    }))
-  }, [health])
+  const costStructure = health?.cost_structure ?? []
 
   return (
     <TooltipProvider>
@@ -90,8 +73,15 @@ export default function GlobalHealthPage() {
               <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Revenue</p><p className="text-2xl font-bold">{formatCurrency(health.total_revenue)}</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">EBITDA</p><p className="text-2xl font-bold">{formatCurrency(health.ebitda)}</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Net Profit</p><p className="text-2xl font-bold">{formatCurrency(health.net_profit)}</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Burn / month</p><p className="text-2xl font-bold">{formatCurrency(health.monthly_burn)}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Burn / month (OpEx)</p><p className="text-2xl font-bold">{formatCurrency(health.monthly_burn)}</p></CardContent></Card>
             </div>
+
+            <Alert>
+              <AlertDescription>
+                Values are fetched from <span className="font-mono">GET /api/analytics/overview/</span>.
+                Net Profit = EBITDA − Tax Reserve − ESV − Depreciation. Burn/month = Labor + Recurring + Variable + Tax Reserve + ESV.
+              </AlertDescription>
+            </Alert>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-2">
