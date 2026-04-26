@@ -57,6 +57,7 @@ export default function GlobalHealthPage() {
   const health = analyticsOverview?.health
 
   const costStructure = health?.cost_structure ?? []
+  const costStructureTotal = costStructure.reduce((sum, item) => sum + item.amount, 0)
 
   return (
     <TooltipProvider>
@@ -139,6 +140,10 @@ export default function GlobalHealthPage() {
                     <span className="font-mono">{formatCurrency(item.amount)} ({formatPercent(item.percent)})</span>
                   </div>
                 ))}
+                <div className="pt-2 mt-2 border-t flex items-center justify-between text-sm font-semibold">
+                  <span>Total</span>
+                  <span className="font-mono">{formatCurrency(costStructureTotal)}</span>
+                </div>
               </CardContent>
             </Card>
           </>
