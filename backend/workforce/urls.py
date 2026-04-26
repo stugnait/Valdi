@@ -14,6 +14,7 @@ from .views import (
     RecurringExpenseViewSet,
     VariableExpenseViewSet,
     AnalyticsOverviewAPIView,
+    ManualCashBalanceAPIView,
 )
 
 router = DefaultRouter()
@@ -32,4 +33,5 @@ router.register('variable-expenses', VariableExpenseViewSet, basename='variable-
 urlpatterns = [
     path('', include(router.urls)),
     path('analytics/overview/', AnalyticsOverviewAPIView.as_view(), name='analytics-overview'),
+    path('analytics/manual-cash-balance/', ManualCashBalanceAPIView.as_view(), name='manual-cash-balance'),
 ]

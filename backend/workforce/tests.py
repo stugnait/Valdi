@@ -1,11 +1,12 @@
 import os
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from .models import BankConnection, Client, Project
+from .models import BankConnection, Client, ManualCashBalance, Project
 
 
 class BankConnectionApiTests(TestCase):
@@ -84,3 +85,38 @@ class AnalyticsOverviewApiTests(TestCase):
         self.assertIn('health', payload)
         self.assertAlmostEqual(payload['health']['total_revenue'], 10000.0)
         self.assertIn('sankey', payload['health'])
+        self.assertEqual(payload['health']['current_cash'], 0.0)
+
+    def test_uses_manual_cash_balance_for_current_cash(self):
+        ManualCashBalance.objects.create(updated_by=self.user, amount='12345.67')
+
+        response = self.client.get('/api/analytics/overview/')
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['health']['current_cash'], 12345.67)
+
+
+class ManualCashBalanceApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='cash-user',
+            email='cash@example.com',
+            password='safe-password-123',
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_returns_default_value_when_not_configured(self):
+        response = self.client.get('/api/analytics/manual-cash-balance/')
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['amount'], 0.0)
+        self.assertFalse(payload['is_configured'])
+
+    def test_put_upserts_manual_cash_balance(self):
+        response = self.client.put('/api/analytics/manual-cash-balance/', {'amount': '777.50'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['amount'], '777.50')
+        self.assertTrue(payload['is_configured'])
+        self.assertEqual(ManualCashBalance.objects.get(updated_by=self.user).amount, Decimal('777.50'))
