@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Save, Globe, Calendar, Users, Mail, Crown } from "lucide-react"
+import { Save, Globe, Calendar, Users, Mail, Crown, Trash2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { workforceApi, type ApiCurrentUser, type ApiDeveloper } from "@/lib/api/workforce"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { workforceApi, type ApiCurrentUser, type ApiDeveloper, type ApiTeam } from "@/lib/api/workforce"
 
 type Currency = "USD" | "UAH" | "EUR"
 
@@ -32,7 +33,10 @@ const fiscalYearMonths = [
 export default function GeneralSettingsPage() {
   const [currentUser, setCurrentUser] = useState<ApiCurrentUser | null>(null)
   const [developers, setDevelopers] = useState<ApiDeveloper[]>([])
+  const [teams, setTeams] = useState<ApiTeam[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [deletingDevId, setDeletingDevId] = useState<number | null>(null)
 
   const [settings, setSettings] = useState({
     baseCurrency: "USD" as Currency,
@@ -59,10 +63,15 @@ export default function GeneralSettingsPage() {
     let mounted = true
     const load = async () => {
       try {
-        const [me, devs] = await Promise.all([workforceApi.getCurrentUser(), workforceApi.listDevelopers()])
+        const [me, devs, teamsPayload] = await Promise.all([
+          workforceApi.getCurrentUser(),
+          workforceApi.listDevelopers(),
+          workforceApi.listTeams(),
+        ])
         if (!mounted) return
         setCurrentUser(me)
         setDevelopers(devs)
+        setTeams(teamsPayload)
         if (!savedCompanyName?.trim()) {
           setSettings((prev) => ({ ...prev, companyName: me.username || "My Company" }))
         }
@@ -79,21 +88,47 @@ export default function GeneralSettingsPage() {
     }
   }, [])
 
+  const teamMemberIds = useMemo(() => {
+    const ids = new Set<number>()
+    teams.forEach((team) => team.memberships.forEach((membership) => ids.add(membership.developer)))
+    return ids
+  }, [teams])
+
   const users = useMemo(() => {
     const owner = currentUser
       ? [{ id: `owner-${currentUser.id}`, name: currentUser.username, email: currentUser.email, role: "owner", isActive: true }]
       : []
 
-    const members = developers.map((dev) => ({
-      id: `dev-${dev.id}`,
-      name: dev.full_name,
-      email: dev.email,
-      role: "member",
-      isActive: dev.is_active,
-    }))
+    const members = developers
+      .filter((dev) => teamMemberIds.has(dev.id))
+      .map((dev) => ({
+        id: `dev-${dev.id}`,
+        name: dev.full_name,
+        email: dev.email,
+        role: "member",
+        isActive: dev.is_active,
+      }))
 
     return [...owner, ...members]
-  }, [currentUser, developers])
+  }, [currentUser, developers, teamMemberIds])
+
+  const orphanDevelopers = useMemo(
+    () => developers.filter((dev) => !teamMemberIds.has(dev.id)),
+    [developers, teamMemberIds]
+  )
+
+  const handleDeleteDeveloper = async (developerId: number) => {
+    setDeletingDevId(developerId)
+    setActionError(null)
+    try {
+      await workforceApi.deleteDeveloper(developerId)
+      setDevelopers((prev) => prev.filter((dev) => dev.id !== developerId))
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Не вдалося видалити учасника")
+    } finally {
+      setDeletingDevId(null)
+    }
+  }
 
   const handleSettingChange = <K extends keyof typeof settings>(key: K, value: typeof settings[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
@@ -118,7 +153,8 @@ export default function GeneralSettingsPage() {
         <Button onClick={handleSaveSettings} disabled={!hasChanges} className="gap-2"><Save className="size-4" />Save Changes</Button>
       </div>
 
-      {loadError ? <Card className="border-destructive/50"><CardContent className="pt-6 text-destructive text-sm">{loadError}</CardContent></Card> : null}
+      {loadError ? <Alert variant="destructive"><AlertDescription>{loadError}</AlertDescription></Alert> : null}
+      {actionError ? <Alert variant="destructive"><AlertDescription>{actionError}</AlertDescription></Alert> : null}
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="size-5" />Core Settings</CardTitle><CardDescription>Base configuration for your financial system</CardDescription></CardHeader>
@@ -136,7 +172,7 @@ export default function GeneralSettingsPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Users className="size-5" />Team access (live)</CardTitle><CardDescription>Owner from auth + members from developers endpoint</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Users className="size-5" />Team access (live)</CardTitle><CardDescription>Owner + members that currently belong to at least one team</CardDescription></CardHeader>
         <CardContent>
           <div className="space-y-4">
             {users.map((user) => (
@@ -150,6 +186,30 @@ export default function GeneralSettingsPage() {
             ))}
             {users.length === 0 ? <p className="text-sm text-muted-foreground">No users found from backend.</p> : null}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Developers without team</CardTitle><CardDescription>These users are not part of any team now; you can remove them completely.</CardDescription></CardHeader>
+        <CardContent className="space-y-3">
+          {orphanDevelopers.map((dev) => (
+            <div key={dev.id} className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <p className="font-medium">{dev.full_name}</p>
+                <p className="text-sm text-muted-foreground">{dev.email}</p>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => handleDeleteDeveloper(dev.id)}
+                disabled={deletingDevId === dev.id}
+              >
+                <Trash2 className="mr-2 size-4" />
+                {deletingDevId === dev.id ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          ))}
+          {orphanDevelopers.length === 0 ? <p className="text-sm text-muted-foreground">No orphan developers.</p> : null}
         </CardContent>
       </Card>
     </div>
