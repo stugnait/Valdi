@@ -20,7 +20,7 @@ import {
   Activity,
   Sparkles
 } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -114,7 +114,7 @@ export default function RulesPage() {
       const data = await workforceApi.listAutomationRules()
       setRules(data.map(mapApiRule))
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load automation rules")
+      setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити правила автоматизації")
     } finally {
       setLoading(false)
     }
@@ -237,7 +237,7 @@ export default function RulesPage() {
       setIsAddDialogOpen(false)
       resetForm()
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save automation rule")
+      setError(saveError instanceof Error ? saveError.message : "Не вдалося зберегти правило автоматизації")
     }
   }
 
@@ -247,7 +247,7 @@ export default function RulesPage() {
         await workforceApi.deleteAutomationRule(deleteRule.id)
         await loadRules()
       } catch (deleteError) {
-        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete automation rule")
+        setError(deleteError instanceof Error ? deleteError.message : "Не вдалося видалити правило автоматизації")
       }
       setDeleteRule(null)
     }
@@ -258,7 +258,7 @@ export default function RulesPage() {
       await workforceApi.updateAutomationRule(rule.id, { is_active: !rule.isActive })
       await loadRules()
     } catch (toggleError) {
-      setError(toggleError instanceof Error ? toggleError.message : "Failed to update rule status")
+      setError(toggleError instanceof Error ? toggleError.message : "Не вдалося оновити статус правила")
     }
   }
 
@@ -280,6 +280,23 @@ export default function RulesPage() {
     }))
   }
 
+  const getSourceLabelUa = (source: PaymentSource) => {
+    switch (source) {
+      case "monobank":
+        return "Monobank"
+      case "privat24":
+        return "Privat24"
+      case "wise":
+        return "Wise"
+      case "payoneer":
+        return "Payoneer"
+      case "cash":
+        return "Готівка"
+      default:
+        return source
+    }
+  }
+
   const getConditionBadges = (rule: AutomationRule) => {
     return rule.conditions.map((condition, idx) => {
       switch (condition.type) {
@@ -293,15 +310,15 @@ export default function RulesPage() {
           return (
             <Badge key={idx} variant="outline" className="gap-1">
               <DollarSign className="size-3" /> 
-              {condition.minAmount ? `$${condition.minAmount}` : "Any"}
+              {condition.minAmount ? `$${condition.minAmount}` : "Будь-яка"}
               {" - "}
-              {condition.maxAmount ? `$${condition.maxAmount}` : "Any"}
+              {condition.maxAmount ? `$${condition.maxAmount}` : "Будь-яка"}
             </Badge>
           )
         case "source":
           return (
             <Badge key={idx} variant="outline" className="gap-1">
-              <CreditCard className="size-3" /> {condition.source}
+              <CreditCard className="size-3" /> {condition.source ? getSourceLabelUa(condition.source) : ""}
             </Badge>
           )
         default:
@@ -332,7 +349,7 @@ export default function RulesPage() {
     if (rule.actions.setRecurring) {
       badges.push(
         <Badge key="recurring" variant="secondary" className="gap-1">
-          <Zap className="size-3" /> Recurring
+          <Zap className="size-3" /> Регулярна
         </Badge>
       )
     }
@@ -354,7 +371,7 @@ export default function RulesPage() {
       } else if (allocation.type === "all") {
         badges.push(
           <Badge key="allocation" variant="outline" className="gap-1">
-            <Users className="size-3" /> All Members
+            <Users className="size-3" /> Усі учасники
           </Badge>
         )
       }
@@ -368,14 +385,14 @@ export default function RulesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Automation Rules</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Правила автоматизації</h1>
           <p className="text-sm text-muted-foreground">
-            Automatically categorize and allocate expenses
+            Автоматично категоризуйте та розподіляйте витрати
           </p>
         </div>
         <Button onClick={handleOpenAdd} className="gap-2">
           <Plus className="size-4" />
-          Add Rule
+          Додати правило
         </Button>
       </div>
 
@@ -387,7 +404,7 @@ export default function RulesPage() {
 
       {loading && (
         <Card>
-          <CardContent className="pt-6 text-sm text-muted-foreground">Loading automation rules...</CardContent>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Завантажуємо правила автоматизації…</CardContent>
         </Card>
       )}
 
@@ -395,23 +412,23 @@ export default function RulesPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Rules</CardTitle>
+            <CardTitle className="text-sm font-medium">Активні правила</CardTitle>
             <Sparkles className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeRules}</div>
-            <p className="text-xs text-muted-foreground">{rules.length} total rules</p>
+            <p className="text-xs text-muted-foreground">Усього правил: {rules.length}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Matches</CardTitle>
+            <CardTitle className="text-sm font-medium">Усього збігів</CardTitle>
             <Activity className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalMatches}</div>
-            <p className="text-xs text-muted-foreground">Transactions auto-categorized</p>
+            <p className="text-xs text-muted-foreground">Транзакцій автоматично категоризовано</p>
           </CardContent>
         </Card>
       </div>
@@ -420,7 +437,7 @@ export default function RulesPage() {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search rules..."
+          placeholder="Пошук правил…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9"
@@ -445,13 +462,13 @@ export default function RulesPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{rule.name}</span>
                     {!rule.isActive && (
-                      <Badge variant="outline" className="text-muted-foreground">Disabled</Badge>
+                      <Badge variant="outline" className="text-muted-foreground">Вимкнено</Badge>
                     )}
                   </div>
                   
                   {/* Conditions */}
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">When matches:</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Коли збігається:</p>
                     <div className="flex flex-wrap gap-1.5">
                       {getConditionBadges(rule)}
                     </div>
@@ -459,7 +476,7 @@ export default function RulesPage() {
 
                   {/* Actions */}
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Then apply:</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Тоді застосувати:</p>
                     <div className="flex flex-wrap gap-1.5">
                       {getActionBadges(rule)}
                     </div>
@@ -469,12 +486,12 @@ export default function RulesPage() {
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Zap className="size-3" />
-                      {rule.matchCount} matches
+                      {rule.matchCount} збігів
                     </span>
                     {rule.lastMatchDate && (
                       <span className="flex items-center gap-1">
                         <Clock className="size-3" />
-                        Last: {new Date(rule.lastMatchDate).toLocaleDateString()}
+                        Останній: {new Date(rule.lastMatchDate).toLocaleDateString("uk-UA")}
                       </span>
                     )}
                   </div>
@@ -490,14 +507,14 @@ export default function RulesPage() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => handleToggleActive(rule)}>
                       {rule.isActive ? (
-                        <><PowerOff className="size-4 mr-2" /> Disable</>
+                        <><PowerOff className="size-4 mr-2" /> Вимкнути</>
                       ) : (
-                        <><Power className="size-4 mr-2" /> Enable</>
+                        <><Power className="size-4 mr-2" /> Увімкнути</>
                       )}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleOpenEdit(rule)}>
                       <Pencil className="size-4 mr-2" />
-                      Edit
+                      Редагувати
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
@@ -505,7 +522,7 @@ export default function RulesPage() {
                       onClick={() => setDeleteRule(rule)}
                     >
                       <Trash2 className="size-4 mr-2" />
-                      Delete
+                      Видалити
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -517,7 +534,7 @@ export default function RulesPage() {
         {filteredRules.length === 0 && (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
-              No automation rules found
+              Правила автоматизації не знайдено
             </CardContent>
           </Card>
         )}
@@ -528,20 +545,20 @@ export default function RulesPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingRule ? "Edit Rule" : "Create Automation Rule"}
+              {editingRule ? "Редагувати правило" : "Створити правило автоматизації"}
             </DialogTitle>
             <DialogDescription>
-              Define conditions and actions for automatic categorization
+              Налаштуйте умови та дії для автоматичної категоризації
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-6 py-4">
             {/* Rule Name */}
             <div>
-              <Label htmlFor="name">Rule Name</Label>
+              <Label htmlFor="name">Назва правила</Label>
               <Input
                 id="name"
-                placeholder="e.g., AWS Auto-Categorize"
+                placeholder="Наприклад: Автокатегоризація AWS"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -549,7 +566,7 @@ export default function RulesPage() {
 
             {/* Condition Type */}
             <div className="space-y-4">
-              <Label>Condition Type</Label>
+              <Label>Тип умови</Label>
               <RadioGroup 
                 value={formData.conditionType}
                 onValueChange={(v) => setFormData({ ...formData, conditionType: v as ConditionType })}
@@ -558,22 +575,22 @@ export default function RulesPage() {
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="keyword" id="keyword" />
                   <Label htmlFor="keyword" className="cursor-pointer">
-                    <div className="font-medium">Keyword Match</div>
-                    <div className="text-xs text-muted-foreground">Match text in description</div>
+                    <div className="font-medium">Збіг за ключовим словом</div>
+                    <div className="text-xs text-muted-foreground">Пошук тексту в описі</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="amount_range" id="amount_range" />
                   <Label htmlFor="amount_range" className="cursor-pointer">
-                    <div className="font-medium">Amount Range</div>
-                    <div className="text-xs text-muted-foreground">Match by amount</div>
+                    <div className="font-medium">Діапазон суми</div>
+                    <div className="text-xs text-muted-foreground">Збіг за сумою</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="source" id="source_type" />
                   <Label htmlFor="source_type" className="cursor-pointer">
-                    <div className="font-medium">Payment Source</div>
-                    <div className="text-xs text-muted-foreground">Match by bank</div>
+                    <div className="font-medium">Джерело оплати</div>
+                    <div className="text-xs text-muted-foreground">Збіг за банком/джерелом</div>
                   </Label>
                 </div>
               </RadioGroup>
@@ -581,11 +598,11 @@ export default function RulesPage() {
               {/* Keyword inputs */}
               {formData.conditionType === "keyword" && (
                 <div className="space-y-2">
-                  <Label>Keywords (match any)</Label>
+                  <Label>Ключові слова (будь-який збіг)</Label>
                   {formData.keywords.map((keyword, index) => (
                     <div key={index} className="flex gap-2">
                       <Input
-                        placeholder="e.g., AWS, Amazon"
+                        placeholder="Наприклад: AWS, Amazon"
                         value={keyword}
                         onChange={(e) => updateKeyword(index, e.target.value)}
                       />
@@ -601,7 +618,7 @@ export default function RulesPage() {
                     </div>
                   ))}
                   <Button variant="outline" size="sm" onClick={addKeyword}>
-                    <Plus className="size-4 mr-2" /> Add Keyword
+                    <Plus className="size-4 mr-2" /> Додати ключове слово
                   </Button>
                 </div>
               )}
@@ -610,7 +627,7 @@ export default function RulesPage() {
               {formData.conditionType === "amount_range" && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Min Amount ($)</Label>
+                    <Label>Мінімальна сума ($)</Label>
                     <Input
                       type="number"
                       placeholder="0"
@@ -619,10 +636,10 @@ export default function RulesPage() {
                     />
                   </div>
                   <div>
-                    <Label>Max Amount ($)</Label>
+                    <Label>Максимальна сума ($)</Label>
                     <Input
                       type="number"
-                      placeholder="Any"
+                      placeholder="Будь-яка"
                       value={formData.maxAmount}
                       onChange={(e) => setFormData({ ...formData, maxAmount: e.target.value })}
                     />
@@ -633,20 +650,20 @@ export default function RulesPage() {
               {/* Source selection */}
               {formData.conditionType === "source" && (
                 <div>
-                  <Label>Payment Source</Label>
+                  <Label>Джерело оплати</Label>
                   <Select 
                     value={formData.source} 
                     onValueChange={(v) => setFormData({ ...formData, source: v as PaymentSource })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select source" />
+                      <SelectValue placeholder="Оберіть джерело" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="monobank">🏦 Monobank</SelectItem>
                       <SelectItem value="privat24">💳 Privat24</SelectItem>
                       <SelectItem value="wise">🌐 Wise</SelectItem>
                       <SelectItem value="payoneer">💱 Payoneer</SelectItem>
-                      <SelectItem value="cash">💵 Cash</SelectItem>
+                      <SelectItem value="cash">💵 Готівка</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -655,20 +672,20 @@ export default function RulesPage() {
 
             {/* Actions */}
             <div className="space-y-4">
-              <Label>Actions (when matched)</Label>
+              <Label>Дії (коли є збіг)</Label>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Set Category</Label>
+                  <Label>Встановити категорію</Label>
                   <Select 
                     value={formData.setCategory || "none"} 
                     onValueChange={(v) => setFormData({ ...formData, setCategory: v === "none" ? "" : v })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Оберіть категорію" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="none">Не встановлювати</SelectItem>
                       {expenseCategories.map(cat => (
                         <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                       ))}
@@ -683,14 +700,14 @@ export default function RulesPage() {
                     onCheckedChange={(checked) => setFormData({ ...formData, setRecurring: !!checked })}
                   />
                   <Label htmlFor="recurring" className="cursor-pointer">
-                    Mark as Recurring
+                    Позначати як регулярну витрату
                   </Label>
                 </div>
               </div>
 
               {/* Allocation */}
               <div className="space-y-2">
-                <Label>Set Allocation</Label>
+                <Label>Встановити розподіл</Label>
                 <Select 
                   value={formData.allocationType} 
                   onValueChange={(v) => setFormData({ ...formData, allocationType: v as AllocationTarget })}
@@ -699,10 +716,10 @@ export default function RulesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Split by All Members</SelectItem>
-                    <SelectItem value="team">Allocate to Team</SelectItem>
-                    <SelectItem value="project">Apply to Project</SelectItem>
-                    <SelectItem value="none">No Allocation</SelectItem>
+                    <SelectItem value="all">Розподілити між усіма учасниками</SelectItem>
+                    <SelectItem value="team">Призначити на команду</SelectItem>
+                    <SelectItem value="project">Віднести на проєкт</SelectItem>
+                    <SelectItem value="none">Без розподілу</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -712,7 +729,7 @@ export default function RulesPage() {
                     onValueChange={(v) => setFormData({ ...formData, teamId: v })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select team" />
+                      <SelectValue placeholder="Оберіть команду" />
                     </SelectTrigger>
                     <SelectContent>
                       {mockTeams.map(team => (
@@ -728,7 +745,7 @@ export default function RulesPage() {
                     onValueChange={(v) => setFormData({ ...formData, projectId: v })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select project" />
+                      <SelectValue placeholder="Оберіть проєкт" />
                     </SelectTrigger>
                     <SelectContent>
                       {mockProjects.filter(p => p.status === "active").map(project => (
@@ -745,7 +762,7 @@ export default function RulesPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
+              Скасувати
             </Button>
             <Button 
               onClick={handleSave}
@@ -757,7 +774,7 @@ export default function RulesPage() {
                 (formData.allocationType === "project" && !formData.projectId)
               }
             >
-              {editingRule ? "Save Changes" : "Create Rule"}
+              {editingRule ? "Зберегти зміни" : "Створити правило"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -767,15 +784,15 @@ export default function RulesPage() {
       <AlertDialog open={!!deleteRule} onOpenChange={() => setDeleteRule(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Rule</AlertDialogTitle>
+            <AlertDialogTitle>Видалити правило</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deleteRule?.name}&quot;? This action cannot be undone.
+              Ви впевнені, що хочете видалити &quot;{deleteRule?.name}&quot;? Цю дію неможливо скасувати.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Скасувати</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+              Видалити
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -138,12 +138,12 @@ export default function DashboardPage() {
       description: "всього учасників",
     },
     {
-      title: "Profit Margin",
+      title: "Маржинальність",
       value: `${profitMargin.toFixed(1)}%`,
       change: formatMoney(expensesAmount),
       trend: profitMargin >= 0 ? "up" : "down",
       icon: TrendingUp,
-      description: "витрати (variable)",
+      description: "змінні витрати",
     },
   ]
 
@@ -168,13 +168,13 @@ export default function DashboardPage() {
 
   const recentTransactions = [
     ...paidInvoices.map((invoice) => ({
-      description: `Invoice #${invoice.number} — ${invoice.client_name}`,
+      description: `Інвойс №${invoice.number} — ${invoice.client_name}`,
       amount: `+${formatMoney(Number.parseFloat(invoice.amount ?? "0"))}`,
       type: "income",
       date: invoice.paid_date ?? invoice.issue_date,
     })),
     ...completedPayments.map((payment) => ({
-      description: `Subscription — ${payment.client_name}`,
+      description: `Підписка — ${payment.client_name}`,
       amount: `+${formatMoney(Number.parseFloat(String(payment.amount ?? 0)))}`,
       type: "income",
       date: payment.payment_date ?? payment.due_date,
@@ -207,7 +207,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground">Дашборд</h1>
           <p className="text-sm text-muted-foreground">Огляд фінансів та операцій вашого агентства</p>
         </div>
         <div className="flex items-center gap-3">
@@ -295,7 +295,7 @@ export default function DashboardPage() {
                     <p className="text-sm text-muted-foreground">{project.client}</p>
                     <div className="flex items-center gap-3">
                       <Progress value={project.spent} className="h-2 flex-1" />
-                      <span className="text-xs text-muted-foreground w-16">{project.spent}% cost</span>
+                      <span className="text-xs text-muted-foreground w-16">{project.spent}% витрат</span>
                     </div>
                   </div>
                   <div className="text-right">
@@ -372,7 +372,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold text-foreground">{person.revenue}/год</p>
-                  <p className="text-xs text-muted-foreground">{person.utilization}% util</p>
+                  <p className="text-xs text-muted-foreground">{person.utilization}% завантаження</p>
                 </div>
               </div>
             ))}
