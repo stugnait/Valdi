@@ -79,7 +79,7 @@ export default function GlobalHealthPage() {
             <Alert>
               <AlertDescription>
                 Values are fetched from <span className="font-mono">GET /api/analytics/overview/</span>.
-                Net Profit = EBITDA − Tax Reserve − ESV − Depreciation. Burn/month = Labor + Recurring + Variable + Tax Reserve + ESV.
+                Net Profit = EBITDA − Tax Reserve − Depreciation. Burn/month = Labor + Recurring + Variable + Tax Reserve.
               </AlertDescription>
             </Alert>
 
