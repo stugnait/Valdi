@@ -556,3 +556,21 @@ class VariableExpense(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ManualCashBalance(models.Model):
+    amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    updated_by = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='manual_cash_balance',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Manual cash balance'
+        verbose_name_plural = 'Manual cash balances'
+
+    def __str__(self):
+        return f'{self.updated_by_id}: {self.amount}'

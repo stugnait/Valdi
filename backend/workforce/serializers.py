@@ -13,6 +13,7 @@ from .models import (
     BankConnection,
     RecurringExpense,
     VariableExpense,
+    ManualCashBalance,
 )
 
 
@@ -415,3 +416,10 @@ class VariableExpenseSerializer(serializers.ModelSerializer):
         if project and project.created_by_id != user.id:
             raise serializers.ValidationError({'project': 'Не можна використовувати проєкт іншого користувача.'})
         return attrs
+
+
+class ManualCashBalanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ManualCashBalance
+        fields = ('id', 'amount', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'created_at', 'updated_at')

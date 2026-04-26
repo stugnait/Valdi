@@ -27,6 +27,7 @@ from .models import (
     BankConnection,
     RecurringExpense,
     VariableExpense,
+    ManualCashBalance,
 )
 from .services.monobank import MonobankAPIError, MonobankRateLimitError, sync_accounts_and_statements
 
@@ -375,7 +376,8 @@ class AnalyticsOverviewAPIView(APIView):
         monthly_depreciation = equipment_value / Decimal('36') if equipment_value else Decimal('0')
         ebitda = total_revenue - total_labor_cost - monthly_recurring - monthly_variable
         net_profit = ebitda - tax_reserve - monthly_esv - monthly_depreciation
-        current_cash = Decimal('45000')
+        manual_cash_balance = getattr(user, 'manual_cash_balance', None)
+        current_cash = manual_cash_balance.amount if manual_cash_balance else Decimal('0')
         monthly_burn = total_monthly_costs + tax_reserve + monthly_esv
         runway_months = current_cash / monthly_burn if monthly_burn > 0 else Decimal('0')
         profit_margin = (net_profit / total_revenue) * Decimal('100') if total_revenue > 0 else Decimal('0')
@@ -450,4 +452,35 @@ class AnalyticsOverviewAPIView(APIView):
                 },
             }
         }
+        return Response(payload)
+
+
+class ManualCashBalanceAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        manual_cash_balance = getattr(request.user, 'manual_cash_balance', None)
+        if not manual_cash_balance:
+            return Response({'amount': 0.0, 'is_configured': False})
+
+        serializer = workforce_serializers.ManualCashBalanceSerializer(manual_cash_balance)
+        payload = serializer.data
+        payload['is_configured'] = True
+        return Response(payload)
+
+    def put(self, request):
+        manual_cash_balance = getattr(request.user, 'manual_cash_balance', None)
+        if manual_cash_balance:
+            serializer = workforce_serializers.ManualCashBalanceSerializer(
+                manual_cash_balance,
+                data=request.data,
+                partial=True,
+            )
+        else:
+            serializer = workforce_serializers.ManualCashBalanceSerializer(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save(updated_by=request.user)
+        payload = workforce_serializers.ManualCashBalanceSerializer(instance).data
+        payload['is_configured'] = True
         return Response(payload)
