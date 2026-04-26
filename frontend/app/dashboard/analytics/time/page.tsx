@@ -603,6 +603,21 @@ export default function TimeMachinePage() {
                 </ChartContainer>
               </CardContent>
             </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="text-lg">Expected income</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {(baseData?.pendingInvoices ?? []).slice(0, 5).map((invoice) => (
+                  <div key={invoice.id} className="flex items-center justify-between text-sm">
+                    <span>{invoice.name}</span>
+                    <span className="font-mono text-emerald-600">+${invoice.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+                {(baseData?.pendingInvoices.length ?? 0) === 0 && <p className="text-sm text-muted-foreground">No pending invoices.</p>}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Right Sidebar */}
@@ -621,58 +636,6 @@ export default function TimeMachinePage() {
               onReset={resetSimulation}
             />
 
-            {/* Upcoming Invoices */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">What-if simulator</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {(baseData?.pendingInvoices ?? []).slice(0, 5).map((inv) => (
-                    <div key={inv.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
-                      <div>
-                        <div className="font-medium text-sm">{inv.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Due: {new Date(inv.dueDate).toLocaleDateString("uk-UA")}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono text-emerald-600">
-                          +${inv.amount.toLocaleString()}
-                        </div>
-                        <Badge variant={inv.status === "sent" ? "default" : "secondary"} className="text-xs">
-                          {inv.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-2">
-                  <Label>New hires: {newHires}</Label>
-                  <Slider value={[newHires]} min={0} max={8} step={1} onValueChange={(v) => setNewHires(v[0] ?? 0)} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="leads">Include lead pipeline</Label>
-                  <Switch id="leads" checked={includeLeads} onCheckedChange={setIncludeLeads} />
-                </div>
-                <Button variant="outline" className="w-full" onClick={resetSimulation}><RotateCcw className="mr-2 h-4 w-4" />Reset</Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Expected income</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {(baseData?.pendingInvoices ?? []).slice(0, 5).map((invoice) => (
-                  <div key={invoice.id} className="flex items-center justify-between text-sm">
-                    <span>{invoice.name}</span>
-                    <span className="font-mono text-emerald-600">+${invoice.amount.toLocaleString()}</span>
-                  </div>
-                ))}
-                {(baseData?.pendingInvoices.length ?? 0) === 0 && <p className="text-sm text-muted-foreground">No pending invoices.</p>}
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
