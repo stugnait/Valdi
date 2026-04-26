@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Coffee, Gauge, Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -11,7 +11,6 @@ const formatCurrency = (value: number) => `$${value.toLocaleString()}`
 const formatPercent = (value: number) => `${value.toFixed(1)}%`
 
 export default function GlobalHealthPage() {
-  const [period, setPeriod] = useState("month")
   const [analyticsOverview, setAnalyticsOverview] = useState<ApiAnalyticsOverview | null>(null)
   const [isLoadingOverview, setIsLoadingOverview] = useState(true)
   const [overviewError, setOverviewError] = useState<string | null>(null)
@@ -20,16 +19,16 @@ export default function GlobalHealthPage() {
     let isMounted = true
     const load = async () => {
       try {
-        setIsLoading(true)
+        setIsLoadingOverview(true)
         const payload = await workforceApi.getAnalyticsOverview()
         if (!isMounted) return
-        setOverview(payload)
-        setError(null)
+        setAnalyticsOverview(payload)
+        setOverviewError(null)
       } catch (loadError) {
         if (!isMounted) return
-        setError(loadError instanceof Error ? loadError.message : "Unable to load analytics")
+        setOverviewError(loadError instanceof Error ? loadError.message : "Unable to load analytics")
       } finally {
-        if (isMounted) setIsLoading(false)
+        if (isMounted) setIsLoadingOverview(false)
       }
     }
 
@@ -39,60 +38,9 @@ export default function GlobalHealthPage() {
     }
   }, [])
 
-  const financialData = analyticsOverview
-    ? {
-        totalRevenue: analyticsOverview.health.total_revenue,
-        totalLaborCost: analyticsOverview.health.total_labor_cost,
-        monthlyRecurring: analyticsOverview.health.monthly_recurring,
-        monthlyVariable: analyticsOverview.health.monthly_variable,
-        totalMonthlyCosts: analyticsOverview.health.total_monthly_costs,
-        taxReserve: analyticsOverview.health.tax_reserve,
-        monthlyESV: analyticsOverview.health.monthly_esv,
-        monthlyDepreciation: analyticsOverview.health.monthly_depreciation,
-        ebitda: analyticsOverview.health.ebitda,
-        netProfit: analyticsOverview.health.net_profit,
-        currentCash: analyticsOverview.health.current_cash,
-        monthlyBurn: analyticsOverview.health.monthly_burn,
-        runwayMonths: analyticsOverview.health.runway_months,
-        profitMargin: analyticsOverview.health.profit_margin,
-      }
-    : {
-        totalRevenue: 0,
-        totalLaborCost: 0,
-        monthlyRecurring: 0,
-        monthlyVariable: 0,
-        totalMonthlyCosts: 0,
-        taxReserve: 0,
-        monthlyESV: 0,
-        monthlyDepreciation: 0,
-        ebitda: 0,
-        netProfit: 0,
-        currentCash: 0,
-        monthlyBurn: 0,
-        runwayMonths: 0,
-        profitMargin: 0,
-      }
+  const health = analyticsOverview?.health
 
-  const sankeyData = analyticsOverview
-    ? {
-        sources: analyticsOverview.health.sankey.sources.map((source) => ({
-          id: String(source.id),
-          name: source.name,
-          amount: source.amount,
-        })),
-        destinations: analyticsOverview.health.sankey.destinations.map((destination) => ({
-          id: String(destination.id),
-          name: destination.name,
-          amount: destination.amount,
-          color: destination.color ?? "#6B7280",
-        })),
-        totalIncome: analyticsOverview.health.sankey.total_income,
-      }
-    : {
-        sources: [],
-        destinations: [],
-        totalIncome: 0,
-      }
+  const costStructure = health?.cost_structure ?? []
 
   return (
     <TooltipProvider>
@@ -116,8 +64,8 @@ export default function GlobalHealthPage() {
           </div>
         </div>
 
-        {isLoading && <Alert><AlertDescription>Loading analytics overview…</AlertDescription></Alert>}
-        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+        {isLoadingOverview && <Alert><AlertDescription>Loading analytics overview…</AlertDescription></Alert>}
+        {overviewError && <Alert variant="destructive"><AlertDescription>{overviewError}</AlertDescription></Alert>}
 
         {health && (
           <>
@@ -125,8 +73,15 @@ export default function GlobalHealthPage() {
               <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Revenue</p><p className="text-2xl font-bold">{formatCurrency(health.total_revenue)}</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">EBITDA</p><p className="text-2xl font-bold">{formatCurrency(health.ebitda)}</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Net Profit</p><p className="text-2xl font-bold">{formatCurrency(health.net_profit)}</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Burn / month</p><p className="text-2xl font-bold">{formatCurrency(health.monthly_burn)}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Burn / month (OpEx)</p><p className="text-2xl font-bold">{formatCurrency(health.monthly_burn)}</p></CardContent></Card>
             </div>
+
+            <Alert>
+              <AlertDescription>
+                Values are fetched from <span className="font-mono">GET /api/analytics/overview/</span>.
+                Net Profit = EBITDA − Tax Reserve − Depreciation. Burn/month = Labor + Recurring + Variable + Tax Reserve.
+              </AlertDescription>
+            </Alert>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-2">

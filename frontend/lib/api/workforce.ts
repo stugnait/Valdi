@@ -223,7 +223,6 @@ export interface ApiAnalyticsOverview {
     monthly_variable: number
     total_monthly_costs: number
     tax_reserve: number
-    monthly_esv: number
     monthly_depreciation: number
     ebitda: number
     net_profit: number

@@ -408,17 +408,16 @@ class AnalyticsOverviewAPIView(APIView):
         monthly_variable = variable_total / Decimal('3') if variable_expenses else Decimal('0')
         total_monthly_costs = total_labor_cost + monthly_recurring + monthly_variable
         tax_reserve = total_revenue * Decimal('0.05')
-        monthly_esv = Decimal('1760') / Decimal('3')
         equipment_value = sum(
             (expense.amount for expense in variable_expenses if expense.category == 'equipment'),
             Decimal('0'),
         )
         monthly_depreciation = equipment_value / Decimal('36') if equipment_value else Decimal('0')
         ebitda = total_revenue - total_labor_cost - monthly_recurring - monthly_variable
-        net_profit = ebitda - tax_reserve - monthly_esv - monthly_depreciation
+        net_profit = ebitda - tax_reserve - monthly_depreciation
         manual_cash_balance = getattr(user, 'manual_cash_balance', None)
         current_cash = manual_cash_balance.amount if manual_cash_balance else Decimal('0')
-        monthly_burn = total_monthly_costs + tax_reserve + monthly_esv
+        monthly_burn = total_monthly_costs + tax_reserve
         runway_months = current_cash / monthly_burn if monthly_burn > 0 else Decimal('0')
         profit_margin = (net_profit / total_revenue) * Decimal('100') if total_revenue > 0 else Decimal('0')
 
@@ -443,7 +442,7 @@ class AnalyticsOverviewAPIView(APIView):
                 'amount': float(monthly_recurring + monthly_variable),
                 'color': '#F59E0B',
             },
-            {'id': 'taxes', 'name': 'Taxes & ESV', 'amount': float(tax_reserve + monthly_esv), 'color': '#EF4444'},
+            {'id': 'taxes', 'name': 'Taxes', 'amount': float(tax_reserve), 'color': '#EF4444'},
             {'id': 'profit', 'name': 'Net Profit', 'amount': float(max(net_profit, Decimal('0'))), 'color': '#10B981'},
         ]
         cost_structure = []
@@ -452,7 +451,7 @@ class AnalyticsOverviewAPIView(APIView):
             ('Labor Costs', total_labor_cost, '#3B82F6'),
             ('Recurring Overheads', monthly_recurring, '#F59E0B'),
             ('Variable Expenses', monthly_variable, '#8B5CF6'),
-            ('Taxes & ESV', tax_reserve + monthly_esv, '#EF4444'),
+            ('Taxes', tax_reserve, '#EF4444'),
         ]:
             cost_structure.append(
                 {
@@ -471,7 +470,6 @@ class AnalyticsOverviewAPIView(APIView):
                 'monthly_variable': float(monthly_variable),
                 'total_monthly_costs': float(total_monthly_costs),
                 'tax_reserve': float(tax_reserve),
-                'monthly_esv': float(monthly_esv),
                 'monthly_depreciation': float(monthly_depreciation),
                 'ebitda': float(ebitda),
                 'net_profit': float(net_profit),
