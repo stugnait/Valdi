@@ -448,8 +448,6 @@ function EBITDABreakdown({ data }: { data: ReturnType<typeof useFinancialData> }
 
 export default function GlobalHealthPage() {
   const [period, setPeriod] = useState("month")
-  const mockFinancialData = useFinancialData()
-  const mockSankeyData = useSankeyData(mockFinancialData)
   const [analyticsOverview, setAnalyticsOverview] = useState<ApiAnalyticsOverview | null>(null)
   const [isLoadingOverview, setIsLoadingOverview] = useState(true)
   const [overviewError, setOverviewError] = useState<string | null>(null)
@@ -494,12 +492,27 @@ export default function GlobalHealthPage() {
         runwayMonths: analyticsOverview.health.runway_months,
         profitMargin: analyticsOverview.health.profit_margin,
       }
-    : mockFinancialData
+    : {
+        totalRevenue: 0,
+        totalLaborCost: 0,
+        monthlyRecurring: 0,
+        monthlyVariable: 0,
+        totalMonthlyCosts: 0,
+        taxReserve: 0,
+        monthlyESV: 0,
+        monthlyDepreciation: 0,
+        ebitda: 0,
+        netProfit: 0,
+        currentCash: 0,
+        monthlyBurn: 0,
+        runwayMonths: 0,
+        profitMargin: 0,
+      }
 
   const sankeyData = analyticsOverview
     ? {
         sources: analyticsOverview.health.sankey.sources.map((source) => ({
-          id: source.id,
+          id: String(source.id),
           name: source.name,
           amount: source.amount,
         })),
@@ -511,7 +524,11 @@ export default function GlobalHealthPage() {
         })),
         totalIncome: analyticsOverview.health.sankey.total_income,
       }
-    : mockSankeyData
+    : {
+        sources: [],
+        destinations: [],
+        totalIncome: 0,
+      }
 
   return (
     <TooltipProvider>
@@ -528,7 +545,7 @@ export default function GlobalHealthPage() {
                 {isLoadingOverview
                   ? "Loading analytics overview..."
                   : overviewError
-                    ? `Using local fallback data (${overviewError})`
+                    ? `Analytics unavailable (${overviewError})`
                     : "Connected to backend analytics overview"}
               </p>
             </div>

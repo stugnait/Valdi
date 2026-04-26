@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { 
   CreditCard,
   Calendar,
@@ -57,6 +57,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { workforceApi } from "@/lib/api/workforce"
 
 type PlanType = "starter" | "professional" | "enterprise"
 type BillingCycle = "monthly" | "yearly"
@@ -164,42 +165,31 @@ const plans: Plan[] = [
   },
 ]
 
-// Mock current subscription
-const mockSubscription = {
+const defaultSubscription = {
   plan: "professional" as PlanType,
-  status: "active" as "active" | "cancelled" | "past_due" | "trialing",
+  status: "trialing" as "active" | "cancelled" | "past_due" | "trialing",
   billingCycle: "monthly" as BillingCycle,
-  currentPeriodStart: "2024-04-01",
-  currentPeriodEnd: "2024-05-01",
+  currentPeriodStart: new Date().toISOString().slice(0, 10),
+  currentPeriodEnd: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
   cancelAtPeriodEnd: false,
   
   // Usage
   usage: {
-    users: 8,
-    projects: 24,
-    storage: 18.5, // GB used
-    apiCalls: 45000,
+    users: 0,
+    projects: 0,
+    storage: 0,
+    apiCalls: 0,
   },
 }
 
-// Mock invoices
-const mockInvoices: Invoice[] = [
-  { id: "inv-001", date: "2024-04-01", amount: 79, status: "paid", downloadUrl: "#" },
-  { id: "inv-002", date: "2024-03-01", amount: 79, status: "paid", downloadUrl: "#" },
-  { id: "inv-003", date: "2024-02-01", amount: 79, status: "paid", downloadUrl: "#" },
-  { id: "inv-004", date: "2024-01-01", amount: 79, status: "paid", downloadUrl: "#" },
-  { id: "inv-005", date: "2023-12-01", amount: 79, status: "paid", downloadUrl: "#" },
-]
-
 // Mock payment methods
-const mockPaymentMethods: PaymentMethod[] = [
-  { id: "pm-1", type: "card", last4: "4242", brand: "Visa", expiry: "12/26", isDefault: true },
-  { id: "pm-2", type: "card", last4: "5555", brand: "Mastercard", expiry: "08/25", isDefault: false },
-]
+const mockPaymentMethods: PaymentMethod[] = []
 
 export default function BillingPage() {
-  const [subscription, setSubscription] = useState(mockSubscription)
+  const [subscription, setSubscription] = useState(defaultSubscription)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
   const [paymentMethods, setPaymentMethods] = useState(mockPaymentMethods)
+  const [loadError, setLoadError] = useState<string | null>(null)
   
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false)
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
@@ -211,6 +201,56 @@ export default function BillingPage() {
   
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+
+  useEffect(() => {
+    let isMounted = true
+    const load = async () => {
+      try {
+        const [subscriptions, apiInvoices] = await Promise.all([
+          workforceApi.listSubscriptions(),
+          workforceApi.listInvoices(),
+        ])
+        if (!isMounted) return
+
+        const activeSubscription = subscriptions.find((item) => item.status === "active") ?? subscriptions[0]
+        if (activeSubscription) {
+          const planFromApi = String(activeSubscription.plan_name || "").toLowerCase()
+          const mappedPlan: PlanType = planFromApi.includes("enterprise")
+            ? "enterprise"
+            : planFromApi.includes("starter")
+              ? "starter"
+              : "professional"
+          setSubscription((prev) => ({
+            ...prev,
+            plan: mappedPlan,
+            status: activeSubscription.status === "pending" ? "trialing" : (activeSubscription.status as typeof prev.status),
+            billingCycle: activeSubscription.billing_cycle === "yearly" ? "yearly" : "monthly",
+            currentPeriodStart: activeSubscription.start_date,
+            currentPeriodEnd: activeSubscription.next_billing_date,
+            cancelAtPeriodEnd: activeSubscription.status === "cancelled",
+          }))
+        }
+
+        setInvoices(
+          apiInvoices.map((invoice) => ({
+            id: invoice.number,
+            date: invoice.issue_date,
+            amount: Number.parseFloat(invoice.amount),
+            status: invoice.status === "paid" ? "paid" : invoice.status === "overdue" ? "failed" : "pending",
+            downloadUrl: "#",
+          }))
+        )
+        setLoadError(null)
+      } catch (error) {
+        if (!isMounted) return
+        setLoadError(error instanceof Error ? error.message : "Unable to load billing data")
+      }
+    }
+    void load()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const currentPlan = plans.find(p => p.id === subscription.plan)!
   
@@ -301,6 +341,11 @@ export default function BillingPage() {
           <AlertDescription className="text-green-800">
             {successMessage}
           </AlertDescription>
+        </Alert>
+      )}
+      {loadError && (
+        <Alert variant="destructive">
+          <AlertDescription>{loadError}</AlertDescription>
         </Alert>
       )}
 
@@ -578,7 +623,7 @@ export default function BillingPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockInvoices.map(invoice => (
+              {invoices.map(invoice => (
                 <TableRow key={invoice.id}>
                   <TableCell>{formatDate(invoice.date)}</TableCell>
                   <TableCell className="font-mono text-sm">{invoice.id.toUpperCase()}</TableCell>
@@ -600,6 +645,13 @@ export default function BillingPage() {
                   </TableCell>
                 </TableRow>
               ))}
+              {invoices.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    Немає інвойсів з backend.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

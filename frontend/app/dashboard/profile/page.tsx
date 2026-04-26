@@ -54,6 +54,7 @@ import {
   Alert,
   AlertDescription,
 } from "@/components/ui/alert"
+import { workforceApi } from "@/lib/api/workforce"
 
 interface UserProfile {
   id: string
@@ -90,8 +91,7 @@ interface UserProfile {
   lastPasswordChange: string
 }
 
-// Mock user data
-const mockUserProfile: UserProfile = {
+const emptyUserProfile: UserProfile = {
   id: "u1",
   firstName: "",
   lastName: "",
@@ -122,14 +122,6 @@ const mockUserProfile: UserProfile = {
   lastPasswordChange: "",
 }
 
-// Mock subscription data
-const mockSubscriptionInfo = {
-  plan: "Professional",
-  status: "active" as "active" | "cancelled" | "past_due",
-  currentPeriodEnd: "2024-05-01",
-  cancelAtPeriodEnd: false,
-}
-  
 const departments = [
   "Executive",
   "Development",
@@ -151,12 +143,13 @@ const timezones = [
 ]
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<UserProfile>(mockUserProfile)
+  const [profile, setProfile] = useState<UserProfile>(emptyUserProfile)
   const [isEditing, setIsEditing] = useState(false)
-  const [editedProfile, setEditedProfile] = useState<UserProfile>(mockUserProfile)
+  const [editedProfile, setEditedProfile] = useState<UserProfile>(emptyUserProfile)
   const [hasChanges, setHasChanges] = useState(false)
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
   const [showSuccessAlert, setShowSuccessAlert] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   
   // Password change state
   const [passwordData, setPasswordData] = useState({
@@ -171,26 +164,31 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
-    const savedEmail = localStorage.getItem("user_email")
-    const savedDisplayName = localStorage.getItem("user_display_name")
-
-    if (!savedEmail && !savedDisplayName) return
-
-    const email = savedEmail?.trim() || mockUserProfile.email
-    const fallbackName = email.split("@")[0] || mockUserProfile.firstName
-    const displayName = savedDisplayName?.trim() || fallbackName
-    const [firstName, ...rest] = displayName.split(" ")
-    const lastName = rest.join(" ")
-
-    const nextProfile: UserProfile = {
-      ...mockUserProfile,
-      email,
-      firstName: firstName || mockUserProfile.firstName,
-      lastName,
+    let isMounted = true
+    const loadProfile = async () => {
+      try {
+        const user = await workforceApi.getCurrentUser()
+        if (!isMounted) return
+        const [firstName, ...rest] = user.username.split(" ")
+        const nextProfile: UserProfile = {
+          ...emptyUserProfile,
+          id: String(user.id),
+          email: user.email,
+          firstName: firstName || "",
+          lastName: rest.join(" "),
+        }
+        setProfile(nextProfile)
+        setEditedProfile(nextProfile)
+        setLoadError(null)
+      } catch (error) {
+        if (!isMounted) return
+        setLoadError(error instanceof Error ? error.message : "Не вдалося завантажити профіль")
+      }
     }
-
-    setProfile(nextProfile)
-    setEditedProfile(nextProfile)
+    void loadProfile()
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const handleEditChange = <K extends keyof UserProfile>(key: K, value: UserProfile[K]) => {
@@ -207,15 +205,6 @@ export default function ProfilePage() {
   }
 
   const handleSaveProfile = () => {
-    const resolvedName = `${editedProfile.firstName} ${editedProfile.lastName}`.trim()
-    const emailPrefix = editedProfile.email.split("@")[0] ?? ""
-
-    localStorage.setItem("user_display_name", resolvedName || emailPrefix)
-    localStorage.setItem("user_email", editedProfile.email.trim())
-
-    setProfile(editedProfile)
-    setIsEditing(false)
-    setHasChanges(false)
     setShowSuccessAlert(true)
     setTimeout(() => setShowSuccessAlert(false), 3000)
   }
@@ -396,41 +385,28 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
+      {loadError && (
+        <Alert variant="destructive">
+          <AlertDescription>{loadError}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Subscription Status Card */}
-      <Card className={mockSubscriptionInfo.cancelAtPeriodEnd ? "border-amber-200 bg-amber-50/50" : ""}>
+      <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className={`flex size-12 items-center justify-center rounded-lg ${
-                mockSubscriptionInfo.cancelAtPeriodEnd 
-                  ? "bg-amber-100" 
-                  : "bg-primary/10"
-              }`}>
-                <Zap className={`size-6 ${
-                  mockSubscriptionInfo.cancelAtPeriodEnd 
-                    ? "text-amber-600" 
-                    : "text-primary"
-                }`} />
+              <div className="flex size-12 items-center justify-center rounded-lg bg-primary/10">
+                <Zap className="size-6 text-primary" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold">План {mockSubscriptionInfo.plan}</h3>
-                  <Badge variant={mockSubscriptionInfo.status === "active" && !mockSubscriptionInfo.cancelAtPeriodEnd ? "default" : "secondary"}>
-                    {mockSubscriptionInfo.cancelAtPeriodEnd 
-                      ? "Скасовується" 
-                      : mockSubscriptionInfo.status === "active" 
-                        ? "Активна" 
-                        : "Прострочена"}
-                  </Badge>
+                  <h3 className="font-semibold">План та білінг</h3>
+                  <Badge variant="secondary">Очікує API</Badge>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                   <Clock className="size-3.5" />
-                  <span>
-                    {mockSubscriptionInfo.cancelAtPeriodEnd 
-                      ? `Доступ до ${new Date(mockSubscriptionInfo.currentPeriodEnd).toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" })}`
-                      : `Наступне списання: ${new Date(mockSubscriptionInfo.currentPeriodEnd).toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" })}`
-                    }
-                  </span>
+                  <span>Дані підписки тимчасово недоступні — немає backend endpoint-ів.</span>
                 </div>
               </div>
             </div>
@@ -442,15 +418,6 @@ export default function ProfilePage() {
               </Link>
             </Button>
           </div>
-          
-          {mockSubscriptionInfo.cancelAtPeriodEnd && (
-            <div className="mt-4 p-3 bg-amber-100/50 rounded-lg border border-amber-200">
-              <p className="text-sm text-amber-800">
-                Вашу підписку буде скасовано після закінчення поточного періоду. 
-                Ви можете поновити її в будь-який момент до цієї дати.
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 

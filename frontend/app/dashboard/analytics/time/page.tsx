@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { 
   Clock, 
   TrendingUp, 
@@ -51,61 +51,139 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { mockTeams } from "@/lib/types/teams"
-import { mockProjects } from "@/lib/types/projects"
-import { mockRecurringExpenses } from "@/lib/types/spendings"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { workforceApi } from "@/lib/api/workforce"
+
+const toNumber = (value: string | number | null | undefined) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return 0
+}
+
+type BaseFinancials = {
+  totalLaborCost: number
+  monthlyRecurring: number
+  expectedMonthlyRevenue: number
+  leadMonthlyRevenue: number
+  pendingInvoices: Array<{
+    id: number
+    name: string
+    dueDate: string
+    amount: number
+    status: "sent" | "draft"
+  }>
+  currentCash: number
+}
 
 // Base financial data calculation
 function useBaseFinancials() {
-  return useMemo(() => {
-    const totalLaborCost = mockTeams.reduce((sum, team) => 
-      sum + team.members.reduce((s, m) => s + m.baseRate, 0), 0
-    )
-    
-    const monthlyRecurring = mockRecurringExpenses.reduce((sum, e) => {
-      if (e.cycle === "monthly") return sum + e.amountUSD
-      if (e.cycle === "yearly") return sum + e.amountUSD / 12
-      if (e.cycle === "quarterly") return sum + e.amountUSD / 3
-      return sum
-    }, 0)
+  const [baseData, setBaseData] = useState<BaseFinancials | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-    // Expected recurring revenue from active projects
-    const activeProjects = mockProjects.filter(p => p.status === "active")
-    const expectedMonthlyRevenue = activeProjects.reduce((sum, p) => {
-      // For T&M projects, use monthly rate
-      if (p.billingModel === "time-materials") {
-        return sum + (p.clientHourlyRate || 0) * (p.monthlyCap || 160)
+  useEffect(() => {
+    let isMounted = true
+
+    const load = async () => {
+      try {
+        setIsLoading(true)
+        const [overview, projects, invoices, recurring] = await Promise.all([
+          workforceApi.getAnalyticsOverview(),
+          workforceApi.listProjects(),
+          workforceApi.listInvoices(),
+          workforceApi.listRecurringExpenses(),
+        ])
+        if (!isMounted) return
+
+        const expectedMonthlyRevenue = projects
+          .filter((project) => project.status === "active")
+          .reduce((sum, project) => {
+            if (project.billing_model === "time-materials") {
+              return sum + toNumber(project.client_hourly_rate) * (project.monthly_cap ?? 160)
+            }
+            return sum + toNumber(project.total_contract_value)
+          }, 0)
+
+        const leadMonthlyRevenue = projects
+          .filter((project) => project.status === "lead")
+          .reduce((sum, project) => sum + toNumber(project.total_contract_value) / 6, 0)
+
+        const monthlyRecurring = recurring.reduce((sum, expense) => {
+          const amount = toNumber(expense.amount)
+          if (expense.cycle === "monthly") return sum + amount
+          if (expense.cycle === "quarterly") return sum + amount / 3
+          if (expense.cycle === "yearly") return sum + amount / 12
+          return sum
+        }, 0)
+
+        const pendingInvoices = invoices
+          .filter((invoice) => invoice.status === "sent" || invoice.status === "draft")
+          .map((invoice) => ({
+            id: invoice.id,
+            name: invoice.number || invoice.project_name,
+            dueDate: invoice.due_date,
+            amount: toNumber(invoice.amount),
+            status: invoice.status as "sent" | "draft",
+          }))
+
+        setBaseData({
+          totalLaborCost: overview.health.total_labor_cost,
+          monthlyRecurring,
+          expectedMonthlyRevenue,
+          leadMonthlyRevenue,
+          pendingInvoices,
+          currentCash: overview.health.current_cash,
+        })
+        setError(null)
+      } catch (loadError) {
+        if (!isMounted) return
+        setError(loadError instanceof Error ? loadError.message : "Unable to load forecast data")
+      } finally {
+        if (isMounted) setIsLoading(false)
       }
-      // For fixed price, estimate monthly based on duration
-      const startDate = new Date(p.startDate)
-      const endDate = new Date(p.endDate)
-      const months = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30))
-      return sum + (p.totalContractValue || 0) / months
-    }, 0)
+    }
 
-    // Pending invoices (expected income)
-    const pendingInvoices = mockProjects.flatMap(p => 
-      p.invoices.filter(i => i.status === "sent" || i.status === "draft")
-    )
-
-    return {
-      totalLaborCost,
-      monthlyRecurring,
-      expectedMonthlyRevenue,
-      pendingInvoices,
-      currentCash: 45000, // Mock - would come from bank integration
+    void load()
+    return () => {
+      isMounted = false
     }
   }, [])
+
+  return { baseData, isLoading, error }
 }
 
 // Generate 60-day forward forecast
 function useForecastData(
-  baseData: ReturnType<typeof useBaseFinancials>,
+  baseData: BaseFinancials | null,
   salaryAdjustment: number,
   newHires: number,
   includeLeads: boolean
 ) {
   return useMemo(() => {
+    if (!baseData) {
+      return {
+        data: [] as Array<{
+          day: number
+          date: string
+          fullDate: string
+          income: number
+          expense: number
+          balance: number
+          isToday: boolean
+          isFuture: boolean
+          hasInvoice: boolean
+          invoiceName?: string
+        }>,
+        minBalance: 0,
+        daysUntilZero: null as number | null,
+        riskZoneStart: null as number | null,
+        projectedEndBalance: 0,
+      }
+    }
+
     const today = new Date()
     const data = []
     let runningBalance = baseData.currentCash
@@ -118,8 +196,7 @@ function useForecastData(
 
     // Expected daily revenue
     const baseMonthlyRevenue = baseData.expectedMonthlyRevenue
-    const leadRevenue = includeLeads ? 
-      mockProjects.filter(p => p.status === "lead").reduce((sum, p) => sum + (p.totalContractValue || 0) / 6, 0) : 0
+    const leadRevenue = includeLeads ? baseData.leadMonthlyRevenue : 0
     const totalExpectedMonthly = baseMonthlyRevenue + leadRevenue
     const dailyRevenue = totalExpectedMonthly / 30
 
@@ -246,6 +323,8 @@ function WhatIfSimulator({
   setNewHires,
   includeLeads,
   setIncludeLeads,
+  totalLaborCost,
+  leadMonthlyRevenue,
   onReset,
 }: {
   salaryAdjustment: number
@@ -254,6 +333,8 @@ function WhatIfSimulator({
   setNewHires: (v: number) => void
   includeLeads: boolean
   setIncludeLeads: (v: boolean) => void
+  totalLaborCost: number
+  leadMonthlyRevenue: number
   onReset: () => void
 }) {
   return (
@@ -362,8 +443,7 @@ function WhatIfSimulator({
               <span className="text-muted-foreground">Salary change:</span>
               <span className={salaryAdjustment > 0 ? "text-red-500" : salaryAdjustment < 0 ? "text-emerald-500" : ""}>
                 {salaryAdjustment > 0 ? "+" : ""}${Math.round(
-                  mockTeams.reduce((sum, t) => sum + t.members.reduce((s, m) => s + m.baseRate, 0), 0) * 
-                  (salaryAdjustment / 100)
+                  totalLaborCost * (salaryAdjustment / 100)
                 ).toLocaleString()}/mo
               </span>
             </div>
@@ -377,10 +457,7 @@ function WhatIfSimulator({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Lead revenue:</span>
                 <span className="text-emerald-500">
-                  +${Math.round(
-                    mockProjects.filter(p => p.status === "lead")
-                      .reduce((sum, p) => sum + (p.totalContractValue || 0) / 6, 0)
-                  ).toLocaleString()}/mo
+                  +${Math.round(leadMonthlyRevenue).toLocaleString()}/mo
                 </span>
               </div>
             )}
@@ -392,7 +469,7 @@ function WhatIfSimulator({
 }
 
 export default function TimeMachinePage() {
-  const baseData = useBaseFinancials()
+  const { baseData, isLoading, error } = useBaseFinancials()
   
   // What-If parameters
   const [salaryAdjustment, setSalaryAdjustment] = useState(0)
@@ -443,6 +520,16 @@ export default function TimeMachinePage() {
             </Badge>
           </div>
         </div>
+        {isLoading && (
+          <Alert>
+            <AlertDescription>Loading forecast data from API...</AlertDescription>
+          </Alert>
+        )}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         {/* Main Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -523,7 +610,7 @@ export default function TimeMachinePage() {
                       />
                       
                       {/* Risk zone background */}
-                      {forecast.riskZoneStart !== null && (
+                      {forecast.riskZoneStart !== null && baseData && (
                         <ReferenceLine
                           y={baseData.currentCash * 0.3}
                           stroke="#EF4444"
@@ -631,6 +718,8 @@ export default function TimeMachinePage() {
               setNewHires={setNewHires}
               includeLeads={includeLeads}
               setIncludeLeads={setIncludeLeads}
+              totalLaborCost={baseData?.totalLaborCost ?? 0}
+              leadMonthlyRevenue={baseData?.leadMonthlyRevenue ?? 0}
               onReset={resetSimulation}
             />
 
@@ -642,7 +731,7 @@ export default function TimeMachinePage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {baseData.pendingInvoices.slice(0, 5).map((inv) => (
+                  {(baseData?.pendingInvoices ?? []).slice(0, 5).map((inv) => (
                     <div key={inv.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
                       <div>
                         <div className="font-medium text-sm">{inv.name}</div>
