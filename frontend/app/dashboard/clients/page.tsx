@@ -72,6 +72,23 @@ const countries = [
   "Poland", "Hong Kong", "Singapore", "Australia", "France", "Spain", "Italy"
 ]
 
+const countryLabels: Record<string, string> = {
+  USA: "США",
+  Ukraine: "Україна",
+  Germany: "Німеччина",
+  UK: "Велика Британія",
+  Canada: "Канада",
+  Sweden: "Швеція",
+  Netherlands: "Нідерланди",
+  Poland: "Польща",
+  "Hong Kong": "Гонконг",
+  Singapore: "Сінгапур",
+  Australia: "Австралія",
+  France: "Франція",
+  Spain: "Іспанія",
+  Italy: "Італія",
+}
+
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<ApiProject[]>([])
@@ -134,7 +151,7 @@ export default function ClientsPage() {
       setClients(clientsResponse.map(mapApiClient))
       setProjects(projectsResponse)
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load clients")
+      setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити клієнтів")
     } finally {
       setIsLoading(false)
     }
@@ -200,7 +217,7 @@ export default function ClientsPage() {
       setIsAddDialogOpen(false)
       resetForm()
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save client")
+      setError(saveError instanceof Error ? saveError.message : "Не вдалося зберегти клієнта")
     }
   }
 
@@ -212,7 +229,7 @@ export default function ClientsPage() {
         await loadData()
         setDeleteClient(null)
       } catch (deleteError) {
-        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete client")
+        setError(deleteError instanceof Error ? deleteError.message : "Не вдалося видалити клієнта")
       }
     }
   }
@@ -222,19 +239,24 @@ export default function ClientsPage() {
     return projects.filter((project) => project.client.toString() === clientId)
   }
 
+  const getCountryLabel = (country?: string) => {
+    if (!country) return ""
+    return countryLabels[country] || country
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Clients</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Клієнти</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your client relationships and contacts
+            Керуйте клієнтськими контактами та взаємовідносинами
           </p>
         </div>
         <Button onClick={handleOpenAdd} className="gap-2">
           <Plus className="size-4" />
-          Add Client
+          Додати клієнта
         </Button>
       </div>
 
@@ -246,7 +268,7 @@ export default function ClientsPage() {
 
       {isLoading && (
         <Card>
-          <CardContent className="pt-6 text-sm text-muted-foreground">Loading clients...</CardContent>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Завантажуємо клієнтів…</CardContent>
         </Card>
       )}
 
@@ -254,36 +276,36 @@ export default function ClientsPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+            <CardTitle className="text-sm font-medium">Усього клієнтів</CardTitle>
             <Building2 className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{clients.length}</div>
-            <p className="text-xs text-muted-foreground">{activeClients} with active projects</p>
+            <p className="text-xs text-muted-foreground">З активними проєктами: {activeClients}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">Загальний дохід</CardTitle>
             <DollarSign className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${totalRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">All time from all clients</p>
+            <p className="text-xs text-muted-foreground">За весь час від усіх клієнтів</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Countries</CardTitle>
+            <CardTitle className="text-sm font-medium">Країни</CardTitle>
             <Globe className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {new Set(clients.map(c => c.country).filter(Boolean)).size}
             </div>
-            <p className="text-xs text-muted-foreground">Client locations worldwide</p>
+            <p className="text-xs text-muted-foreground">Географія клієнтів</p>
           </CardContent>
         </Card>
       </div>
@@ -293,7 +315,7 @@ export default function ClientsPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search clients..."
+            placeholder="Пошук клієнтів…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -302,12 +324,12 @@ export default function ClientsPage() {
         <Select value={countryFilter} onValueChange={setCountryFilter}>
           <SelectTrigger className="w-[180px]">
             <Globe className="size-4 mr-2" />
-            <SelectValue placeholder="Country" />
+            <SelectValue placeholder="Країна" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Countries</SelectItem>
+            <SelectItem value="all">Усі країни</SelectItem>
             {Array.from(new Set(clients.map(c => c.country).filter(Boolean))).map(country => (
-              <SelectItem key={country} value={country!}>{country}</SelectItem>
+              <SelectItem key={country} value={country!}>{getCountryLabel(country || "")}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -318,11 +340,11 @@ export default function ClientsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Client</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Country</TableHead>
-              <TableHead className="text-right">Revenue</TableHead>
-              <TableHead className="text-center">Projects</TableHead>
+              <TableHead>Клієнт</TableHead>
+              <TableHead>Контакт</TableHead>
+              <TableHead>Країна</TableHead>
+              <TableHead className="text-right">Дохід</TableHead>
+              <TableHead className="text-center">Проєкти</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -354,7 +376,7 @@ export default function ClientsPage() {
                 </TableCell>
                 <TableCell>
                   {client.country && (
-                    <Badge variant="outline">{client.country}</Badge>
+                    <Badge variant="outline">{getCountryLabel(client.country)}</Badge>
                   )}
                 </TableCell>
                 <TableCell className="text-right font-medium">
@@ -362,7 +384,7 @@ export default function ClientsPage() {
                 </TableCell>
                 <TableCell className="text-center">
                   {client.activeProjects > 0 ? (
-                    <Badge>{client.activeProjects} active</Badge>
+                    <Badge>{client.activeProjects} активних</Badge>
                   ) : (
                     <span className="text-muted-foreground text-sm">-</span>
                   )}
@@ -377,11 +399,11 @@ export default function ClientsPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => setViewClient(client)}>
                         <ExternalLink className="size-4 mr-2" />
-                        View Details
+                        Деталі
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleOpenEdit(client)}>
                         <Pencil className="size-4 mr-2" />
-                        Edit
+                        Редагувати
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
@@ -389,7 +411,7 @@ export default function ClientsPage() {
                         onClick={() => setDeleteClient(client)}
                       >
                         <Trash2 className="size-4 mr-2" />
-                        Delete
+                        Видалити
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -399,7 +421,7 @@ export default function ClientsPage() {
             {filteredClients.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                  No clients found
+                  Клієнтів не знайдено
                 </TableCell>
               </TableRow>
             )}
@@ -453,7 +475,7 @@ export default function ClientsPage() {
                 {viewClient.country && (
                   <div className="flex items-center gap-2 text-sm">
                     <Globe className="size-4 text-muted-foreground" />
-                    <span>{viewClient.country}</span>
+                    <span>{getCountryLabel(viewClient.country)}</span>
                   </div>
                 )}
               </div>
@@ -463,21 +485,21 @@ export default function ClientsPage() {
                 <Card>
                   <CardContent className="pt-4">
                     <div className="text-2xl font-bold">${viewClient.totalRevenue.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">Total Revenue</div>
+                    <div className="text-xs text-muted-foreground">Загальний дохід</div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
                     <div className="text-2xl font-bold">{getClientProjects(viewClient.id).length}</div>
-                    <div className="text-xs text-muted-foreground">Total Projects</div>
+                    <div className="text-xs text-muted-foreground">Усього проєктів</div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
                     <div className="text-2xl font-bold">
-                      {new Date(viewClient.createdAt).toLocaleDateString("uk", { month: "short", year: "numeric" })}
+                      {new Date(viewClient.createdAt).toLocaleDateString("uk-UA", { month: "short", year: "numeric" })}
                     </div>
-                    <div className="text-xs text-muted-foreground">Client Since</div>
+                    <div className="text-xs text-muted-foreground">Клієнт з</div>
                   </CardContent>
                 </Card>
               </div>
@@ -486,7 +508,7 @@ export default function ClientsPage() {
               <div>
                 <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
                   <FolderKanban className="size-4" />
-                  Projects
+                  Проєкти
                 </h4>
                 <div className="space-y-2">
                   {getClientProjects(viewClient.id).map(project => (
@@ -499,7 +521,13 @@ export default function ClientsPage() {
                       </div>
                       <div className="text-right">
                         <Badge variant={project.status === "active" ? "default" : project.status === "finished" ? "outline" : "secondary"}>
-                          {project.status}
+                          {project.status === "active"
+                            ? "Активний"
+                            : project.status === "finished"
+                              ? "Завершений"
+                              : project.status === "lead"
+                                ? "Лід"
+                                : "Призупинений"}
                         </Badge>
                         <div className="text-sm font-medium mt-1">
                           ${Number(project.revenue || 0).toLocaleString()}
@@ -509,7 +537,7 @@ export default function ClientsPage() {
                   ))}
                   {getClientProjects(viewClient.id).length === 0 && (
                     <div className="text-center py-4 text-muted-foreground text-sm">
-                      No projects yet
+                      Проєктів поки немає
                     </div>
                   )}
                 </div>
@@ -518,7 +546,7 @@ export default function ClientsPage() {
               {/* Notes */}
               {viewClient.notes && (
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Notes</h4>
+                  <h4 className="text-sm font-medium mb-2">Нотатки</h4>
                   <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
                     {viewClient.notes}
                   </p>
@@ -529,7 +557,7 @@ export default function ClientsPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewClient(null)}>
-              Close
+              Закрити
             </Button>
             <Button onClick={() => {
               if (viewClient) {
@@ -538,7 +566,7 @@ export default function ClientsPage() {
               }
             }}>
               <Pencil className="size-4 mr-2" />
-              Edit Client
+              Редагувати клієнта
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -549,47 +577,47 @@ export default function ClientsPage() {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>
-              {editingClient ? "Edit Client" : "Add New Client"}
+              {editingClient ? "Редагувати клієнта" : "Додати нового клієнта"}
             </DialogTitle>
             <DialogDescription>
-              {editingClient ? "Update client information" : "Add a new client to your portfolio"}
+              {editingClient ? "Оновіть інформацію про клієнта" : "Додайте нового клієнта до портфоліо"}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label htmlFor="name">Client Name *</Label>
+                <Label htmlFor="name">Ім’я клієнта *</Label>
                 <Input
                   id="name"
-                  placeholder="e.g., Acme Inc"
+                  placeholder="Наприклад: Acme Inc"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
               
               <div className="col-span-2">
-                <Label htmlFor="company">Company</Label>
+                <Label htmlFor="company">Компанія</Label>
                 <Input
                   id="company"
-                  placeholder="Legal company name"
+                  placeholder="Юридична назва компанії"
                   value={formData.company}
                   onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                 />
               </div>
 
               <div>
-                <Label htmlFor="contactPerson">Contact Person</Label>
+                <Label htmlFor="contactPerson">Контактна особа</Label>
                 <Input
                   id="contactPerson"
-                  placeholder="John Smith"
+                  placeholder="Імʼя та прізвище"
                   value={formData.contactPerson}
                   onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
                 />
               </div>
 
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Електронна пошта</Label>
                 <Input
                   id="email"
                   type="email"
@@ -600,7 +628,7 @@ export default function ClientsPage() {
               </div>
 
               <div>
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">Телефон</Label>
                 <Input
                   id="phone"
                   placeholder="+1 555 123 4567"
@@ -610,28 +638,28 @@ export default function ClientsPage() {
               </div>
 
               <div>
-                <Label htmlFor="country">Country</Label>
+                <Label htmlFor="country">Країна</Label>
                 <Select 
                   value={formData.country || "none"} 
                   onValueChange={(v) => setFormData({ ...formData, country: v === "none" ? "" : v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select country" />
+                    <SelectValue placeholder="Оберіть країну" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Not specified</SelectItem>
+                    <SelectItem value="none">Не вказано</SelectItem>
                     {countries.map(country => (
-                      <SelectItem key={country} value={country}>{country}</SelectItem>
+                      <SelectItem key={country} value={country}>{getCountryLabel(country)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="col-span-2">
-                <Label htmlFor="notes">Notes</Label>
+                <Label htmlFor="notes">Нотатки</Label>
                 <Textarea
                   id="notes"
-                  placeholder="Additional information..."
+                  placeholder="Додаткова інформація…"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={3}
@@ -642,13 +670,13 @@ export default function ClientsPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
+              Скасувати
             </Button>
             <Button 
               onClick={handleSave}
               disabled={!formData.name.trim()}
             >
-              {editingClient ? "Save Changes" : "Add Client"}
+              {editingClient ? "Зберегти зміни" : "Додати клієнта"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -658,20 +686,20 @@ export default function ClientsPage() {
       <AlertDialog open={!!deleteClient} onOpenChange={() => setDeleteClient(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Client</AlertDialogTitle>
+            <AlertDialogTitle>Видалити клієнта</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deleteClient?.name}&quot;? This action cannot be undone.
+              Ви впевнені, що хочете видалити &quot;{deleteClient?.name}&quot;? Цю дію неможливо скасувати.
               {deleteClient && getClientProjects(deleteClient.id).length > 0 && (
                 <span className="block mt-2 text-destructive">
-                  Warning: This client has {getClientProjects(deleteClient.id).length} associated projects.
+                  Увага: у цього клієнта є повʼязані проєкти ({getClientProjects(deleteClient.id).length}).
                 </span>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Скасувати</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+              Видалити
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
