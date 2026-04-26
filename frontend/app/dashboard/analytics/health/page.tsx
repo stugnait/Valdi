@@ -10,8 +10,8 @@ const formatCurrency = (value: number) => `$${value.toLocaleString()}`
 const formatPercent = (value: number) => `${value.toFixed(1)}%`
 
 // Defensive fallback: keeps legacy/stale chunks from crashing if they still render <Alert>.
-const Alert = ({ children }: { children: ReactNode }) => <div>{children}</div>
-const AlertDescription = ({ children }: { children: ReactNode }) => <>{children}</>
+const Alert = (_props: { children: ReactNode }) => null
+const AlertDescription = (_props: { children: ReactNode }) => null
 
 export default function GlobalHealthPage() {
   const [analyticsOverview, setAnalyticsOverview] = useState<ApiAnalyticsOverview | null>(null)
