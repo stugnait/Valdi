@@ -605,18 +605,6 @@ export default function TimeMachinePage() {
             </Card>
           </div>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Gap Probability</CardTitle>
-                <CardDescription>Risk of cashflow disruption</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold">{forecast.daysUntilZero !== null ? "95%" : forecast.minBalance < 10000 ? "75%" : "20%"}</div>
-                <p className="text-sm text-muted-foreground mt-2">Min balance: ${forecast.minBalance.toLocaleString()}</p>
-              </CardContent>
-            </Card>
-
           {/* Right Sidebar */}
           <div className="space-y-6">
             <GapProbabilityCard forecast={forecast} />
