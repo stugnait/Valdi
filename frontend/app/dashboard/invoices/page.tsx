@@ -19,7 +19,6 @@ import {
   Filter,
   Calendar,
   Building2,
-  ExternalLink
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -80,20 +79,6 @@ interface Invoice {
   linkedTransactionId?: string
 }
 
-interface BankTransaction {
-  id: string
-  date: string
-  amount: number
-  currency: string
-  description: string
-  source: string
-}
-
-const mockTransactions: BankTransaction[] = [
-  { id: "tx10", date: "2024-06-18", amount: 25500, currency: "USD", description: "Nike Inc - Wire Transfer", source: "wise" },
-  { id: "tx11", date: "2024-06-15", amount: 12000, currency: "USD", description: "Spotify AB - Payment", source: "wise" },
-  { id: "tx12", date: "2024-06-10", amount: 8500, currency: "USD", description: "CryptoEx Ltd - Deposit", source: "monobank" },
-]
 
 const statusConfig: Record<InvoiceStatus, { label: string; color: string; icon: React.ElementType }> = {
   draft: { label: "Draft", color: "bg-gray-100 text-gray-800", icon: FileText },
@@ -113,6 +98,11 @@ export default function InvoicesPage() {
   const [deleteInvoice, setDeleteInvoice] = useState<Invoice | null>(null)
   const [linkingInvoice, setLinkingInvoice] = useState<Invoice | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [paymentConfirmation, setPaymentConfirmation] = useState({
+    paidDate: "",
+    amount: "",
+    reference: "",
+  })
   
   const [formData, setFormData] = useState({
     projectId: "",
@@ -279,18 +269,45 @@ export default function InvoicesPage() {
     setInvoices(prev => prev.map(i => i.id === invoice.id ? { ...i, status: newStatus, paidDate: paidDate ?? undefined } : i))
   }
 
-  const handleLinkTransaction = async (transactionId: string) => {
-    if (linkingInvoice) {
-      const paidDate = new Date().toISOString().split("T")[0]
-      await workforceApi.updateInvoice(linkingInvoice.id, {
-        status: "paid",
-        paid_date: paidDate,
-        linked_transaction_id: transactionId,
-      })
-      setInvoices(prev => prev.map(i => i.id === linkingInvoice.id ? { ...i, status: "paid", paidDate, linkedTransactionId: transactionId } : i))
-      setIsLinkDialogOpen(false)
-      setLinkingInvoice(null)
-    }
+
+  const handleOpenPaymentConfirmation = (invoice: Invoice) => {
+    setLinkingInvoice(invoice)
+    setPaymentConfirmation({
+      paidDate: new Date().toISOString().split("T")[0],
+      amount: invoice.amount.toString(),
+      reference: "",
+    })
+    setIsLinkDialogOpen(true)
+  }
+
+  const handleLinkTransaction = async () => {
+    if (!linkingInvoice) return
+
+    const confirmedAmount = Number(paymentConfirmation.amount)
+    if (!paymentConfirmation.paidDate || Number.isNaN(confirmedAmount) || confirmedAmount <= 0) return
+
+    await workforceApi.updateInvoice(linkingInvoice.id, {
+      status: "paid",
+      paid_date: paymentConfirmation.paidDate,
+      linked_transaction_id: paymentConfirmation.reference || undefined,
+    })
+
+    setInvoices(prev =>
+      prev.map(i =>
+        i.id === linkingInvoice.id
+          ? {
+              ...i,
+              status: "paid",
+              paidDate: paymentConfirmation.paidDate,
+              linkedTransactionId: paymentConfirmation.reference || undefined,
+            }
+          : i
+      )
+    )
+
+    setIsLinkDialogOpen(false)
+    setLinkingInvoice(null)
+    setPaymentConfirmation({ paidDate: "", amount: "", reference: "" })
   }
 
   const getStatusIcon = (status: InvoiceStatus) => {
@@ -471,16 +488,9 @@ export default function InvoicesPage() {
                       )}
                       {(invoice.status === "sent" || invoice.status === "overdue") && (
                         <>
-                          <DropdownMenuItem onClick={() => {
-                            setLinkingInvoice(invoice)
-                            setIsLinkDialogOpen(true)
-                          }}>
-                            <Link2 className="size-4 mr-2" />
-                            Link Transaction
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(invoice, "paid")}>
+                          <DropdownMenuItem onClick={() => handleOpenPaymentConfirmation(invoice)}>
                             <CheckCircle2 className="size-4 mr-2" />
-                            Mark as Paid
+                            Confirm Payment
                           </DropdownMenuItem>
                         </>
                       )}
@@ -613,36 +623,61 @@ export default function InvoicesPage() {
       <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Link Transaction</DialogTitle>
+            <DialogTitle>Confirm Invoice Payment</DialogTitle>
             <DialogDescription>
-              Select a bank transaction to link with invoice {linkingInvoice?.number}
+              Enter payment details for invoice {linkingInvoice?.number}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-4">
-            {mockTransactions.map(tx => (
-              <div 
-                key={tx.id}
-                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                onClick={() => handleLinkTransaction(tx.id)}
-              >
-                <div>
-                  <div className="font-medium">{tx.description}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {new Date(tx.date).toLocaleDateString("uk-UA")} - {tx.source}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold">${tx.amount.toLocaleString()}</div>
-                  <div className="text-xs text-muted-foreground">{tx.currency}</div>
-                </div>
-              </div>
-            ))}
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="paymentDate">Payment Date</Label>
+              <Input
+                id="paymentDate"
+                type="date"
+                value={paymentConfirmation.paidDate}
+                onChange={(e) =>
+                  setPaymentConfirmation((prev) => ({ ...prev, paidDate: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="paymentAmount">Paid Amount</Label>
+              <Input
+                id="paymentAmount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={paymentConfirmation.amount}
+                onChange={(e) =>
+                  setPaymentConfirmation((prev) => ({ ...prev, amount: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="paymentReference">Payment Reference</Label>
+              <Input
+                id="paymentReference"
+                placeholder="e.g., WIRE-2026-000123"
+                value={paymentConfirmation.reference}
+                onChange={(e) =>
+                  setPaymentConfirmation((prev) => ({ ...prev, reference: e.target.value }))
+                }
+              />
+            </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsLinkDialogOpen(false)}>
               Cancel
+            </Button>
+            <Button
+              onClick={handleLinkTransaction}
+              disabled={!paymentConfirmation.paidDate || !paymentConfirmation.amount || !paymentConfirmation.reference}
+            >
+              Confirm Payment
             </Button>
           </DialogFooter>
         </DialogContent>
