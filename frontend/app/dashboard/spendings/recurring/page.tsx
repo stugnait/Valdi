@@ -6,7 +6,6 @@ import {
   Search, 
   Calendar, 
   CreditCard, 
-  TrendingUp, 
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -19,7 +18,7 @@ import {
   Clock,
   Filter
 } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -30,7 +29,6 @@ import {
   DialogFooter, 
   DialogHeader, 
   DialogTitle,
-  DialogTrigger 
 } from "@/components/ui/dialog"
 import {
   DropdownMenu,
@@ -78,7 +76,6 @@ import {
   convertToUSD,
   getPaymentStatusColor,
   getSourceIcon,
-  getCycleLabel,
   calculateMonthlyTotal,
   getNextBigPayment,
 } from "@/lib/types/spendings"
@@ -142,7 +139,7 @@ export default function RecurringExpensesPage() {
       const data = await workforceApi.listRecurringExpenses()
       setExpenses(data.map(mapApiExpense))
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load recurring expenses")
+      setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити регулярні витрати")
     } finally {
       setLoading(false)
     }
@@ -235,7 +232,7 @@ export default function RecurringExpensesPage() {
       setIsAddDialogOpen(false)
       resetForm()
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save recurring expense")
+      setError(saveError instanceof Error ? saveError.message : "Не вдалося зберегти регулярну витрату")
     }
   }
 
@@ -245,7 +242,7 @@ export default function RecurringExpensesPage() {
         await workforceApi.deleteRecurringExpense(deleteExpense.id)
         await loadExpenses()
       } catch (deleteError) {
-        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete recurring expense")
+        setError(deleteError instanceof Error ? deleteError.message : "Не вдалося видалити регулярну витрату")
       }
       setDeleteExpense(null)
     }
@@ -266,7 +263,7 @@ export default function RecurringExpensesPage() {
       })
       await loadExpenses()
     } catch (markError) {
-      setError(markError instanceof Error ? markError.message : "Failed to mark expense as paid")
+      setError(markError instanceof Error ? markError.message : "Не вдалося позначити витрату як сплачену")
     }
   }
 
@@ -279,16 +276,39 @@ export default function RecurringExpensesPage() {
     }
   }
 
+  const getCycleLabelUa = (cycle: PaymentCycle) => {
+    if (cycle === "monthly") return "Щомісяця"
+    if (cycle === "quarterly") return "Щокварталу"
+    return "Щороку"
+  }
+
+  const getSourceLabelUa = (source: PaymentSource) => {
+    switch (source) {
+      case "monobank":
+        return "Monobank"
+      case "privat24":
+        return "Privat24"
+      case "wise":
+        return "Wise"
+      case "payoneer":
+        return "Payoneer"
+      case "cash":
+        return "Готівка"
+      default:
+        return source
+    }
+  }
+
   const getAllocationBadge = (expense: RecurringExpense) => {
     switch (expense.allocation.type) {
       case "all":
-        return <Badge variant="outline" className="gap-1"><Users className="size-3" /> All Members</Badge>
+        return <Badge variant="outline" className="gap-1"><Users className="size-3" /> Усі учасники</Badge>
       case "team":
         return <Badge variant="secondary" className="gap-1"><Building2 className="size-3" /> {expense.allocation.teamName}</Badge>
       case "project":
         return <Badge className="gap-1"><FolderKanban className="size-3" /> {expense.allocation.projectName}</Badge>
       case "none":
-        return <Badge variant="outline" className="text-muted-foreground">Not Allocated</Badge>
+        return <Badge variant="outline" className="text-muted-foreground">Без розподілу</Badge>
       default:
         return null
     }
@@ -299,14 +319,14 @@ export default function RecurringExpensesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Recurring Expenses</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Регулярні витрати</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your monthly subscriptions and recurring payments
+            Керуйте щомісячними підписками та повторюваними платежами
           </p>
         </div>
         <Button onClick={handleOpenAdd} className="gap-2">
           <Plus className="size-4" />
-          Add Recurring
+          Додати витрату
         </Button>
       </div>
 
@@ -318,7 +338,7 @@ export default function RecurringExpensesPage() {
 
       {loading && (
         <Card>
-          <CardContent className="pt-6 text-sm text-muted-foreground">Loading recurring expenses...</CardContent>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Завантажуємо регулярні витрати…</CardContent>
         </Card>
       )}
 
@@ -326,29 +346,29 @@ export default function RecurringExpensesPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Commitment</CardTitle>
+            <CardTitle className="text-sm font-medium">Щомісячне навантаження</CardTitle>
             <CreditCard className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${monthlyTotal.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Total recurring per month</p>
+            <p className="text-xs text-muted-foreground">Загальна сума регулярних витрат за місяць</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+            <CardTitle className="text-sm font-medium">Активні підписки</CardTitle>
             <RefreshCw className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeCount}</div>
-            <p className="text-xs text-muted-foreground">{expenses.length} total subscriptions</p>
+            <p className="text-xs text-muted-foreground">Усього підписок: {expenses.length}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Next Big Payment</CardTitle>
+            <CardTitle className="text-sm font-medium">Найближчий великий платіж</CardTitle>
             <Calendar className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -356,11 +376,11 @@ export default function RecurringExpensesPage() {
               <>
                 <div className="text-2xl font-bold">${nextBigPayment.amountUSD.toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
-                  {nextBigPayment.name} on {new Date(nextBigPayment.nextPaymentDate).toLocaleDateString()}
+                  {nextBigPayment.name} — {new Date(nextBigPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
                 </p>
               </>
             ) : (
-              <div className="text-muted-foreground">No pending payments</div>
+              <div className="text-muted-foreground">Немає запланованих платежів</div>
             )}
           </CardContent>
         </Card>
@@ -371,7 +391,7 @@ export default function RecurringExpensesPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search subscriptions..."
+            placeholder="Пошук підписок…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -380,10 +400,10 @@ export default function RecurringExpensesPage() {
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-[180px]">
             <Filter className="size-4 mr-2" />
-            <SelectValue placeholder="Category" />
+            <SelectValue placeholder="Категорія" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="all">Усі категорії</SelectItem>
             {expenseCategories.map(cat => (
               <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
             ))}
@@ -391,13 +411,13 @@ export default function RecurringExpensesPage() {
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Статус" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
+            <SelectItem value="all">Усі статуси</SelectItem>
+            <SelectItem value="paid">Сплачено</SelectItem>
+            <SelectItem value="pending">Очікується</SelectItem>
+            <SelectItem value="overdue">Прострочено</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -408,14 +428,14 @@ export default function RecurringExpensesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Cycle</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Allocation</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Назва</TableHead>
+                <TableHead>Сума</TableHead>
+                <TableHead>Цикл</TableHead>
+                <TableHead>Категорія</TableHead>
+                <TableHead>Розподіл</TableHead>
+                <TableHead>Джерело</TableHead>
+                <TableHead>Статус</TableHead>
+                <TableHead className="text-right">Дії</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -440,7 +460,7 @@ export default function RecurringExpensesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{getCycleLabel(expense.cycle)}</Badge>
+                      <Badge variant="outline">{getCycleLabelUa(expense.cycle)}</Badge>
                     </TableCell>
                     <TableCell>
                       {category && (
@@ -459,13 +479,19 @@ export default function RecurringExpensesPage() {
                     <TableCell>
                       <span className="flex items-center gap-1.5">
                         <span>{getSourceIcon(expense.source)}</span>
-                        <span className="capitalize text-sm">{expense.source}</span>
+                        <span className="text-sm">{getSourceLabelUa(expense.source)}</span>
                       </span>
                     </TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(expense.status)}`}>
                         {getStatusIcon(expense.status)}
-                        <span className="capitalize">{expense.status}</span>
+                        <span>
+                          {expense.status === "paid"
+                            ? "Сплачено"
+                            : expense.status === "pending"
+                              ? "Очікується"
+                              : "Прострочено"}
+                        </span>
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -479,12 +505,12 @@ export default function RecurringExpensesPage() {
                           {expense.status !== "paid" && (
                             <DropdownMenuItem onClick={() => handleMarkPaid(expense)}>
                               <CheckCircle2 className="size-4 mr-2" />
-                              Mark as Paid
+                              Позначити як сплачену
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem onClick={() => handleOpenEdit(expense)}>
                             <Pencil className="size-4 mr-2" />
-                            Edit
+                            Редагувати
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
@@ -492,7 +518,7 @@ export default function RecurringExpensesPage() {
                             onClick={() => setDeleteExpense(expense)}
                           >
                             <Trash2 className="size-4 mr-2" />
-                            Delete
+                            Видалити
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -503,7 +529,7 @@ export default function RecurringExpensesPage() {
               {filteredExpenses.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    No recurring expenses found
+                    Регулярні витрати не знайдено
                   </TableCell>
                 </TableRow>
               )}
@@ -517,10 +543,12 @@ export default function RecurringExpensesPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingExpense ? "Edit Recurring Expense" : "Add Recurring Expense"}
+              {editingExpense ? "Редагувати регулярну витрату" : "Додати регулярну витрату"}
             </DialogTitle>
             <DialogDescription>
-              {editingExpense ? "Update the subscription details" : "Create a new recurring subscription or payment"}
+              {editingExpense
+                ? "Оновіть параметри підписки або регулярного платежу"
+                : "Додайте нову регулярну підписку або платіж"}
             </DialogDescription>
           </DialogHeader>
 
@@ -528,17 +556,17 @@ export default function RecurringExpensesPage() {
             {/* Basic Info */}
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">Назва</Label>
                 <Input
                   id="name"
-                  placeholder="e.g., AWS Cloud Services"
+                  placeholder="Наприклад: AWS Cloud Services"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
               
               <div>
-                <Label htmlFor="amount">Amount</Label>
+                <Label htmlFor="amount">Сума</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -550,7 +578,7 @@ export default function RecurringExpensesPage() {
               </div>
               
               <div>
-                <Label htmlFor="currency">Currency</Label>
+                <Label htmlFor="currency">Валюта</Label>
                 <Select 
                   value={formData.currency} 
                   onValueChange={(v) => setFormData({ ...formData, currency: v as Currency })}
@@ -567,7 +595,7 @@ export default function RecurringExpensesPage() {
               </div>
 
               <div>
-                <Label htmlFor="cycle">Payment Cycle</Label>
+                <Label htmlFor="cycle">Періодичність</Label>
                 <Select 
                   value={formData.cycle} 
                   onValueChange={(v) => setFormData({ ...formData, cycle: v as PaymentCycle })}
@@ -576,15 +604,15 @@ export default function RecurringExpensesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="quarterly">Quarterly</SelectItem>
-                    <SelectItem value="yearly">Yearly</SelectItem>
+                    <SelectItem value="monthly">Щомісяця</SelectItem>
+                    <SelectItem value="quarterly">Щокварталу</SelectItem>
+                    <SelectItem value="yearly">Щороку</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="source">Payment Source</Label>
+                <Label htmlFor="source">Джерело оплати</Label>
                 <Select 
                   value={formData.source} 
                   onValueChange={(v) => setFormData({ ...formData, source: v as PaymentSource })}
@@ -597,19 +625,19 @@ export default function RecurringExpensesPage() {
                     <SelectItem value="privat24">💳 Privat24</SelectItem>
                     <SelectItem value="wise">🌐 Wise</SelectItem>
                     <SelectItem value="payoneer">💱 Payoneer</SelectItem>
-                    <SelectItem value="cash">💵 Cash</SelectItem>
+                    <SelectItem value="cash">💵 Готівка</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="category">Category</Label>
+                <Label htmlFor="category">Категорія</Label>
                 <Select 
                   value={formData.category} 
                   onValueChange={(v) => setFormData({ ...formData, category: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder="Оберіть категорію" />
                   </SelectTrigger>
                   <SelectContent>
                     {expenseCategories.map(cat => (
@@ -620,7 +648,7 @@ export default function RecurringExpensesPage() {
               </div>
 
               <div>
-                <Label htmlFor="nextPaymentDate">Next Payment Date</Label>
+                <Label htmlFor="nextPaymentDate">Дата наступного платежу</Label>
                 <Input
                   id="nextPaymentDate"
                   type="date"
@@ -632,7 +660,7 @@ export default function RecurringExpensesPage() {
 
             {/* Allocation Logic */}
             <div className="space-y-4">
-              <Label>Allocation Logic</Label>
+              <Label>Логіка розподілу</Label>
               <RadioGroup 
                 value={formData.allocationType}
                 onValueChange={(v) => setFormData({ ...formData, allocationType: v as AllocationTarget })}
@@ -641,29 +669,29 @@ export default function RecurringExpensesPage() {
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="all" id="all" />
                   <Label htmlFor="all" className="cursor-pointer flex-1">
-                    <div className="font-medium">Split by All Members</div>
-                    <div className="text-xs text-muted-foreground">Divide equally among all team members</div>
+                    <div className="font-medium">Розподілити між усіма учасниками</div>
+                    <div className="text-xs text-muted-foreground">Рівномірно між усіма членами команди</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="team" id="team" />
                   <Label htmlFor="team" className="cursor-pointer flex-1">
-                    <div className="font-medium">Split by Team</div>
-                    <div className="text-xs text-muted-foreground">Allocate to a specific team</div>
+                    <div className="font-medium">Розподілити на команду</div>
+                    <div className="text-xs text-muted-foreground">Призначити витрату конкретній команді</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="project" id="project" />
                   <Label htmlFor="project" className="cursor-pointer flex-1">
-                    <div className="font-medium">Apply to Project</div>
-                    <div className="text-xs text-muted-foreground">Direct cost to a project</div>
+                    <div className="font-medium">Віднести на проєкт</div>
+                    <div className="text-xs text-muted-foreground">Зарахувати як пряму витрату проєкту</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="none" id="none" />
                   <Label htmlFor="none" className="cursor-pointer flex-1">
-                    <div className="font-medium">No Allocation</div>
-                    <div className="text-xs text-muted-foreground">General company expense</div>
+                    <div className="font-medium">Без розподілу</div>
+                    <div className="text-xs text-muted-foreground">Загальна витрата компанії</div>
                   </Label>
                 </div>
               </RadioGroup>
@@ -674,7 +702,7 @@ export default function RecurringExpensesPage() {
                   onValueChange={(v) => setFormData({ ...formData, teamId: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select team" />
+                    <SelectValue placeholder="Оберіть команду" />
                   </SelectTrigger>
                   <SelectContent>
                     {mockTeams.map(team => (
@@ -690,7 +718,7 @@ export default function RecurringExpensesPage() {
                   onValueChange={(v) => setFormData({ ...formData, projectId: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
+                    <SelectValue placeholder="Оберіть проєкт" />
                   </SelectTrigger>
                   <SelectContent>
                     {mockProjects.filter(p => p.status === "active").map(project => (
@@ -705,10 +733,10 @@ export default function RecurringExpensesPage() {
 
             {/* Description */}
             <div>
-              <Label htmlFor="description">Description (Optional)</Label>
+              <Label htmlFor="description">Опис (за бажанням)</Label>
               <Textarea
                 id="description"
-                placeholder="Additional notes..."
+                placeholder="Додаткові примітки…"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
@@ -717,7 +745,7 @@ export default function RecurringExpensesPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
+              Скасувати
             </Button>
             <Button 
               onClick={handleSave}
@@ -731,7 +759,7 @@ export default function RecurringExpensesPage() {
                 (formData.allocationType === "project" && !formData.projectId)
               }
             >
-              {editingExpense ? "Save Changes" : "Add Recurring"}
+              {editingExpense ? "Зберегти зміни" : "Додати витрату"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -741,15 +769,15 @@ export default function RecurringExpensesPage() {
       <AlertDialog open={!!deleteExpense} onOpenChange={() => setDeleteExpense(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Recurring Expense</AlertDialogTitle>
+            <AlertDialogTitle>Видалити регулярну витрату</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deleteExpense?.name}&quot;? This action cannot be undone.
+              Ви впевнені, що хочете видалити &quot;{deleteExpense?.name}&quot;? Цю дію неможливо скасувати.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Скасувати</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+              Видалити
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
