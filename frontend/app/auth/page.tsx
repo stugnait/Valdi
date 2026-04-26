@@ -387,10 +387,10 @@ export default function AuthPage() {
 
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-foreground mb-1">
-              {tab === "signup" ? "Створи свій кабінет" : "З поверненням"}
+              {tab === "signup" ? "Створіть свій кабінет" : "Раді вас знову бачити"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {tab === "signup" ? "14 днів безкоштовно, без карки." : "Залітай в свій дашборд."}
+              {tab === "signup" ? "14 днів безкоштовно, без карки." : "Увійдіть у свій кабінет та продовжуйте роботу."}
             </p>
           </div>
 
@@ -486,7 +486,7 @@ export default function AuthPage() {
           </form>
 
           <p className="text-xs text-muted-foreground text-center mt-6">
-            {tab === "signup" ? "Реєструючись, ти погоджуєшся з нашою " : "Ще немає акаунту? "}
+            {tab === "signup" ? "Реєструючись, ви погоджуєтесь із нашою " : "Ще не маєте акаунта? "}
             {tab === "signup" ? (
               <button className="text-primary hover:underline">Політикою конфіденційності</button>
             ) : (
