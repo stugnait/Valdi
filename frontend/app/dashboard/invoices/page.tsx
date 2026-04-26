@@ -81,11 +81,26 @@ interface Invoice {
 
 
 const statusConfig: Record<InvoiceStatus, { label: string; color: string; icon: React.ElementType }> = {
-  draft: { label: "Draft", color: "bg-gray-100 text-gray-800", icon: FileText },
-  sent: { label: "Sent", color: "bg-blue-100 text-blue-800", icon: Send },
-  paid: { label: "Paid", color: "bg-emerald-100 text-emerald-800", icon: CheckCircle2 },
-  overdue: { label: "Overdue", color: "bg-red-100 text-red-800", icon: AlertCircle },
+  draft: { label: "Чернетка", color: "bg-gray-100 text-gray-800", icon: FileText },
+  sent: { label: "Надіслано", color: "bg-blue-100 text-blue-800", icon: Send },
+  paid: { label: "Оплачено", color: "bg-emerald-100 text-emerald-800", icon: CheckCircle2 },
+  overdue: { label: "Прострочено", color: "bg-red-100 text-red-800", icon: AlertCircle },
 }
+
+const statusFilterLabels: Record<InvoiceStatus | "all", string> = {
+  all: "Усі статуси",
+  draft: "Чернетка",
+  sent: "Надіслано",
+  overdue: "Прострочено",
+  paid: "Оплачено",
+}
+
+const formatCurrency = (amount: number, currency: "USD" | "EUR" | "UAH") =>
+  new Intl.NumberFormat("uk-UA", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(amount)
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -320,14 +335,14 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Invoices</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Інвойси</h1>
           <p className="text-sm text-muted-foreground">
-            Manage invoices and track accounts receivable
+            Керуйте інвойсами та відстежуйте дебіторську заборгованість
           </p>
         </div>
         <Button onClick={handleOpenAdd} className="gap-2">
           <Plus className="size-4" />
-          Create Invoice
+          Створити інвойс
         </Button>
       </div>
 
@@ -338,25 +353,25 @@ export default function InvoicesPage() {
             <div>
               <div className="flex items-center gap-2 text-amber-800">
                 <DollarSign className="size-5" />
-                <span className="text-sm font-medium">Accounts Receivable</span>
+                <span className="text-sm font-medium">Дебіторська заборгованість</span>
               </div>
               <div className="text-3xl font-bold text-amber-900 mt-2">
-                ${totalReceivable.toLocaleString()}
+                {formatCurrency(totalReceivable, "USD")}
               </div>
               <p className="text-sm text-amber-700 mt-1">
-                Money clients owe you
+                Сума, яку клієнти вам винні
               </p>
             </div>
             <div className="text-right space-y-2">
               {overdueAmount > 0 && (
                 <div className="flex items-center gap-2 text-red-700">
                   <AlertCircle className="size-4" />
-                  <span className="text-sm font-medium">${overdueAmount.toLocaleString()} overdue</span>
+                  <span className="text-sm font-medium">{formatCurrency(overdueAmount, "USD")} прострочено</span>
                 </div>
               )}
               <div className="flex items-center gap-2 text-emerald-700">
                 <TrendingUp className="size-4" />
-                <span className="text-sm">${paidThisMonth.toLocaleString()} received this month</span>
+                <span className="text-sm">{formatCurrency(paidThisMonth, "USD")} отримано цього місяця</span>
               </div>
             </div>
           </div>
@@ -381,8 +396,8 @@ export default function InvoicesPage() {
                   <span className="text-2xl font-bold">{count}</span>
                 </div>
                 <div className="mt-2">
-                  <span className="text-sm font-medium capitalize">{status}</span>
-                  <p className="text-xs text-muted-foreground">${total.toLocaleString()}</p>
+                  <span className="text-sm font-medium">{statusFilterLabels[status]}</span>
+                  <p className="text-xs text-muted-foreground">{formatCurrency(total, "USD")}</p>
                 </div>
               </CardContent>
             </Card>
@@ -395,7 +410,7 @@ export default function InvoicesPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search invoices, clients, projects..."
+            placeholder="Пошук інвойсів, клієнтів, проєктів..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -404,14 +419,14 @@ export default function InvoicesPage() {
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[150px]">
             <Filter className="size-4 mr-2" />
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Статус" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="sent">Sent</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="all">Усі статуси</SelectItem>
+            <SelectItem value="draft">Чернетка</SelectItem>
+            <SelectItem value="sent">Надіслано</SelectItem>
+            <SelectItem value="overdue">Прострочено</SelectItem>
+            <SelectItem value="paid">Оплачено</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -440,7 +455,7 @@ export default function InvoicesPage() {
                       {invoice.linkedTransactionId && (
                         <Badge variant="outline" className="gap-1 text-xs">
                           <Link2 className="size-3" />
-                          Linked
+                          Прив’язано
                         </Badge>
                       )}
                     </div>
@@ -458,16 +473,16 @@ export default function InvoicesPage() {
 
                   {/* Dates */}
                   <div className="hidden md:block text-right text-sm">
-                    <div className="text-muted-foreground">Due: {new Date(invoice.dueDate).toLocaleDateString("uk-UA")}</div>
+                    <div className="text-muted-foreground">До: {new Date(invoice.dueDate).toLocaleDateString("uk-UA")}</div>
                     {invoice.paidDate && (
-                      <div className="text-emerald-600">Paid: {new Date(invoice.paidDate).toLocaleDateString("uk-UA")}</div>
+                      <div className="text-emerald-600">Оплачено: {new Date(invoice.paidDate).toLocaleDateString("uk-UA")}</div>
                     )}
                   </div>
 
                   {/* Amount */}
                   <div className="text-right min-w-[100px]">
                     <div className="text-lg font-semibold">
-                      ${invoice.amount.toLocaleString()}
+                      {formatCurrency(invoice.amount, invoice.currency)}
                     </div>
                     <div className="text-xs text-muted-foreground">{invoice.currency}</div>
                   </div>
@@ -483,20 +498,20 @@ export default function InvoicesPage() {
                       {invoice.status === "draft" && (
                         <DropdownMenuItem onClick={() => handleStatusChange(invoice, "sent")}>
                           <Send className="size-4 mr-2" />
-                          Mark as Sent
+                          Позначити як надісланий
                         </DropdownMenuItem>
                       )}
                       {(invoice.status === "sent" || invoice.status === "overdue") && (
                         <>
                           <DropdownMenuItem onClick={() => handleOpenPaymentConfirmation(invoice)}>
                             <CheckCircle2 className="size-4 mr-2" />
-                            Confirm Payment
+                            Підтвердити оплату
                           </DropdownMenuItem>
                         </>
                       )}
                       <DropdownMenuItem onClick={() => handleOpenEdit(invoice)}>
                         <Pencil className="size-4 mr-2" />
-                        Edit
+                        Редагувати
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
@@ -504,7 +519,7 @@ export default function InvoicesPage() {
                         onClick={() => setDeleteInvoice(invoice)}
                       >
                         <Trash2 className="size-4 mr-2" />
-                        Delete
+                        Видалити
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -517,7 +532,7 @@ export default function InvoicesPage() {
         {filteredInvoices.length === 0 && (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
-              No invoices found
+              Інвойсів не знайдено
             </CardContent>
           </Card>
         )}
@@ -528,22 +543,22 @@ export default function InvoicesPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingInvoice ? "Edit Invoice" : "Create Invoice"}
+              {editingInvoice ? "Редагувати інвойс" : "Створити інвойс"}
             </DialogTitle>
             <DialogDescription>
-              {editingInvoice ? "Update invoice details" : "Quick create a new invoice"}
+              {editingInvoice ? "Оновіть дані інвойсу" : "Швидко створіть новий інвойс"}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Project</Label>
+              <Label>Проєкт</Label>
               <Select 
                 value={formData.projectId} 
                 onValueChange={(v) => setFormData(prev => ({ ...prev, projectId: v }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
+                  <SelectValue placeholder="Оберіть проєкт" />
                 </SelectTrigger>
                 <SelectContent>
                   {invoiceableProjects.map(project => (
@@ -557,17 +572,17 @@ export default function InvoicesPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount</Label>
+                <Label htmlFor="amount">Сума</Label>
                 <Input
                   id="amount"
                   type="number"
-                  placeholder="0.00"
+                  placeholder="0,00"
                   value={formData.amount}
                   onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Currency</Label>
+                <Label>Валюта</Label>
                 <Select 
                   value={formData.currency} 
                   onValueChange={(v) => setFormData(prev => ({ ...prev, currency: v as "USD" | "EUR" | "UAH" }))}
@@ -585,7 +600,7 @@ export default function InvoicesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dueDate">Due Date</Label>
+              <Label htmlFor="dueDate">Дата оплати</Label>
               <Input
                 id="dueDate"
                 type="date"
@@ -595,10 +610,10 @@ export default function InvoicesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
+              <Label htmlFor="description">Опис (необов’язково)</Label>
               <Input
                 id="description"
-                placeholder="e.g., Milestone 1 payment"
+                placeholder="напр., Оплата етапу 1"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               />
@@ -607,13 +622,13 @@ export default function InvoicesPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
+              Скасувати
             </Button>
             <Button 
               onClick={handleSave}
               disabled={!formData.projectId || !formData.amount || !formData.dueDate}
             >
-              {editingInvoice ? "Save Changes" : "Create Invoice"}
+              {editingInvoice ? "Зберегти зміни" : "Створити інвойс"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -623,15 +638,15 @@ export default function InvoicesPage() {
       <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Invoice Payment</DialogTitle>
+            <DialogTitle>Підтвердження оплати інвойсу</DialogTitle>
             <DialogDescription>
-              Enter payment details for invoice {linkingInvoice?.number}
+              Вкажіть дані оплати для інвойсу {linkingInvoice?.number}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="paymentDate">Payment Date</Label>
+              <Label htmlFor="paymentDate">Дата оплати</Label>
               <Input
                 id="paymentDate"
                 type="date"
@@ -643,7 +658,7 @@ export default function InvoicesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="paymentAmount">Paid Amount</Label>
+              <Label htmlFor="paymentAmount">Оплачена сума</Label>
               <Input
                 id="paymentAmount"
                 type="number"
@@ -657,10 +672,10 @@ export default function InvoicesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="paymentReference">Payment Reference</Label>
+              <Label htmlFor="paymentReference">Референс платежу</Label>
               <Input
                 id="paymentReference"
-                placeholder="e.g., WIRE-2026-000123"
+                placeholder="напр., WIRE-2026-000123"
                 value={paymentConfirmation.reference}
                 onChange={(e) =>
                   setPaymentConfirmation((prev) => ({ ...prev, reference: e.target.value }))
@@ -671,13 +686,13 @@ export default function InvoicesPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsLinkDialogOpen(false)}>
-              Cancel
+              Скасувати
             </Button>
             <Button
               onClick={handleLinkTransaction}
               disabled={!paymentConfirmation.paidDate || !paymentConfirmation.amount || !paymentConfirmation.reference}
             >
-              Confirm Payment
+              Підтвердити оплату
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -687,18 +702,18 @@ export default function InvoicesPage() {
       <AlertDialog open={!!deleteInvoice} onOpenChange={() => setDeleteInvoice(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+            <AlertDialogTitle>Видалити інвойс</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete invoice {deleteInvoice?.number}? This action cannot be undone.
+              Ви впевнені, що хочете видалити інвойс {deleteInvoice?.number}? Цю дію неможливо скасувати.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Скасувати</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              Видалити
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

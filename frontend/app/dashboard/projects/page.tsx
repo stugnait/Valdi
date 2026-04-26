@@ -112,7 +112,7 @@ export default function ProjectsHubPage() {
       const response = await workforceApi.listProjects()
       setProjects(response.map(mapApiProject))
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load projects")
+      setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проєкти")
     } finally {
       setIsLoading(false)
     }
@@ -138,12 +138,12 @@ export default function ProjectsHubPage() {
       setIsDeleteOpen(false)
       setSelectedProject(null)
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete project")
+      setError(deleteError instanceof Error ? deleteError.message : "Не вдалося видалити проєкт")
     }
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("uk-UA", {
       style: "currency",
       currency: "USD",
       minimumFractionDigits: 0,
@@ -174,15 +174,15 @@ export default function ProjectsHubPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Project Hub</h1>
+          <h1 className="text-2xl font-bold text-foreground">Портфель проєктів</h1>
           <p className="text-sm text-muted-foreground">
-            Портфоліо проектів та бізнес-кейсів агентства
+            Портфоліо проєктів та бізнес-кейсів агенції
           </p>
         </div>
         <Button asChild>
           <Link href="/dashboard/projects/create">
             <Plus className="mr-2 size-4" />
-            Новий проект
+            Новий проєкт
           </Link>
         </Button>
       </div>
@@ -195,7 +195,7 @@ export default function ProjectsHubPage() {
 
       {isLoading && (
         <Card>
-          <CardContent className="pt-6 text-sm text-muted-foreground">Loading projects...</CardContent>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Завантажуємо проєкти…</CardContent>
         </Card>
       )}
 
@@ -204,7 +204,7 @@ export default function ProjectsHubPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Pipeline Value
+              Загальна вартість активного портфеля
             </CardTitle>
             <DollarSign className="size-4 text-muted-foreground" />
           </CardHeader>
@@ -218,7 +218,7 @@ export default function ProjectsHubPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Avg. Project Margin
+              Середня маржинальність проєктів
             </CardTitle>
             <Percent className="size-4 text-muted-foreground" />
           </CardHeader>
@@ -234,7 +234,7 @@ export default function ProjectsHubPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Active Teams
+              Активні команди
             </CardTitle>
             <Users className="size-4 text-muted-foreground" />
           </CardHeader>
@@ -369,7 +369,7 @@ export default function ProjectsHubPage() {
                 {/* Budget Health */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Budget Health</span>
+                    <span className="text-muted-foreground">Стан бюджету</span>
                     <span className={`font-medium ${
                       healthColor === "destructive" ? "text-destructive" :
                       healthColor === "warning" ? "text-amber-600" : "text-emerald-600"
@@ -388,7 +388,7 @@ export default function ProjectsHubPage() {
 
                 {/* Profitability */}
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Net Profit</span>
+                  <span className="text-sm text-muted-foreground">Чистий прибуток</span>
                   <div className="flex items-center gap-2">
                     <span className={`font-semibold ${isUnprofitable ? "text-destructive" : "text-emerald-600"}`}>
                       {formatCurrency(project.netProfit)}
@@ -424,7 +424,7 @@ export default function ProjectsHubPage() {
                 {/* View Button */}
                 <Button variant="outline" className="w-full" asChild>
                   <Link href={`/dashboard/projects/${project.id}`}>
-                    Деталі проекту
+                    Деталі проєкту
                     <ArrowUpRight className="ml-2 size-4" />
                   </Link>
                 </Button>
@@ -442,7 +442,7 @@ export default function ProjectsHubPage() {
             <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed">
               <Plus className="size-6" />
             </div>
-            <span className="text-sm font-medium">Створити проект</span>
+            <span className="text-sm font-medium">Створити проєкт</span>
           </CardContent>
         </Card>
       </div>
@@ -452,14 +452,14 @@ export default function ProjectsHubPage() {
         <Card className="py-12">
           <CardContent className="flex flex-col items-center text-center">
             <FolderKanban className="size-12 text-muted-foreground/50" />
-            <h3 className="mt-4 text-lg font-semibold">Проектів не знайдено</h3>
+            <h3 className="mt-4 text-lg font-semibold">Проєктів не знайдено</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               Спробуйте змінити параметри пошуку або фільтри
             </p>
             <Button className="mt-4" asChild>
               <Link href="/dashboard/projects/create">
                 <Plus className="mr-2 size-4" />
-                Створити перший проект
+                Створити перший проєкт
               </Link>
             </Button>
           </CardContent>
@@ -470,9 +470,9 @@ export default function ProjectsHubPage() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Видалити проект?</AlertDialogTitle>
+            <AlertDialogTitle>Видалити проєкт?</AlertDialogTitle>
             <AlertDialogDescription>
-              Ви впевнені, що хочете видалити проект &quot;{selectedProject?.name}&quot;? 
+              Ви впевнені, що хочете видалити проєкт &quot;{selectedProject?.name}&quot;? 
               Ця дія незворотна і видалить всю історію інвойсів та витрат.
             </AlertDialogDescription>
           </AlertDialogHeader>
