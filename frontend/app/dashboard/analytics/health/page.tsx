@@ -22,7 +22,23 @@ export default function GlobalHealthPage() {
         setIsLoadingOverview(true)
         const payload = await workforceApi.getAnalyticsOverview()
         if (!isMounted) return
-        setAnalyticsOverview(payload)
+        const sanitizedPayload: ApiAnalyticsOverview = {
+          ...payload,
+          health: {
+            ...payload.health,
+            sankey: {
+              ...payload.health.sankey,
+              destinations: payload.health.sankey.destinations.map((destination) => ({
+                ...destination,
+                name: destination.name.replace(/ESV/gi, "").replace(/\s*&\s*$/g, "").trim(),
+              })),
+            },
+            cost_structure: payload.health.cost_structure.filter(
+              (item) => !item.label.toLowerCase().includes("esv"),
+            ),
+          },
+        }
+        setAnalyticsOverview(sanitizedPayload)
         setOverviewError(null)
       } catch (loadError) {
         if (!isMounted) return
