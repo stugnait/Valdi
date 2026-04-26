@@ -1,5 +1,12 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"
 
+
+export interface ApiCurrentUser {
+  id: number
+  username: string
+  email: string
+}
+
 export interface ApiMembership {
   id?: number
   developer: number
@@ -273,6 +280,7 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const workforceApi = {
+  getCurrentUser: () => apiRequest<ApiCurrentUser>("/api/auth/me/"),
   listTeams: () => apiRequest<ApiTeam[]>("/api/teams/"),
   getTeam: (id: string | number) => apiRequest<ApiTeam>(`/api/teams/${id}/`),
   createTeam: (payload: Partial<ApiTeam>) =>
