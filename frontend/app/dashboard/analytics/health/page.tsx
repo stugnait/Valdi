@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { Coffee, Gauge, Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -8,6 +8,10 @@ import { workforceApi, type ApiAnalyticsOverview } from "@/lib/api/workforce"
 
 const formatCurrency = (value: number) => `$${value.toLocaleString()}`
 const formatPercent = (value: number) => `${value.toFixed(1)}%`
+
+// Defensive fallback: keeps legacy/stale chunks from crashing if they still render <Alert>.
+const Alert = ({ children }: { children: ReactNode }) => <div>{children}</div>
+const AlertDescription = ({ children }: { children: ReactNode }) => <>{children}</>
 
 export default function GlobalHealthPage() {
   const [analyticsOverview, setAnalyticsOverview] = useState<ApiAnalyticsOverview | null>(null)
