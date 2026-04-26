@@ -11,7 +11,6 @@ import {
   Trash2,
   Paperclip,
   Upload,
-  User,
   Receipt,
   Filter,
   DollarSign
@@ -129,7 +128,7 @@ export default function VariableExpensesPage() {
       const data = await workforceApi.listVariableExpenses()
       setExpenses(data.map(mapApiExpense))
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load variable expenses")
+      setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити змінні витрати")
     } finally {
       setLoading(false)
     }
@@ -153,6 +152,9 @@ export default function VariableExpensesPage() {
     return acc
   }, {} as Record<string, number>)
   const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0]
+  const topCategoryName = topCategory
+    ? (expenseCategories.find((item) => item.id === topCategory[0])?.name ?? topCategory[0])
+    : null
 
   // Filtered expenses
   const filteredExpenses = expenses.filter(expense => {
@@ -235,7 +237,7 @@ export default function VariableExpensesPage() {
       setIsAddDialogOpen(false)
       resetForm()
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save variable expense")
+      setError(saveError instanceof Error ? saveError.message : "Не вдалося зберегти змінну витрату")
     }
   }
 
@@ -245,9 +247,26 @@ export default function VariableExpensesPage() {
         await workforceApi.deleteVariableExpense(deleteExpense.id)
         await loadExpenses()
       } catch (deleteError) {
-        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete variable expense")
+        setError(deleteError instanceof Error ? deleteError.message : "Не вдалося видалити змінну витрату")
       }
       setDeleteExpense(null)
+    }
+  }
+
+  const getSourceLabelUa = (source: PaymentSource) => {
+    switch (source) {
+      case "monobank":
+        return "Monobank"
+      case "privat24":
+        return "Privat24"
+      case "wise":
+        return "Wise"
+      case "payoneer":
+        return "Payoneer"
+      case "cash":
+        return "Готівка"
+      default:
+        return source
     }
   }
 
@@ -256,14 +275,14 @@ export default function VariableExpensesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Variable Expenses</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Змінні витрати</h1>
           <p className="text-sm text-muted-foreground">
-            Track one-time purchases and unexpected costs
+            Фіксуйте разові покупки та непередбачувані витрати
           </p>
         </div>
         <Button onClick={handleOpenAdd} className="gap-2">
           <Plus className="size-4" />
-          Record Expense
+          Додати витрату
         </Button>
       </div>
 
@@ -275,7 +294,7 @@ export default function VariableExpensesPage() {
 
       {loading && (
         <Card>
-          <CardContent className="pt-6 text-sm text-muted-foreground">Loading variable expenses...</CardContent>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Завантажуємо змінні витрати…</CardContent>
         </Card>
       )}
 
@@ -283,28 +302,28 @@ export default function VariableExpensesPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Spent (This Month)</CardTitle>
+            <CardTitle className="text-sm font-medium">Витрачено за місяць</CardTitle>
             <DollarSign className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${monthlyTotal.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{monthlyExpenses.length} expenses recorded</p>
+            <p className="text-xs text-muted-foreground">Зафіксовано витрат: {monthlyExpenses.length}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Top Category</CardTitle>
+            <CardTitle className="text-sm font-medium">Найбільша категорія</CardTitle>
             <TrendingUp className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {topCategory ? (
               <>
-                <div className="text-2xl font-bold capitalize">{topCategory[0]}</div>
-                <p className="text-xs text-muted-foreground">${topCategory[1].toLocaleString()} total</p>
+                <div className="text-2xl font-bold">{topCategoryName}</div>
+                <p className="text-xs text-muted-foreground">Загалом: ${topCategory[1].toLocaleString()}</p>
               </>
             ) : (
-              <div className="text-muted-foreground">No data</div>
+              <div className="text-muted-foreground">Дані відсутні</div>
             )}
           </CardContent>
         </Card>
@@ -315,7 +334,7 @@ export default function VariableExpensesPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search expenses or assignees..."
+            placeholder="Пошук витрат або відповідальних…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -324,10 +343,10 @@ export default function VariableExpensesPage() {
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-[180px]">
             <Filter className="size-4 mr-2" />
-            <SelectValue placeholder="Category" />
+            <SelectValue placeholder="Категорія" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="all">Усі категорії</SelectItem>
             {expenseCategories.map(cat => (
               <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
             ))}
@@ -335,7 +354,7 @@ export default function VariableExpensesPage() {
         </Select>
       </div>
 
-      {/* Expense Log */}
+      {/* Журнал витрат */}
       <div className="space-y-3">
         {filteredExpenses.map((expense) => {
           const category = expenseCategories.find(c => c.id === expense.category)
@@ -347,7 +366,7 @@ export default function VariableExpensesPage() {
                   <div className="text-center min-w-[60px]">
                     <div className="text-lg font-bold">{new Date(expense.date).getDate()}</div>
                     <div className="text-xs text-muted-foreground uppercase">
-                      {new Date(expense.date).toLocaleDateString("uk", { month: "short" })}
+                      {new Date(expense.date).toLocaleDateString("uk-UA", { month: "short" })}
                     </div>
                   </div>
 
@@ -373,7 +392,7 @@ export default function VariableExpensesPage() {
                         </Badge>
                       )}
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        {getSourceIcon(expense.source)} {expense.source}
+                        {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
                       </span>
                     </div>
                   </div>
@@ -408,12 +427,12 @@ export default function VariableExpensesPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => handleOpenEdit(expense)}>
                         <Pencil className="size-4 mr-2" />
-                        Edit
+                        Редагувати
                       </DropdownMenuItem>
                       {expense.receiptUrl && (
                         <DropdownMenuItem>
                           <Receipt className="size-4 mr-2" />
-                          View Receipt
+                          Переглянути чек
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuSeparator />
@@ -422,7 +441,7 @@ export default function VariableExpensesPage() {
                         onClick={() => setDeleteExpense(expense)}
                       >
                         <Trash2 className="size-4 mr-2" />
-                        Delete
+                        Видалити
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -435,7 +454,7 @@ export default function VariableExpensesPage() {
         {filteredExpenses.length === 0 && (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
-              No variable expenses found
+              Змінні витрати не знайдено
             </CardContent>
           </Card>
         )}
@@ -446,10 +465,10 @@ export default function VariableExpensesPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingExpense ? "Edit Expense" : "Record Expense"}
+              {editingExpense ? "Редагувати витрату" : "Додати витрату"}
             </DialogTitle>
             <DialogDescription>
-              {editingExpense ? "Update expense details" : "Log a one-time expense or purchase"}
+              {editingExpense ? "Оновіть деталі витрати" : "Додайте разову витрату або покупку"}
             </DialogDescription>
           </DialogHeader>
 
@@ -457,17 +476,17 @@ export default function VariableExpensesPage() {
             {/* Basic Info */}
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label htmlFor="name">Item / Description</Label>
+                <Label htmlFor="name">Назва / опис</Label>
                 <Input
                   id="name"
-                  placeholder="e.g., MacBook Pro M3"
+                  placeholder="Наприклад: MacBook Pro M3"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
               
               <div>
-                <Label htmlFor="amount">Amount</Label>
+                <Label htmlFor="amount">Сума</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -479,7 +498,7 @@ export default function VariableExpensesPage() {
               </div>
               
               <div>
-                <Label htmlFor="currency">Currency</Label>
+                <Label htmlFor="currency">Валюта</Label>
                 <Select 
                   value={formData.currency} 
                   onValueChange={(v) => setFormData({ ...formData, currency: v as Currency })}
@@ -496,7 +515,7 @@ export default function VariableExpensesPage() {
               </div>
 
               <div>
-                <Label htmlFor="date">Date</Label>
+                <Label htmlFor="date">Дата</Label>
                 <Input
                   id="date"
                   type="date"
@@ -506,7 +525,7 @@ export default function VariableExpensesPage() {
               </div>
 
               <div>
-                <Label htmlFor="source">Payment Source</Label>
+                <Label htmlFor="source">Джерело оплати</Label>
                 <Select 
                   value={formData.source} 
                   onValueChange={(v) => setFormData({ ...formData, source: v as PaymentSource })}
@@ -519,19 +538,19 @@ export default function VariableExpensesPage() {
                     <SelectItem value="privat24">💳 Privat24</SelectItem>
                     <SelectItem value="wise">🌐 Wise</SelectItem>
                     <SelectItem value="payoneer">💱 Payoneer</SelectItem>
-                    <SelectItem value="cash">💵 Cash</SelectItem>
+                    <SelectItem value="cash">💵 Готівка</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="category">Category</Label>
+                <Label htmlFor="category">Категорія</Label>
                 <Select 
                   value={formData.category} 
                   onValueChange={(v) => setFormData({ ...formData, category: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder="Оберіть категорію" />
                   </SelectTrigger>
                   <SelectContent>
                     {expenseCategories.map(cat => (
@@ -542,16 +561,16 @@ export default function VariableExpensesPage() {
               </div>
 
               <div>
-                <Label htmlFor="assignee">Assignee (Optional)</Label>
+                <Label htmlFor="assignee">Відповідальний (за бажанням)</Label>
                 <Select 
                   value={formData.assigneeId || "none"} 
                   onValueChange={(v) => setFormData({ ...formData, assigneeId: v === "none" ? "" : v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select person" />
+                    <SelectValue placeholder="Оберіть людину" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="none">Не вказано</SelectItem>
                     {allMembers.map(member => (
                       <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
                     ))}
@@ -562,7 +581,7 @@ export default function VariableExpensesPage() {
 
             {/* Allocation Logic */}
             <div className="space-y-4">
-              <Label>Allocation Logic</Label>
+              <Label>Логіка розподілу</Label>
               <RadioGroup 
                 value={formData.allocationType}
                 onValueChange={(v) => setFormData({ ...formData, allocationType: v as AllocationTarget })}
@@ -571,29 +590,29 @@ export default function VariableExpensesPage() {
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="all" id="all" />
                   <Label htmlFor="all" className="cursor-pointer flex-1">
-                    <div className="font-medium">Split by All</div>
-                    <div className="text-xs text-muted-foreground">Company-wide expense</div>
+                    <div className="font-medium">Розподілити на всіх</div>
+                    <div className="text-xs text-muted-foreground">Загальна витрата компанії</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="team" id="team" />
                   <Label htmlFor="team" className="cursor-pointer flex-1">
-                    <div className="font-medium">Team Expense</div>
-                    <div className="text-xs text-muted-foreground">Allocate to team</div>
+                    <div className="font-medium">Витрата команди</div>
+                    <div className="text-xs text-muted-foreground">Розподілити на конкретну команду</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="project" id="project" />
                   <Label htmlFor="project" className="cursor-pointer flex-1">
-                    <div className="font-medium">Project Expense</div>
-                    <div className="text-xs text-muted-foreground">Direct project cost</div>
+                    <div className="font-medium">Витрата проєкту</div>
+                    <div className="text-xs text-muted-foreground">Пряма витрата на проєкт</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="none" id="none" />
                   <Label htmlFor="none" className="cursor-pointer flex-1">
-                    <div className="font-medium">No Allocation</div>
-                    <div className="text-xs text-muted-foreground">Personal equipment</div>
+                    <div className="font-medium">Без розподілу</div>
+                    <div className="text-xs text-muted-foreground">Окрема витрата без прив’язки</div>
                   </Label>
                 </div>
               </RadioGroup>
@@ -604,7 +623,7 @@ export default function VariableExpensesPage() {
                   onValueChange={(v) => setFormData({ ...formData, teamId: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select team" />
+                    <SelectValue placeholder="Оберіть команду" />
                   </SelectTrigger>
                   <SelectContent>
                     {mockTeams.map(team => (
@@ -620,7 +639,7 @@ export default function VariableExpensesPage() {
                   onValueChange={(v) => setFormData({ ...formData, projectId: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
+                    <SelectValue placeholder="Оберіть проєкт" />
                   </SelectTrigger>
                   <SelectContent>
                     {mockProjects.filter(p => p.status === "active").map(project => (
@@ -635,24 +654,24 @@ export default function VariableExpensesPage() {
 
             {/* Receipt Upload */}
             <div>
-              <Label>Receipt (Optional)</Label>
+              <Label>Чек (за бажанням)</Label>
               <div className="mt-2 border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 cursor-pointer">
                 <Upload className="size-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground">
-                  Click to upload or drag and drop
+                  Натисніть, щоб завантажити, або перетягніть файл
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG or PDF up to 10MB
+                  PNG, JPG або PDF до 10 МБ
                 </p>
               </div>
             </div>
 
             {/* Description */}
             <div>
-              <Label htmlFor="description">Notes (Optional)</Label>
+              <Label htmlFor="description">Примітки (за бажанням)</Label>
               <Textarea
                 id="description"
-                placeholder="Additional details..."
+                placeholder="Додаткові деталі…"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
@@ -661,7 +680,7 @@ export default function VariableExpensesPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
+              Скасувати
             </Button>
             <Button 
               onClick={handleSave}
@@ -674,7 +693,7 @@ export default function VariableExpensesPage() {
                 (formData.allocationType === "project" && !formData.projectId)
               }
             >
-              {editingExpense ? "Save Changes" : "Record Expense"}
+              {editingExpense ? "Зберегти зміни" : "Додати витрату"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -684,15 +703,15 @@ export default function VariableExpensesPage() {
       <AlertDialog open={!!deleteExpense} onOpenChange={() => setDeleteExpense(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Expense</AlertDialogTitle>
+            <AlertDialogTitle>Видалити витрату</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deleteExpense?.name}&quot;? This action cannot be undone.
+              Ви впевнені, що хочете видалити &quot;{deleteExpense?.name}&quot;? Цю дію неможливо скасувати.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Скасувати</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+              Видалити
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

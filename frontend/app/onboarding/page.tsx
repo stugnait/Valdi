@@ -62,7 +62,7 @@ export default function OnboardingPage() {
             <p className="text-muted-foreground text-sm leading-relaxed">
               {hasMono
                 ? "Ти обрав Monobank — підключи API ключ зараз і транзакції потечуть самі. Або зроби це пізніше в налаштуваннях."
-                : "Твій кабінет готовий. Перейди в дашборд і почни вводити перші транзакції."}
+                : "Ваш кабінет готовий. Перейдіть у дашборд і додайте перші транзакції."}
             </p>
           </div>
 
@@ -150,7 +150,7 @@ export default function OnboardingPage() {
                 Крок 1 — Валюта
               </p>
               <h2 className="text-2xl font-bold text-foreground mb-2 text-balance">
-                В якій валюті рахуємо твій успіх?
+                У якій валюті вести базову фінансову аналітику?
               </h2>
               <p className="text-sm text-muted-foreground mb-8">
                 Всі транзакції конвертуватимуться до цієї бази для точної аналітики.
@@ -188,7 +188,7 @@ export default function OnboardingPage() {
                 Крок 2 — Команда
               </p>
               <h2 className="text-2xl font-bold text-foreground mb-2 text-balance">
-                Скільки людей у твоїй команді?
+                Скільки людей у вашій команді?
               </h2>
               <p className="text-sm text-muted-foreground mb-8">
                 Підберемо тарифний план і налаштуємо Burn Rate під твій масштаб.
