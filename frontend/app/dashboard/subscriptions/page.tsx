@@ -17,7 +17,6 @@ import {
   Pause,
   XCircle,
   Filter,
-  Download,
   Eye,
   FileText,
   ExternalLink,
@@ -205,7 +204,7 @@ export default function SubscriptionsPage() {
       setClients(clientsResponse)
       setProjects(projectsResponse)
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load subscriptions")
+      setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити підписки")
     } finally {
       setIsLoading(false)
     }
@@ -290,7 +289,7 @@ export default function SubscriptionsPage() {
       setIsAddDialogOpen(false)
       resetForm()
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save subscription")
+      setError(saveError instanceof Error ? saveError.message : "Не вдалося зберегти підписку")
     }
   }
 
@@ -302,7 +301,7 @@ export default function SubscriptionsPage() {
         await loadData()
         setDeleteSubscription(null)
       } catch (deleteError) {
-        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete subscription")
+        setError(deleteError instanceof Error ? deleteError.message : "Не вдалося видалити підписку")
       }
     }
   }
@@ -317,7 +316,7 @@ export default function SubscriptionsPage() {
       })
       await loadData()
     } catch (confirmError) {
-      setError(confirmError instanceof Error ? confirmError.message : "Failed to confirm subscription")
+      setError(confirmError instanceof Error ? confirmError.message : "Не вдалося підтвердити підписку")
     }
   }
 
@@ -329,12 +328,12 @@ export default function SubscriptionsPage() {
       })
       await loadData()
     } catch (pauseError) {
-      setError(pauseError instanceof Error ? pauseError.message : "Failed to update subscription status")
+      setError(pauseError instanceof Error ? pauseError.message : "Не вдалося оновити статус підписки")
     }
   }
 
   const formatCurrency = (value: number, currency: string = "USD") => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("uk-UA", {
       style: "currency",
       currency,
       minimumFractionDigits: 0,
@@ -382,14 +381,14 @@ export default function SubscriptionsPage() {
 
       {isLoading && (
         <Card>
-          <CardContent className="pt-6 text-sm text-muted-foreground">Loading subscriptions...</CardContent>
+          <CardContent className="pt-6 text-sm text-muted-foreground">Завантажуємо підписки…</CardContent>
         </Card>
       )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Subscriptions</h1>
+          <h1 className="text-2xl font-bold text-foreground">Підписки</h1>
           <p className="text-sm text-muted-foreground">
             Управління підписками клієнтів та відстеження платежів
           </p>
@@ -514,7 +513,7 @@ export default function SubscriptionsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Клієнт / План</TableHead>
-                  <TableHead>Проект</TableHead>
+                  <TableHead>Проєкт</TableHead>
                   <TableHead>Статус</TableHead>
                   <TableHead>Цикл</TableHead>
                   <TableHead className="text-right">Сума</TableHead>
@@ -812,7 +811,7 @@ export default function SubscriptionsPage() {
                   <div>
                     <div className="font-medium text-emerald-700 dark:text-emerald-400">Підтверджено</div>
                     <div className="text-sm text-emerald-600 dark:text-emerald-500">
-                      {formatDate(viewSubscription.confirmedAt)} by {viewSubscription.confirmedBy}
+                      {formatDate(viewSubscription.confirmedAt)} • {viewSubscription.confirmedBy || "Адміністратор"}
                     </div>
                   </div>
                 </div>
@@ -833,7 +832,7 @@ export default function SubscriptionsPage() {
                 <div className="flex items-center gap-2 p-3 border rounded-lg">
                   <FileText className="size-4 text-muted-foreground" />
                   <div>
-                    <span className="text-muted-foreground">Проект: </span>
+                    <span className="text-muted-foreground">Проєкт: </span>
                     <span className="font-medium">{viewSubscription.projectName}</span>
                   </div>
                 </div>
@@ -978,16 +977,16 @@ export default function SubscriptionsPage() {
               </div>
 
               <div>
-                <Label htmlFor="project">Проект (опційно)</Label>
+                <Label htmlFor="project">Проєкт (опційно)</Label>
                 <Select
                   value={formData.projectId || "none"}
                   onValueChange={(value) => setFormData({ ...formData, projectId: value === "none" ? "" : value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Оберіть проект" />
+                    <SelectValue placeholder="Оберіть проєкт" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Без проекту</SelectItem>
+                    <SelectItem value="none">Без проєкту</SelectItem>
                     {availableProjects.map(project => (
                       <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
                     ))}
@@ -1000,7 +999,7 @@ export default function SubscriptionsPage() {
               <Label htmlFor="planName">Назва плану *</Label>
               <Input
                 id="planName"
-                placeholder="напр., Enterprise Support"
+                placeholder="напр., Преміум підтримка"
                 value={formData.planName}
                 onChange={(e) => setFormData({ ...formData, planName: e.target.value })}
               />
@@ -1078,7 +1077,7 @@ export default function SubscriptionsPage() {
               <Label htmlFor="features">Особливості (по одній на рядок)</Label>
               <Textarea
                 id="features"
-                placeholder="Bug fixes&#10;Security updates&#10;Email support"
+                placeholder="Виправлення помилок&#10;Оновлення безпеки&#10;Підтримка електронною поштою"
                 rows={4}
                 value={formData.features}
                 onChange={(e) => setFormData({ ...formData, features: e.target.value })}

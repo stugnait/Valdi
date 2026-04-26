@@ -38,6 +38,12 @@ python manage.py migrate
 python manage.py runserver
 ```
 
+7. (Optional) Run test suite:
+
+```bash
+python manage.py test
+```
+
 If you see `no such table: auth_user`, it means migrations were not applied to the active database.
 
 ## Important for Supabase
