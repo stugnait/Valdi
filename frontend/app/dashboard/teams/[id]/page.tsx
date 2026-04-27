@@ -106,8 +106,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     role: "",
     baseRate: "",
     rateType: "monthly" as "monthly" | "hourly",
-    teamOverheadShare: "0",
-    companyOverheadShare: "280",
+    teamOverheadShare: "",
+    companyOverheadShare: "",
     skills: [] as Skill[],
     teamMemberships: [] as TeamMembership[],
   })
@@ -196,6 +196,67 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     })
   }
 
+  const syncDeveloperAcrossTeams = async (
+    developerId: number,
+    existingTeamIds: number[],
+    memberships: TeamMembership[]
+  ) => {
+    const allTeams = await workforceApi.listTeams()
+    const desiredMemberships = memberships.length > 0
+      ? memberships
+      : [{ teamId: String(id), teamName: "", allocation: 100 }]
+
+    const desiredByTeamId = new Map<number, number>()
+
+    desiredMemberships.forEach((membership) => {
+      const rawTeamId = Number(membership.teamId)
+      let resolvedTeamId = Number.isNaN(rawTeamId) || rawTeamId <= 0 ? null : rawTeamId
+
+      if (!resolvedTeamId && membership.teamName.trim()) {
+        const matchedTeam = allTeams.find(
+          (candidate) => candidate.name.trim().toLowerCase() === membership.teamName.trim().toLowerCase()
+        )
+        resolvedTeamId = matchedTeam?.id ?? null
+      }
+
+      if (!resolvedTeamId) return
+
+      desiredByTeamId.set(resolvedTeamId, Math.min(100, Math.max(0, membership.allocation || 0)))
+    })
+
+    if (!desiredByTeamId.has(Number(id))) {
+      desiredByTeamId.set(Number(id), 100)
+    }
+
+    const impactedTeamIds = new Set<number>([
+      ...existingTeamIds,
+      ...desiredByTeamId.keys(),
+    ])
+
+    await Promise.all(
+      Array.from(impactedTeamIds).map(async (teamId) => {
+        const targetTeam = allTeams.find((candidate) => candidate.id === teamId)
+        if (!targetTeam) return
+
+        const membershipsWithoutDeveloper = targetTeam.memberships.filter(
+          (membership) => membership.developer !== developerId
+        )
+        const nextAllocation = desiredByTeamId.get(teamId)
+        const nextMemberships =
+          nextAllocation === undefined
+            ? membershipsWithoutDeveloper
+            : [...membershipsWithoutDeveloper, { developer: developerId, allocation: nextAllocation }]
+
+        await workforceApi.updateTeam(teamId, {
+          memberships: nextMemberships.map((membership) => ({
+            developer: membership.developer,
+            allocation: membership.allocation,
+          })),
+        })
+      })
+    )
+  }
+
   const loadTeam = async () => {
     setIsLoading(true)
     setError("")
@@ -256,8 +317,10 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     try {
       const baseRate = parseFloat(memberForm.baseRate) || 0
       const hourlyRate = toHourlyRatePayload(baseRate, memberForm.rateType)
-      const teamOverheadShare = parseFloat(memberForm.teamOverheadShare) || 0
-      const companyOverheadShare = parseFloat(memberForm.companyOverheadShare) || 0
+      const teamOverheadShare =
+        memberForm.teamOverheadShare.trim() === "" ? 0 : parseFloat(memberForm.teamOverheadShare) || 0
+      const companyOverheadShare =
+        memberForm.companyOverheadShare.trim() === "" ? 280 : parseFloat(memberForm.companyOverheadShare) || 0
       const apiDeveloper = selectedMember
         ? await workforceApi.updateDeveloper(selectedMember.id, {
             full_name: memberForm.name,
@@ -295,13 +358,11 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         skills: newMember.skills,
       })
 
-      if (selectedMember) {
-        const updatedMembers = team.members.map(m => m.id === selectedMember.id ? newMember : m)
-        await syncTeamMemberships(updatedMembers)
-      } else {
-        const updatedMembers = [...team.members, newMember]
-        await syncTeamMemberships(updatedMembers)
-      }
+      await syncDeveloperAcrossTeams(
+        apiDeveloper.id,
+        apiDeveloper.teams.map((teamMembership) => teamMembership.id),
+        newMember.teamMemberships
+      )
       await loadTeam()
       closeMemberDialog()
     } catch (err) {
@@ -349,8 +410,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: "",
       baseRate: "",
       rateType: "monthly",
-      teamOverheadShare: "0",
-      companyOverheadShare: "280",
+      teamOverheadShare: "",
+      companyOverheadShare: "",
       skills: [],
       teamMemberships: [],
     })
@@ -749,7 +810,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                             <p className="font-medium">{formatCurrency(member.teamOverheadShare)}</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground text-xs">Загальнокомпанійні витрати</p>
+                            <p className="text-muted-foreground text-xs">Витрати компанії</p>
                             <p className="font-medium">{formatCurrency(member.companyOverheadShare)}</p>
                           </div>
                           <div>
@@ -972,17 +1033,17 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 <Input
                   id="member-team-overhead"
                   type="number"
-                  value={memberForm.teamOverheadShare}
+                  value={memberForm.teamOverheadShare === "0" ? "" : memberForm.teamOverheadShare}
                   onChange={(e) => setMemberForm({ ...memberForm, teamOverheadShare: e.target.value })}
                   placeholder="0"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="member-company-overhead">Загальнокомпанійні витрати ($/міс)</Label>
+                <Label htmlFor="member-company-overhead">Витрати компанії ($/міс)</Label>
                 <Input
                   id="member-company-overhead"
                   type="number"
-                  value={memberForm.companyOverheadShare}
+                  value={memberForm.companyOverheadShare === "280" ? "" : memberForm.companyOverheadShare}
                   onChange={(e) => setMemberForm({ ...memberForm, companyOverheadShare: e.target.value })}
                   placeholder="280"
                 />
@@ -1035,10 +1096,15 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                     />
                     <Input 
                       type="number"
-                      value={tm.allocation}
+                      value={tm.allocation === 0 ? "" : tm.allocation}
+                      placeholder="0"
                       onChange={(e) => {
                         const updated = [...memberForm.teamMemberships]
-                        updated[idx] = { ...tm, allocation: parseInt(e.target.value) || 0 }
+                        const allocationValue = e.target.value
+                        updated[idx] = {
+                          ...tm,
+                          allocation: allocationValue === "" ? 0 : parseInt(allocationValue) || 0,
+                        }
                         setMemberForm({ ...memberForm, teamMemberships: updated })
                       }}
                       className="w-20"
