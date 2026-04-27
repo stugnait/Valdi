@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { Separator } from "@/components/ui/separator"
+import { workforceApi } from "@/lib/api/workforce"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -41,8 +42,20 @@ const BREADCRUMB_TITLE_MAP: Record<string, string> = {
   support: "Підтримка",
 }
 
-function getBreadcrumbLabel(segment: string): string {
-  return BREADCRUMB_TITLE_MAP[segment] ?? decodeURIComponent(segment)
+function getBreadcrumbLabel(segment: string, previousSegment?: string): string {
+  if (BREADCRUMB_TITLE_MAP[segment]) {
+    return BREADCRUMB_TITLE_MAP[segment]
+  }
+
+  if (previousSegment === "teams") {
+    return "Команда"
+  }
+
+  if (previousSegment === "projects") {
+    return "Проєкт"
+  }
+
+  return decodeURIComponent(segment)
 }
 
 export default function DashboardLayout({
@@ -53,6 +66,53 @@ export default function DashboardLayout({
   const router = useRouter()
   const pathname = usePathname()
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const [dynamicBreadcrumbLabels, setDynamicBreadcrumbLabels] = useState<Record<string, string>>({})
+
+  const breadcrumbs = useMemo(() => {
+    const segments = pathname.split("/").filter(Boolean)
+
+    return segments.map((segment, index) => {
+      const href = `/${segments.slice(0, index + 1).join("/")}`
+      return {
+        href,
+        label: dynamicBreadcrumbLabels[href] ?? getBreadcrumbLabel(segment, segments[index - 1]),
+        isCurrent: index === segments.length - 1,
+      }
+    })
+  }, [dynamicBreadcrumbLabels, pathname])
+
+
+  useEffect(() => {
+    let isCancelled = false
+
+    const loadDynamicBreadcrumbLabel = async () => {
+      const teamMatch = pathname.match(/^\/dashboard\/teams\/([^/]+)$/)
+
+      if (!teamMatch) {
+        setDynamicBreadcrumbLabels({})
+        return
+      }
+
+      const teamId = decodeURIComponent(teamMatch[1])
+
+      try {
+        const team = await workforceApi.getTeam(teamId)
+        if (!isCancelled) {
+          setDynamicBreadcrumbLabels({ [`/dashboard/teams/${teamId}`]: team.name })
+        }
+      } catch {
+        if (!isCancelled) {
+          setDynamicBreadcrumbLabels({})
+        }
+      }
+    }
+
+    void loadDynamicBreadcrumbLabel()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [pathname])
 
   const breadcrumbs = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean)
