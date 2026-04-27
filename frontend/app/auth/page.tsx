@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react"
 import { Eye, EyeOff, ArrowRight, Check } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { clearSession, hasSessionExpiredByInactivity, persistSessionTokens } from "@/lib/auth/session"
+import * as session from "@/lib/auth/session"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
@@ -157,7 +157,7 @@ export default function AuthPage() {
   )
 
   const persistSession = (data: AuthResponse) => {
-    persistSessionTokens({
+    session.persistSessionTokens({
       access: data.access,
       refresh: data.refresh,
       userEmail: data.user?.email,
@@ -178,8 +178,8 @@ export default function AuthPage() {
     const accessToken = localStorage.getItem("access_token")
     const refreshToken = localStorage.getItem("refresh_token")
 
-    if (hasSessionExpiredByInactivity()) {
-      clearSession()
+    if (session.hasSessionExpiredByInactivity()) {
+      session.clearSession()
       return
     }
 
