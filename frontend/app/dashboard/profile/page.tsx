@@ -13,11 +13,12 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { workforceApi } from "@/lib/api/workforce"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 
 interface CurrentUser {
   id: number | string
@@ -214,7 +215,6 @@ export default function ProfilePage() {
         </div>
       )
     }
-  }
 
     if (!user) {
       return <p className="text-sm text-muted-foreground">Профіль недоступний.</p>
@@ -356,30 +356,51 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
+          <div className="flex justify-end">
+            <Button onClick={handleChangePassword} disabled={isChangingPassword}>
+              {isChangingPassword ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Змінити пароль
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-destructive">Небезпечна зона</CardTitle>
+          <CardDescription>Видалення профілю є незворотним.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">Після видалення акаунту вхід у систему стане неможливим.</p>
+          <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
+            <Trash2 className="mr-2 size-4" />
+            Видалити акаунт
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-destructive" />
+              Підтвердьте видалення акаунту
+            </DialogTitle>
+            <DialogDescription>
+              Ви дійсно хочете видалити акаунт? Цю дію неможливо скасувати.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Скасувати
             </Button>
-            <Button
-              onClick={handleChangePassword}
-              disabled={
-                !passwordData.current ||
-                !passwordData.new ||
-                passwordData.new.length < 8 ||
-                passwordData.new !== passwordData.confirm
-              }
-            >
-              Оновити пароль
+            <Button variant="destructive" onClick={handleDeleteAccount} disabled={isDeleting}>
+              {isDeleting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Підтвердити видалення
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
-
-      <Alert>
-        <AlertDescription>
-          Редагування профілю та налаштувань безпеки тимчасово приховано, доки не будуть готові відповідні backend endpoint-и для update/change-password.
-        </AlertDescription>
-      </Alert>
     </div>
   )
 }

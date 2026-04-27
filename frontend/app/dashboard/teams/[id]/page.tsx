@@ -196,6 +196,67 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     })
   }
 
+  const syncDeveloperAcrossTeams = async (
+    developerId: number,
+    existingTeamIds: number[],
+    memberships: TeamMembership[]
+  ) => {
+    const allTeams = await workforceApi.listTeams()
+    const desiredMemberships = memberships.length > 0
+      ? memberships
+      : [{ teamId: String(id), teamName: "", allocation: 100 }]
+
+    const desiredByTeamId = new Map<number, number>()
+
+    desiredMemberships.forEach((membership) => {
+      const rawTeamId = Number(membership.teamId)
+      let resolvedTeamId = Number.isNaN(rawTeamId) || rawTeamId <= 0 ? null : rawTeamId
+
+      if (!resolvedTeamId && membership.teamName.trim()) {
+        const matchedTeam = allTeams.find(
+          (candidate) => candidate.name.trim().toLowerCase() === membership.teamName.trim().toLowerCase()
+        )
+        resolvedTeamId = matchedTeam?.id ?? null
+      }
+
+      if (!resolvedTeamId) return
+
+      desiredByTeamId.set(resolvedTeamId, Math.min(100, Math.max(0, membership.allocation || 0)))
+    })
+
+    if (!desiredByTeamId.has(Number(id))) {
+      desiredByTeamId.set(Number(id), 100)
+    }
+
+    const impactedTeamIds = new Set<number>([
+      ...existingTeamIds,
+      ...desiredByTeamId.keys(),
+    ])
+
+    await Promise.all(
+      Array.from(impactedTeamIds).map(async (teamId) => {
+        const targetTeam = allTeams.find((candidate) => candidate.id === teamId)
+        if (!targetTeam) return
+
+        const membershipsWithoutDeveloper = targetTeam.memberships.filter(
+          (membership) => membership.developer !== developerId
+        )
+        const nextAllocation = desiredByTeamId.get(teamId)
+        const nextMemberships =
+          nextAllocation === undefined
+            ? membershipsWithoutDeveloper
+            : [...membershipsWithoutDeveloper, { developer: developerId, allocation: nextAllocation }]
+
+        await workforceApi.updateTeam(teamId, {
+          memberships: nextMemberships.map((membership) => ({
+            developer: membership.developer,
+            allocation: membership.allocation,
+          })),
+        })
+      })
+    )
+  }
+
   const loadTeam = async () => {
     setIsLoading(true)
     setError("")
@@ -295,13 +356,11 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         skills: newMember.skills,
       })
 
-      if (selectedMember) {
-        const updatedMembers = team.members.map(m => m.id === selectedMember.id ? newMember : m)
-        await syncTeamMemberships(updatedMembers)
-      } else {
-        const updatedMembers = [...team.members, newMember]
-        await syncTeamMemberships(updatedMembers)
-      }
+      await syncDeveloperAcrossTeams(
+        apiDeveloper.id,
+        apiDeveloper.teams.map((teamMembership) => teamMembership.id),
+        newMember.teamMemberships
+      )
       await loadTeam()
       closeMemberDialog()
     } catch (err) {
