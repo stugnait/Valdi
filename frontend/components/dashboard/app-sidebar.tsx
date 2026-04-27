@@ -61,55 +61,55 @@ import { Badge } from "@/components/ui/badge"
 
 const navigationItems = [
   {
-    title: "Teams & Squads",
+    title: "Команди та відділи",
     icon: Users,
     items: [
-      { title: "Teams Hub", href: "/dashboard/teams", icon: Users },
+      { title: "Команди", href: "/dashboard/teams", icon: Users },
     ],
   },
   {
-    title: "Spendings & Overheads",
+    title: "Витрати та накладні",
     icon: Wallet,
     items: [
-      { title: "Recurring", href: "/dashboard/spendings/recurring", icon: Repeat },
-      { title: "Variable", href: "/dashboard/spendings/variable", icon: Wallet },
-      { title: "Rules", href: "/dashboard/spendings/rules", icon: FileText },
+      { title: "Регулярні", href: "/dashboard/spendings/recurring", icon: Repeat },
+      { title: "Змінні", href: "/dashboard/spendings/variable", icon: Wallet },
+      { title: "Правила", href: "/dashboard/spendings/rules", icon: FileText },
     ],
   },
   {
-    title: "Workspace",
+    title: "Робочий простір",
     icon: FolderKanban,
     items: [
-      { title: "Clients", href: "/dashboard/clients", icon: Building2 },
-      { title: "Projects", href: "/dashboard/projects", icon: FolderKanban },
-      { title: "Subscriptions", href: "/dashboard/subscriptions", icon: CalendarCheck },
+      { title: "Клієнти", href: "/dashboard/clients", icon: Building2 },
+      { title: "Проєкти", href: "/dashboard/projects", icon: FolderKanban },
+      { title: "Підписки", href: "/dashboard/subscriptions", icon: CalendarCheck },
     ],
   },
   {
-    title: "Invoices & Revenue",
+    title: "Інвойси та дохід",
     icon: CreditCard,
     items: [
-      { title: "Invoices", href: "/dashboard/invoices", icon: Receipt },
-      { title: "Tax Reports", href: "/dashboard/reports/taxes", icon: Calculator },
+      { title: "Інвойси", href: "/dashboard/invoices", icon: Receipt },
+      { title: "Податкові звіти", href: "/dashboard/reports/taxes", icon: Calculator },
     ],
   },
   {
-    title: "Analytics",
+    title: "Аналітика",
     icon: BarChart3,
     items: [
-      { title: "Global Health", href: "/dashboard/analytics/health", icon: Activity },
-      { title: "The Time Machine", href: "/dashboard/analytics/time", icon: Clock },
-      { title: "Efficiency & ROI", href: "/dashboard/analytics/roi", icon: TrendingUp },
-      { title: "Anomalies & Leaks", href: "/dashboard/analytics/anomalies", icon: AlertTriangle },
+      { title: "Загальний стан", href: "/dashboard/analytics/health", icon: Activity },
+      { title: "Динаміка у часі", href: "/dashboard/analytics/time", icon: Clock },
+      { title: "Ефективність та ROI", href: "/dashboard/analytics/roi", icon: TrendingUp },
+      { title: "Аномалії та витоки", href: "/dashboard/analytics/anomalies", icon: AlertTriangle },
     ],
   },
   {
-    title: "Settings",
+    title: "Налаштування",
     icon: Settings,
     items: [
-      { title: "General", href: "/dashboard/settings/general", icon: Globe },
-      { title: "Billing", href: "/dashboard/settings/billing", icon: CreditCard },
-      { title: "Integrations", href: "/dashboard/settings/integrations", icon: Link2 },
+      { title: "Загальні", href: "/dashboard/settings/general", icon: Globe },
+      { title: "Оплата", href: "/dashboard/settings/billing", icon: CreditCard },
+      { title: "Інтеграції", href: "/dashboard/settings/integrations", icon: Link2 },
     ],
   },
 ]
@@ -169,20 +169,21 @@ function NavItem({ item }: NavItemProps) {
 
 export function AppSidebar() {
   const router = useRouter()
-  const [userName, setUserName] = React.useState("User")
-  const userRole = "Admin"
-  const [companyName, setCompanyName] = React.useState("Agency Finance")
+  const [userName, setUserName] = React.useState("Користувач")
+  const userRole = "Адміністратор"
+  const [companyName, setCompanyName] = React.useState("Фінанси агенції")
 
-  React.useEffect(() => {
+  React.useEffect(function hydrateSidebarProfile() {
     const email = localStorage.getItem("user_email") ?? ""
     const savedName = localStorage.getItem("user_display_name") ?? ""
     const savedCompanyName = localStorage.getItem("company_name") ?? ""
 
     const emailPrefix = email.includes("@") ? email.split("@")[0] : email
-    const fallbackName = emailPrefix || "User"
+    const fallbackName = emailPrefix || "Користувач"
+    const fallbackCompanyName = "Фінанси агенції"
 
     setUserName(savedName.trim() || fallbackName)
-    setCompanyName(savedCompanyName.trim() || "Agency Finance")
+    setCompanyName(savedCompanyName.trim() || fallbackCompanyName)
   }, [])
 
   const userInitials = userName
@@ -220,16 +221,16 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Quick Actions */}
+        {/* Швидкі дії */}
         <SidebarGroup>
-          <SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
+          <SidebarGroupLabel>Швидкі дії</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <Link href="/dashboard">
                     <LayoutGrid className="size-4" />
-                    <span>Dashboard</span>
+                    <span>Дашборд</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -237,9 +238,9 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Main Navigation */}
+        {/* Main Навігація */}
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Навігація</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigationItems.map((item) => (

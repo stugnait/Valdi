@@ -24,10 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Alert,
-  AlertDescription,
-} from "@/components/ui/alert"
 import { workforceApi } from "@/lib/api/workforce"
 
 interface UserProfile {
@@ -197,7 +193,7 @@ export default function ProfilePage() {
       setShowSuccessAlert(true)
       setTimeout(() => setShowSuccessAlert(false), 3000)
     }
-  }, [])
+  }
 
   const displayName = useMemo(() => {
     if (!user) return ""
@@ -871,6 +867,25 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
+              Скасувати
+            </Button>
+            <Button
+              onClick={handleChangePassword}
+              disabled={
+                !passwordData.current ||
+                !passwordData.new ||
+                passwordData.new.length < 8 ||
+                passwordData.new !== passwordData.confirm
+              }
+            >
+              Оновити пароль
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Alert>
         <AlertDescription>

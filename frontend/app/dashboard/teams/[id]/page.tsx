@@ -136,7 +136,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       const savedMemberUi = getMemberUiData(String(membership.developer))
       return {
         id: String(membership.developer),
-        name: membership.developer_name ?? developer?.full_name ?? "Developer",
+        name: membership.developer_name ?? developer?.full_name ?? "Розробник",
         email: membership.developer_email ?? developer?.email ?? "",
         role: developer?.role ?? "",
         baseRate,
@@ -234,14 +234,14 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-muted-foreground">Команду не знайдено</p>
         <Button variant="outline" className="mt-4" asChild>
-          <Link href="/dashboard/teams">Повернутися до Teams Hub</Link>
+          <Link href="/dashboard/teams">Повернутися до центру команд</Link>
         </Button>
       </div>
     )
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("uk-UA", {
       style: "currency",
       currency: "USD",
       minimumFractionDigits: 0,
@@ -471,7 +471,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Headcount
+              Кількість людей
             </CardTitle>
             <Users className="size-4 text-muted-foreground" />
           </CardHeader>
@@ -483,7 +483,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Team Burn Rate
+              Темп витрат команди
             </CardTitle>
             <DollarSign className="size-4 text-muted-foreground" />
           </CardHeader>
@@ -495,7 +495,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Utilization
+              Завантаженість
             </CardTitle>
             <Percent className="size-4 text-muted-foreground" />
           </CardHeader>
@@ -509,7 +509,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Efficiency Score
+              Коефіцієнт ефективності
             </CardTitle>
             {team.efficiencyScore >= 1 ? (
               <TrendingUp className="size-4 text-emerald-500" />
@@ -519,7 +519,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{team.efficiencyScore.toFixed(2)}x</div>
-            <p className="text-xs text-muted-foreground">revenue / cost</p>
+            <p className="text-xs text-muted-foreground">дохід / витрати</p>
           </CardContent>
         </Card>
       </div>
@@ -527,9 +527,9 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       {/* Tabs Content */}
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="members">The Squad ({team.members.length})</TabsTrigger>
-          <TabsTrigger value="overheads">Overheads ({team.overheads.length})</TabsTrigger>
+          <TabsTrigger value="overview">Огляд</TabsTrigger>
+          <TabsTrigger value="members">Склад ({team.members.length})</TabsTrigger>
+          <TabsTrigger value="overheads">Витрати ({team.overheads.length})</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -537,7 +537,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           {/* Burn Rate Chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Burn Rate Trend</CardTitle>
+              <CardTitle>Динаміка темпу витрат</CardTitle>
               <CardDescription>Динаміка витрат та доходів за останні 6 місяців</CardDescription>
             </CardHeader>
             <CardContent>
@@ -556,7 +556,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="month" className="text-xs" />
-                    <YAxis className="text-xs" tickFormatter={(v) => `$${v / 1000}k`} />
+                    <YAxis className="text-xs" tickFormatter={(v) => `${(v / 1000).toLocaleString("uk-UA")} тис. $`} />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: "var(--background)", 
@@ -572,7 +572,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                       stroke="#ef4444" 
                       fillOpacity={1} 
                       fill="url(#burnRate)"
-                      name="Burn Rate"
+                      name="Темп витрат"
                     />
                     <Area 
                       type="monotone" 
@@ -580,7 +580,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                       stroke="#10b981" 
                       fillOpacity={1} 
                       fill="url(#revenue)"
-                      name="Revenue"
+                      name="Дохід"
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -592,7 +592,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Top Performers</CardTitle>
+                <CardTitle className="text-base">Топ-виконавці</CardTitle>
                 <CardDescription>Найефективніші члени команди</CardDescription>
               </CardHeader>
               <CardContent>
@@ -620,7 +620,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Skills Distribution</CardTitle>
+                <CardTitle className="text-base">Розподіл навичок</CardTitle>
                 <CardDescription>Технології в команді</CardDescription>
               </CardHeader>
               <CardContent>
@@ -657,7 +657,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         <TabsContent value="members" className="space-y-4">
           <div className="flex justify-between">
             <div>
-              <h3 className="text-lg font-semibold">The Squad</h3>
+              <h3 className="text-lg font-semibold">Склад команди</h3>
               <p className="text-sm text-muted-foreground">Члени команди та їхня вартість</p>
             </div>
             <Button onClick={() => setIsMemberDialogOpen(true)}>
@@ -688,7 +688,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                               <h4 className="font-semibold">{member.name}</h4>
                               {isMultiTeam && (
                                 <Badge variant="outline" className="text-xs">
-                                  Multi-team
+                                  Мультикоманда
                                 </Badge>
                               )}
                             </div>
@@ -741,27 +741,27 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                         {/* Cost Breakdown */}
                         <div className="grid grid-cols-4 gap-4 rounded-lg bg-muted/50 p-3 text-sm">
                           <div>
-                            <p className="text-muted-foreground text-xs">Base Rate</p>
+                            <p className="text-muted-foreground text-xs">Базова ставка</p>
                             <p className="font-medium">{formatCurrency(member.baseRate)}</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground text-xs">Team Overhead</p>
+                            <p className="text-muted-foreground text-xs">Командні витрати</p>
                             <p className="font-medium">{formatCurrency(member.teamOverheadShare)}</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground text-xs">Company Overhead</p>
+                            <p className="text-muted-foreground text-xs">Загальнокомпанійні витрати</p>
                             <p className="font-medium">{formatCurrency(member.companyOverheadShare)}</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground text-xs">Total Cost</p>
+                            <p className="text-muted-foreground text-xs">Загальна вартість</p>
                             <p className="font-semibold text-primary">{formatCurrency(totalCost)}</p>
                           </div>
                         </div>
 
-                        {/* Multi-team membership */}
+                        {/* Мультикоманда membership */}
                         {isMultiTeam && (
                           <div className="flex items-center gap-2 text-sm">
-                            <span className="text-muted-foreground">Allocation:</span>
+                            <span className="text-muted-foreground">Алокація:</span>
                             {member.teamMemberships.map((tm, i) => (
                               <span key={tm.teamId}>
                                 {tm.teamName} ({tm.allocation}%)
@@ -771,16 +771,16 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                           </div>
                         )}
 
-                        {/* Utilization & Revenue */}
+                        {/* Завантаженість & Revenue */}
                         <div className="flex items-center gap-6 text-sm">
                           <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">Utilization:</span>
+                            <span className="text-muted-foreground">Завантаженість:</span>
                             <Badge variant={member.utilization >= 80 ? "default" : "secondary"}>
                               {member.utilization}%
                             </Badge>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">Revenue:</span>
+                            <span className="text-muted-foreground">Дохід:</span>
                             <span className="font-medium text-emerald-600">{formatCurrency(member.revenue)}</span>
                           </div>
                         </div>
@@ -811,7 +811,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         <TabsContent value="overheads" className="space-y-4">
           <div className="flex justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Team-Specific Overheads</h3>
+              <h3 className="text-lg font-semibold">Командні витрати</h3>
               <p className="text-sm text-muted-foreground">
                 Витрати, що стосуються тільки цієї команди — {formatCurrency(totalOverheadsCost)}/міс
               </p>
@@ -920,7 +920,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="member-email">Email</Label>
+                <Label htmlFor="member-email">Електронна пошта</Label>
                 <Input
                   id="member-email"
                   type="email"
@@ -936,12 +936,12 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 id="member-role"
                 value={memberForm.role}
                 onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value })}
-                placeholder="Senior Developer"
+                placeholder="Senior розробник"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="member-rate">Base Rate ($)</Label>
+                <Label htmlFor="member-rate">Базова ставка ($)</Label>
                 <Input
                   id="member-rate"
                   type="number"
@@ -968,7 +968,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="member-team-overhead">Team Overhead ($/міс)</Label>
+                <Label htmlFor="member-team-overhead">Командні витрати ($/міс)</Label>
                 <Input
                   id="member-team-overhead"
                   type="number"
@@ -978,7 +978,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="member-company-overhead">Company Overhead ($/міс)</Label>
+                <Label htmlFor="member-company-overhead">Загальнокомпанійні витрати ($/міс)</Label>
                 <Input
                   id="member-company-overhead"
                   type="number"
@@ -989,7 +989,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Skills</Label>
+              <Label>Навички</Label>
               <div className="flex flex-wrap gap-2">
                 {mockSkills.map((skill) => {
                   const isSelected = memberForm.skills.some(s => s.id === skill.id)
@@ -1016,7 +1016,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Multi-Team Allocation</Label>
+              <Label>Розподіл між командами</Label>
               <p className="text-xs text-muted-foreground">
                 Якщо людина працює в кількох командах, вкажіть розподіл
               </p>
@@ -1170,7 +1170,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 id="overhead-category"
                 value={overheadForm.category}
                 onChange={(e) => setOverheadForm({ ...overheadForm, category: e.target.value })}
-                placeholder="Software, Infrastructure, etc."
+                placeholder="Софт, інфраструктура тощо"
               />
             </div>
           </div>
