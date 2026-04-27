@@ -15,6 +15,9 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 
+
+const NON_NAVIGABLE_CATEGORY_SEGMENTS = new Set(["spendings", "analytics", "settings", "reports"])
+
 const BREADCRUMB_TITLE_MAP: Record<string, string> = {
   dashboard: "Дашборд",
   teams: "Команди",
@@ -71,14 +74,31 @@ export default function DashboardLayout({
   const breadcrumbItems = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean)
 
-    return segments.map((segment, index) => {
+    const rawItems = segments.map((segment, index) => {
       const href = `/${segments.slice(0, index + 1).join("/")}`
       return {
+        segment,
         href,
         label: dynamicBreadcrumbLabels[href] ?? getBreadcrumbLabel(segment, segments[index - 1]),
-        isCurrent: index === segments.length - 1,
       }
     })
+
+    const filteredItems = rawItems.filter((item, index) => {
+      const isDashboardRoot = index === 0
+      const isLast = index === rawItems.length - 1
+      const isNonNavigableCategory = NON_NAVIGABLE_CATEGORY_SEGMENTS.has(item.segment)
+
+      if (isDashboardRoot || isLast) {
+        return true
+      }
+
+      return !isNonNavigableCategory
+    })
+
+    return filteredItems.map((item, index) => ({
+      ...item,
+      isCurrent: index === filteredItems.length - 1,
+    }))
   }, [dynamicBreadcrumbLabels, pathname])
 
 
