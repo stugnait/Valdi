@@ -1,6 +1,10 @@
 import os
+import random
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password
+from django.core.cache import cache
+from django.core.mail import send_mail
 from django.db import OperationalError, ProgrammingError
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -16,9 +20,16 @@ from .serializers import (
     UserSerializer,
     EmailOrUsernameTokenObtainPairSerializer,
     generate_unique_username,
+    UserUpdateSerializer,
+    RequestPasswordCodeSerializer,
+    ConfirmPasswordChangeSerializer,
 )
 
 User = get_user_model()
+
+
+def _password_code_cache_key(user_id: int) -> str:
+    return f"password-change-code:{user_id}"
 
 
 class RegisterView(APIView):
@@ -127,3 +138,63 @@ class MeView(APIView):
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+    def patch(self, request):
+        serializer = UserUpdateSerializer(instance=request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(UserSerializer(request.user).data)
+
+    def delete(self, request):
+        request.user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RequestPasswordChangeCodeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = RequestPasswordCodeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        current_password = serializer.validated_data['current_password']
+        if not check_password(current_password, request.user.password):
+            return Response({'detail': 'Неправильний поточний пароль.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        code = f"{random.randint(0, 9999):04d}"
+        cache.set(_password_code_cache_key(request.user.id), code, timeout=10 * 60)
+
+        send_mail(
+            subject='Код для зміни паролю',
+            message=f'Ваш код підтвердження: {code}. Код дійсний 10 хвилин.',
+            from_email=os.getenv('DEFAULT_FROM_EMAIL', 'noreply@valdi.local'),
+            recipient_list=[request.user.email],
+            fail_silently=True,
+        )
+
+        return Response({'detail': 'Код підтвердження надіслано на вашу пошту.'})
+
+
+class ConfirmPasswordChangeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ConfirmPasswordChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        code = serializer.validated_data['code']
+        new_password = serializer.validated_data['new_password']
+        cache_key = _password_code_cache_key(request.user.id)
+        expected_code = cache.get(cache_key)
+
+        if not expected_code:
+            return Response({'detail': 'Код недійсний або протермінований.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if code != expected_code:
+            return Response({'detail': 'Неправильний код підтвердження.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        request.user.set_password(new_password)
+        request.user.save(update_fields=['password'])
+        cache.delete(cache_key)
+
+        return Response({'detail': 'Пароль успішно змінено.'})

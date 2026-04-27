@@ -143,6 +143,12 @@ export default function DashboardLayout({
       }
     })()
 
+    if (hasSessionExpiredByInactivity()) {
+      clearSession()
+      router.replace(`/auth?next=${encodeURIComponent(pathname)}`)
+      return
+    }
+
     if (!isTokenValid) {
       router.replace(`/auth?next=${encodeURIComponent(pathname)}`)
       return

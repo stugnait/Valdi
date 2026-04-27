@@ -173,16 +173,17 @@ export function AppSidebar() {
   const userRole = "Адміністратор"
   const [companyName, setCompanyName] = React.useState("Фінанси агенції")
 
-  React.useEffect(() => {
+  React.useEffect(function hydrateSidebarProfile() {
     const email = localStorage.getItem("user_email") ?? ""
     const savedName = localStorage.getItem("user_display_name") ?? ""
     const savedCompanyName = localStorage.getItem("company_name") ?? ""
 
     const emailPrefix = email.includes("@") ? email.split("@")[0] : email
     const fallbackName = emailPrefix || "Користувач"
+    const fallbackCompanyName = "Фінанси агенції"
 
     setUserName(savedName.trim() || fallbackName)
-    setCompanyName(savedCompanyName.trim() || "Фінанси агенції")
+    setCompanyName(savedCompanyName.trim() || fallbackCompanyName)
   }, [])
 
   const userInitials = userName
