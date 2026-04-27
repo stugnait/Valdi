@@ -7,6 +7,15 @@ export interface ApiCurrentUser {
   email: string
 }
 
+export interface ApiPasswordChangeRequest {
+  current_password: string
+}
+
+export interface ApiPasswordChangeConfirm {
+  code: string
+  new_password: string
+}
+
 export interface ApiMembership {
   id?: number
   developer: number
@@ -280,6 +289,19 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export const workforceApi = {
   getCurrentUser: () => apiRequest<ApiCurrentUser>("/api/auth/me/"),
+  updateCurrentUser: (payload: Partial<Pick<ApiCurrentUser, "username" | "email">>) =>
+    apiRequest<ApiCurrentUser>("/api/auth/me/", { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteCurrentUser: () => apiRequest<void>("/api/auth/me/", { method: "DELETE" }),
+  requestPasswordChangeCode: (payload: ApiPasswordChangeRequest) =>
+    apiRequest<{ detail: string }>("/api/auth/password/request-code/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  confirmPasswordChange: (payload: ApiPasswordChangeConfirm) =>
+    apiRequest<{ detail: string }>("/api/auth/password/confirm/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   listTeams: () => apiRequest<ApiTeam[]>("/api/teams/"),
   getTeam: (id: string | number) => apiRequest<ApiTeam>(`/api/teams/${id}/`),
   createTeam: (payload: Partial<ApiTeam>) =>

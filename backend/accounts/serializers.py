@@ -48,6 +48,37 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'email')
 
 
+class UserUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('username', 'email')
+
+    def validate_email(self, value):
+        email = value.strip().lower()
+        user_id = getattr(self.instance, 'id', None)
+        if User.objects.filter(email__iexact=email).exclude(id=user_id).exists():
+            raise serializers.ValidationError('Користувач з таким email вже існує.')
+        return email
+
+    def validate_username(self, value):
+        username = value.strip()
+        user_id = getattr(self.instance, 'id', None)
+        if not username:
+            raise serializers.ValidationError('Username не може бути порожнім.')
+        if User.objects.filter(username__iexact=username).exclude(id=user_id).exists():
+            raise serializers.ValidationError('Користувач з таким username вже існує.')
+        return username
+
+
+class RequestPasswordCodeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True, min_length=1)
+
+
+class ConfirmPasswordChangeSerializer(serializers.Serializer):
+    code = serializers.RegexField(regex=r'^\d{4}$', write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=8)
+
+
 class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = 'email'
 
