@@ -1094,10 +1094,15 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                     />
                     <Input 
                       type="number"
-                      value={tm.allocation}
+                      value={tm.allocation === 0 ? "" : tm.allocation}
+                      placeholder="0"
                       onChange={(e) => {
                         const updated = [...memberForm.teamMemberships]
-                        updated[idx] = { ...tm, allocation: parseInt(e.target.value) || 0 }
+                        const allocationValue = e.target.value
+                        updated[idx] = {
+                          ...tm,
+                          allocation: allocationValue === "" ? 0 : parseInt(allocationValue) || 0,
+                        }
                         setMemberForm({ ...memberForm, teamMemberships: updated })
                       }}
                       className="w-20"
