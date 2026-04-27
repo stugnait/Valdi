@@ -201,15 +201,72 @@ export default function ProfilePage() {
     }
   }
 
-  const initials = useMemo(() => {
-    if (!displayName) return "U"
-    return displayName
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join("")
-  }, [displayName])
+  const renderProfileSection = () => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          Завантаження...
+        </div>
+      )
+    }
+
+    if (!user) {
+      return <p className="text-sm text-muted-foreground">Профіль недоступний.</p>
+    }
+
+    return (
+      <>
+        <div className="flex items-center gap-4">
+          <Avatar className="size-14">
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">{displayName}</h2>
+              <Badge variant="secondary">Активний</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">ID: {String(user.id)}</p>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="username" className="flex items-center gap-2">
+              <User className="size-4" />
+              Ім&apos;я користувача
+            </Label>
+            <Input
+              id="username"
+              value={editedUser.username}
+              onChange={(e) => setEditedUser((prev) => ({ ...prev, username: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email" className="flex items-center gap-2">
+              <Mail className="size-4" />
+              Email
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={editedUser.email}
+              onChange={(e) => setEditedUser((prev) => ({ ...prev, email: e.target.value }))}
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <Button onClick={handleProfileSave} disabled={!hasProfileChanges || isSavingProfile}>
+            {isSavingProfile ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+            Зберегти зміни
+          </Button>
+        </div>
+      </>
+    )
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -235,72 +292,7 @@ export default function ProfilePage() {
           <CardTitle>Основна інформація</CardTitle>
           <CardDescription>Ви можете переглядати та редагувати свої дані профілю.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {isLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-              Завантаження...
-            </div>
-          ) : user ? (
-            <>
-              <div className="flex items-center gap-4">
-                <Avatar className="size-14">
-                  <AvatarFallback>{initials}</AvatarFallback>
-                </Avatar>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold">{displayName}</h2>
-                    <Badge variant="secondary">Активний</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">ID: {String(user.id)}</p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="username" className="flex items-center gap-2">
-                    <User className="size-4" />
-                    Ім&apos;я користувача
-                  </Label>
-                  <Input
-                    id="username"
-                    value={editedUser.username}
-                    onChange={(e) => setEditedUser((prev) => ({ ...prev, username: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="flex items-center gap-2">
-                    <Mail className="size-4" />
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={editedUser.email}
-                    onChange={(e) => setEditedUser((prev) => ({ ...prev, email: e.target.value }))}
-                  />
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">Профіль недоступний.</p>
-          )}
-        </CardContent>
-      </Card>
-
-              <div className="flex justify-end">
-                <Button onClick={handleProfileSave} disabled={!hasProfileChanges || isSavingProfile}>
-                  {isSavingProfile ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
-                  Зберегти зміни
-                </Button>
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">Профіль недоступний.</p>
-          )}
-        </CardContent>
+        <CardContent className="space-y-6">{renderProfileSection()}</CardContent>
       </Card>
 
       <Card>
