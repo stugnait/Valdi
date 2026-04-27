@@ -68,7 +68,7 @@ export default function DashboardLayout({
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [dynamicBreadcrumbLabels, setDynamicBreadcrumbLabels] = useState<Record<string, string>>({})
 
-  const breadcrumbs = useMemo(() => {
+  const breadcrumbItems = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean)
 
     return segments.map((segment, index) => {
@@ -114,16 +114,6 @@ export default function DashboardLayout({
     }
   }, [pathname])
 
-  const breadcrumbs = useMemo(() => {
-    const segments = pathname.split("/").filter(Boolean)
-
-    return segments.map((segment, index) => ({
-      href: `/${segments.slice(0, index + 1).join("/")}`,
-      label: getBreadcrumbLabel(segment),
-      isCurrent: index === segments.length - 1,
-    }))
-  }, [pathname])
-
   useEffect(() => {
     const accessToken = localStorage.getItem("access_token")
     const isTokenValid = (() => {
@@ -162,7 +152,7 @@ export default function DashboardLayout({
           <Separator orientation="vertical" className="mr-2 h-4" />
           <Breadcrumb>
             <BreadcrumbList>
-              {breadcrumbs.map((breadcrumb, index) => (
+              {breadcrumbItems.map((breadcrumb, index) => (
                 <Fragment key={breadcrumb.href}>
                   <BreadcrumbItem>
                     {breadcrumb.isCurrent ? (
@@ -171,7 +161,7 @@ export default function DashboardLayout({
                       <BreadcrumbLink href={breadcrumb.href}>{breadcrumb.label}</BreadcrumbLink>
                     )}
                   </BreadcrumbItem>
-                  {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
+                  {index < breadcrumbItems.length - 1 && <BreadcrumbSeparator />}
                 </Fragment>
               ))}
             </BreadcrumbList>
