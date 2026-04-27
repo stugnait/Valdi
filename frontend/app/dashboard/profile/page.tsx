@@ -201,6 +201,16 @@ export default function ProfilePage() {
     }
   }
 
+  const initials = useMemo(() => {
+    if (!displayName) return "U"
+    return displayName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("")
+  }, [displayName])
+
   return (
     <div className="space-y-6 p-6">
       <div>
@@ -273,6 +283,12 @@ export default function ProfilePage() {
                   />
                 </div>
               </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Профіль недоступний.</p>
+          )}
+        </CardContent>
+      </Card>
 
               <div className="flex justify-end">
                 <Button onClick={handleProfileSave} disabled={!hasProfileChanges || isSavingProfile}>
