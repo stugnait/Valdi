@@ -6,8 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { workforceApi, type ApiAnalyticsOverview } from "@/lib/api/workforce"
 
-const formatCurrency = (value: number) => `$${value.toLocaleString()}`
-const formatPercent = (value: number) => `${value.toFixed(1)}%`
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("uk-UA", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value)
+const formatPercent = (value: number) =>
+  `${value.toLocaleString("uk-UA", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+const formatDecimal = (value: number) =>
+  value.toLocaleString("uk-UA", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
 // Defensive fallback: keeps legacy/stale chunks from crashing if they still render <Alert>.
 const Alert = (_props: { children: ReactNode }) => null
@@ -45,7 +49,7 @@ export default function GlobalHealthPage() {
         setOverviewError(null)
       } catch (loadError) {
         if (!isMounted) return
-        setOverviewError(loadError instanceof Error ? loadError.message : "Unable to load analytics")
+        setOverviewError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити аналітику")
       } finally {
         if (isMounted) setIsLoadingOverview(false)
       }
@@ -72,20 +76,20 @@ export default function GlobalHealthPage() {
               <Coffee className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Global Health</h1>
+              <h1 className="text-2xl font-bold">Глобальний стан бізнесу</h1>
               <p className="text-muted-foreground">
                 {isLoadingOverview
-                  ? "Loading analytics overview..."
+                  ? "Завантаження огляду аналітики..."
                   : overviewError
-                    ? `Analytics unavailable (${overviewError})`
-                    : "Connected to backend analytics overview"}
+                    ? `Аналітика недоступна (${overviewError})`
+                    : "Підключено до бекенд-огляду аналітики"}
               </p>
             </div>
           </div>
         </div>
 
         {isLoadingOverview && (
-          <div className="rounded-md border px-4 py-3 text-sm text-muted-foreground">Loading analytics overview…</div>
+          <div className="rounded-md border px-4 py-3 text-sm text-muted-foreground">Завантаження огляду аналітики…</div>
         )}
         {overviewError && (
           <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -96,24 +100,24 @@ export default function GlobalHealthPage() {
         {health && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Revenue</p><p className="text-2xl font-bold">{formatCurrency(health.total_revenue)}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Дохід</p><p className="text-2xl font-bold">{formatCurrency(health.total_revenue)}</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">EBITDA</p><p className="text-2xl font-bold">{formatCurrency(health.ebitda)}</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Net Profit</p><p className="text-2xl font-bold">{formatCurrency(health.net_profit)}</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Burn / month (OpEx)</p><p className="text-2xl font-bold">{formatCurrency(health.monthly_burn)}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Чистий прибуток</p><p className="text-2xl font-bold">{formatCurrency(health.net_profit)}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Операційні витрати / місяць (OpEx)</p><p className="text-2xl font-bold">{formatCurrency(health.monthly_burn)}</p></CardContent></Card>
             </div>
 
             <Alert>
               <AlertDescription>
-                Values are fetched from <span className="font-mono">GET /api/analytics/overview/</span>.
-                Net Profit = EBITDA − Tax Reserve − Depreciation. Burn/month = Labor + Recurring + Variable + Tax Reserve.
+                Значення отримуються з <span className="font-mono">GET /api/analytics/overview/</span>.
+                Чистий прибуток = EBITDA − податковий резерв − амортизація. OpEx/місяць = зарплати + recurring + variable + податковий резерв.
               </AlertDescription>
             </Alert>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-2">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">Money Flow <Tooltip><TooltipTrigger><Info className="h-4 w-4 text-muted-foreground" /></TooltipTrigger><TooltipContent>Data comes from backend analytics endpoint.</TooltipContent></Tooltip></CardTitle>
-                  <CardDescription>Sources vs destinations</CardDescription>
+                  <CardTitle className="flex items-center gap-2">Рух коштів <Tooltip><TooltipTrigger><Info className="h-4 w-4 text-muted-foreground" /></TooltipTrigger><TooltipContent>Дані надходять з бекенд-ендпоінта аналітики.</TooltipContent></Tooltip></CardTitle>
+                  <CardDescription>Джерела та напрями</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {health.sankey.sources.map((source) => (
@@ -122,26 +126,26 @@ export default function GlobalHealthPage() {
                     </div>
                   ))}
                   <div className="pt-2 border-t text-sm flex items-center justify-between">
-                    <span>Total Income</span><span className="font-mono">{formatCurrency(health.sankey.total_income)}</span>
+                    <span>Загальний дохід</span><span className="font-mono">{formatCurrency(health.sankey.total_income)}</span>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Gauge className="h-5 w-5" />Runway</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Gauge className="h-5 w-5" />Фінансовий горизонт</CardTitle></CardHeader>
                 <CardContent>
-                  <div className="text-4xl font-bold">{health.runway_months.toFixed(1)}</div>
-                  <p className="text-sm text-muted-foreground">months</p>
+                  <div className="text-4xl font-bold">{formatDecimal(health.runway_months)}</div>
+                  <p className="text-sm text-muted-foreground">місяців</p>
                   <div className="mt-4 text-sm space-y-1">
-                    <div className="flex justify-between"><span>Cash</span><span>{formatCurrency(health.current_cash)}</span></div>
-                    <div className="flex justify-between"><span>Burn</span><span>{formatCurrency(health.monthly_burn)}</span></div>
+                    <div className="flex justify-between"><span>Гроші на рахунках</span><span>{formatCurrency(health.current_cash)}</span></div>
+                    <div className="flex justify-between"><span>Операційні витрати</span><span>{formatCurrency(health.monthly_burn)}</span></div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
             <Card>
-              <CardHeader><CardTitle>Cost Structure</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Структура витрат</CardTitle></CardHeader>
               <CardContent className="space-y-2">
                 {costStructure.map((item) => (
                   <div key={item.label} className="flex items-center justify-between text-sm">
@@ -150,7 +154,7 @@ export default function GlobalHealthPage() {
                   </div>
                 ))}
                 <div className="pt-2 mt-2 border-t flex items-center justify-between text-sm font-semibold">
-                  <span>Total</span>
+                  <span>Разом</span>
                   <span className="font-mono">{formatCurrency(costStructureTotal)}</span>
                 </div>
               </CardContent>
