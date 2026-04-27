@@ -8,15 +8,19 @@ import {
   Users,
   FolderKanban,
   TrendingUp,
-  Plus,
   MoreHorizontal,
   Clock,
+  CalendarIcon,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import type { DateRange } from "react-day-picker"
 import {
   workforceApi,
   type ApiDeveloper,
@@ -41,6 +45,8 @@ export default function DashboardPage() {
   const [invoices, setInvoices] = useState<ApiInvoice[]>([])
   const [subscriptionPayments, setSubscriptionPayments] = useState<ApiSubscriptionPayment[]>([])
   const [variableExpenses, setVariableExpenses] = useState<ApiVariableExpense[]>([])
+  const [periodMode, setPeriodMode] = useState<"realtime" | "range">("realtime")
+  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>()
 
   useEffect(() => {
     let mounted = true
@@ -88,7 +94,28 @@ export default function DashboardPage() {
     [projects]
   )
 
-  const paidInvoices = useMemo(() => invoices.filter((invoice) => invoice.status === "paid"), [invoices])
+  const isDateInSelectedRange = (value: string | null | undefined) => {
+    if (!value) return false
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return false
+    if (periodMode === "realtime") return true
+    if (!selectedRange?.from) return true
+
+    const start = new Date(selectedRange.from)
+    start.setHours(0, 0, 0, 0)
+    const end = selectedRange.to ? new Date(selectedRange.to) : new Date(selectedRange.from)
+    end.setHours(23, 59, 59, 999)
+
+    return date >= start && date <= end
+  }
+
+  const paidInvoices = useMemo(
+    () =>
+      invoices.filter(
+        (invoice) => invoice.status === "paid" && isDateInSelectedRange(invoice.paid_date ?? invoice.issue_date)
+      ),
+    [invoices, periodMode, selectedRange]
+  )
 
   const invoiceIncome = useMemo(
     () => paidInvoices.reduce((sum, invoice) => sum + Number.parseFloat(invoice.amount ?? "0"), 0),
@@ -96,8 +123,12 @@ export default function DashboardPage() {
   )
 
   const completedPayments = useMemo(
-    () => subscriptionPayments.filter((payment) => payment.status === "completed"),
-    [subscriptionPayments]
+    () =>
+      subscriptionPayments.filter(
+        (payment) =>
+          payment.status === "completed" && isDateInSelectedRange(payment.payment_date ?? payment.due_date)
+      ),
+    [subscriptionPayments, periodMode, selectedRange]
   )
 
   const subscriptionIncome = useMemo(
@@ -106,8 +137,11 @@ export default function DashboardPage() {
   )
 
   const expensesAmount = useMemo(
-    () => variableExpenses.reduce((sum, expense) => sum + Number.parseFloat(expense.amount ?? "0"), 0),
-    [variableExpenses]
+    () =>
+      variableExpenses
+        .filter((expense) => isDateInSelectedRange(expense.expense_date))
+        .reduce((sum, expense) => sum + Number.parseFloat(expense.amount ?? "0"), 0),
+    [variableExpenses, periodMode, selectedRange]
   )
 
   const profitMargin = totalRevenue > 0 ? ((totalRevenue - expensesAmount) / totalRevenue) * 100 : 0
@@ -179,12 +213,14 @@ export default function DashboardPage() {
       type: "income",
       date: payment.payment_date ?? payment.due_date,
     })),
-    ...variableExpenses.map((expense) => ({
+    ...variableExpenses
+      .filter((expense) => isDateInSelectedRange(expense.expense_date))
+      .map((expense) => ({
       description: `${expense.source.toUpperCase()} — ${expense.name}`,
       amount: `-${formatMoney(Number.parseFloat(expense.amount ?? "0"))}`,
       type: "expense",
       date: expense.expense_date,
-    })),
+      })),
   ]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5)
@@ -211,14 +247,41 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">Огляд фінансів та операцій вашого агентства</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm">
+          <Button
+            variant={periodMode === "realtime" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPeriodMode("realtime")}
+          >
             <Clock className="mr-2 size-4" />
             Поточні дані
           </Button>
-          <Button size="sm">
-            <Plus className="mr-2 size-4" />
-            Нова транзакція
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={periodMode === "range" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPeriodMode("range")}
+              >
+                <CalendarIcon className="mr-2 size-4" />
+                {selectedRange?.from
+                  ? selectedRange.to
+                    ? `${format(selectedRange.from, "dd.MM.yyyy")} — ${format(selectedRange.to, "dd.MM.yyyy")}`
+                    : format(selectedRange.from, "dd.MM.yyyy")
+                  : "Обрати період"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                selected={selectedRange}
+                onSelect={(range) => {
+                  setSelectedRange(range)
+                  if (range?.from) setPeriodMode("range")
+                }}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 

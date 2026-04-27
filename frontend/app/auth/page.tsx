@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react"
 import { Eye, EyeOff, ArrowRight, Check } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import * as session from "@/lib/auth/session"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
@@ -156,14 +157,11 @@ export default function AuthPage() {
   )
 
   const persistSession = (data: AuthResponse) => {
-    localStorage.setItem("access_token", data.access)
-    localStorage.setItem("refresh_token", data.refresh)
-    if (data.user) {
-      localStorage.setItem("user_email", data.user.email)
-    }
-
-    document.cookie = `access_token=${data.access}; path=/; samesite=lax`
-    document.cookie = `refresh_token=${data.refresh}; path=/; samesite=lax`
+    session.persistSessionTokens({
+      access: data.access,
+      refresh: data.refresh,
+      userEmail: data.user?.email,
+    })
   }
 
   const redirectAfterAuth = useCallback(
@@ -179,6 +177,12 @@ export default function AuthPage() {
   useEffect(() => {
     const accessToken = localStorage.getItem("access_token")
     const refreshToken = localStorage.getItem("refresh_token")
+
+    if (session.hasSessionExpiredByInactivity()) {
+      session.clearSession()
+      return
+    }
+
     if (isTokenValid(accessToken)) {
       document.cookie = `access_token=${accessToken}; path=/; samesite=lax`
       if (refreshToken) {
