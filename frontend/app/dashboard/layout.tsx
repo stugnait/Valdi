@@ -114,6 +114,16 @@ export default function DashboardLayout({
     }
   }, [pathname])
 
+  const breadcrumbs = useMemo(() => {
+    const segments = pathname.split("/").filter(Boolean)
+
+    return segments.map((segment, index) => ({
+      href: `/${segments.slice(0, index + 1).join("/")}`,
+      label: getBreadcrumbLabel(segment),
+      isCurrent: index === segments.length - 1,
+    }))
+  }, [pathname])
+
   useEffect(() => {
     const accessToken = localStorage.getItem("access_token")
     const isTokenValid = (() => {
