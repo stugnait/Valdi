@@ -179,23 +179,11 @@ export function AppSidebar() {
       const savedName = localStorage.getItem("user_display_name") ?? ""
       const savedCompanyName = localStorage.getItem("company_name") ?? ""
 
-      const emailPrefix = email.includes("@") ? email.split("@")[0] : email
-      const fallbackName = emailPrefix || "Користувач"
+    const emailPrefix = email.includes("@") ? email.split("@")[0] : email
+    const fallbackName = emailPrefix || "Користувач"
 
-      setUserName(savedName.trim() || fallbackName)
-      setCompanyName(savedCompanyName.trim() || "Фінанси агенції")
-    }
-
-    const handleProfileUpdate = () => syncUserData()
-
-    syncUserData()
-    window.addEventListener("storage", handleProfileUpdate)
-    window.addEventListener("user-profile-updated", handleProfileUpdate)
-
-    return () => {
-      window.removeEventListener("storage", handleProfileUpdate)
-      window.removeEventListener("user-profile-updated", handleProfileUpdate)
-    }
+    setUserName(savedName.trim() || fallbackName)
+    setCompanyName(savedCompanyName.trim() || "Фінанси агенції")
   }, [])
 
   const userInitials = userName
