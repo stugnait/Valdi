@@ -64,7 +64,7 @@ const getProviderMeta = (provider: IntegrationProvider) =>
   bankProviders[provider] ?? {
     name: provider,
     icon: provider.slice(0, 1).toUpperCase(),
-    tokenField: "Token",
+    tokenField: "Токен",
     docs: "",
   }
 
@@ -231,38 +231,38 @@ export default function IntegrationsPage() {
         return (
           <Badge className="bg-emerald-100 text-emerald-800 gap-1">
             <CheckCircle2 className="size-3" />
-            Connected
+            Підключено
           </Badge>
         )
       case "error":
         return (
           <Badge className="bg-red-100 text-red-800 gap-1">
             <AlertCircle className="size-3" />
-            Error
+            Помилка
           </Badge>
         )
       case "syncing":
         return (
           <Badge className="bg-blue-100 text-blue-800 gap-1">
             <RefreshCw className="size-3 animate-spin" />
-            Syncing
+            Синхронізація
           </Badge>
         )
       case "disabled":
         return (
           <Badge className="bg-muted text-muted-foreground gap-1">
             <AlertCircle className="size-3" />
-            Disabled
+            Вимкнено
           </Badge>
         )
     }
   }
 
   const formatDateTime = (date: string | null) => {
-    if (!date) return "Never"
+    if (!date) return "Ніколи"
 
     const parsed = new Date(date)
-    if (Number.isNaN(parsed.getTime())) return "Never"
+    if (Number.isNaN(parsed.getTime())) return "Ніколи"
 
     return parsed.toLocaleDateString("uk-UA", {
       day: "2-digit",
@@ -293,48 +293,48 @@ export default function IntegrationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Bank Integrations</h1>
-          <p className="text-sm text-muted-foreground">Connect your bank accounts to automatically sync transactions</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Банківські інтеграції</h1>
+          <p className="text-sm text-muted-foreground">Підключайте банківські рахунки для автоматичної синхронізації транзакцій</p>
         </div>
         <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
           <Plus className="size-4" />
-          Add Bank
+          Додати банк
         </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Connected Banks</CardTitle>
+            <CardTitle className="text-sm font-medium">Підключені банки</CardTitle>
             <Wifi className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{connectedBanks}</div>
-            <p className="text-xs text-muted-foreground">{connections.length} total connections</p>
+            <p className="text-xs text-muted-foreground">{connections.length} підключень всього</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active status</CardTitle>
+            <CardTitle className="text-sm font-medium">Активний статус</CardTitle>
             <CreditCard className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{connections.filter((c) => c.status !== "disabled").length}</div>
-            <p className="text-xs text-muted-foreground">Without disabled reason</p>
+            <p className="text-xs text-muted-foreground">Без вимкнених підключень</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Last Sync</CardTitle>
+            <CardTitle className="text-sm font-medium">Остання синхронізація</CardTitle>
             <Clock className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {connections.length > 0 && connections[0].last_sync_at ? formatDateTime(connections[0].last_sync_at) : "N/A"}
+              {connections.length > 0 && connections[0].last_sync_at ? formatDateTime(connections[0].last_sync_at) : "Н/Д"}
             </div>
-            <p className="text-xs text-muted-foreground">Auto-sync every 6 hours</p>
+            <p className="text-xs text-muted-foreground">Автосинхронізація кожні 6 годин</p>
           </CardContent>
         </Card>
       </div>
@@ -342,7 +342,7 @@ export default function IntegrationsPage() {
       <div className="space-y-4">
         {isLoading ? (
           <Card>
-            <CardContent className="py-8 text-center text-sm text-muted-foreground">Loading integrations...</CardContent>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">Завантаження інтеграцій...</CardContent>
           </Card>
         ) : null}
 
@@ -367,7 +367,7 @@ export default function IntegrationsPage() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                         <span className="flex items-center gap-1">
                           <CreditCard className="size-3" />
-                          {connection.accounts.filter((account) => account.is_tracked).length} accounts tracked
+                          {connection.accounts.filter((account) => account.is_tracked).length} акаунтів відстежується
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="size-3" />
@@ -389,11 +389,11 @@ export default function IntegrationsPage() {
                       className="gap-1"
                     >
                       <RefreshCw className={`size-4 ${connection.status === "syncing" || isSyncingById[connection.id] ? "animate-spin" : ""}`} />
-                      Sync
+                      Синхронізувати
                     </Button>
                     {needsReconnect ? (
                       <Button variant="outline" size="sm" onClick={() => setReconnectTarget(connection)}>
-                        Reconnect
+                        Перепідключити
                       </Button>
                     ) : null}
                     <Button
@@ -424,7 +424,7 @@ export default function IntegrationsPage() {
                           <Label className="text-xs text-muted-foreground">{provider.tokenField}</Label>
                           <div className="font-mono text-sm mt-1">
                             {showToken[connection.id]
-                              ? connection.token_masked ?? "Unavailable"
+                              ? connection.token_masked ?? "Недоступно"
                               : "••••••••••••"}
                           </div>
                         </div>
@@ -439,9 +439,9 @@ export default function IntegrationsPage() {
 
                       {/* Account Mapper */}
                       <div>
-                        <Label className="text-sm font-medium mb-3 block">Account Mapper</Label>
+                        <Label className="text-sm font-medium mb-3 block">Мапінг акаунтів</Label>
                         <p className="text-xs text-muted-foreground mb-3">
-                          Select which accounts to track in your system
+                          Оберіть акаунти, які потрібно відстежувати у вашій системі
                         </p>
                         <div className="space-y-2">
                           {connection.accounts.map((account) => (
@@ -460,14 +460,14 @@ export default function IntegrationsPage() {
                                     <span className="font-medium">{account.name}</span>
                                     <span className="text-sm text-muted-foreground">{account.number_masked}</span>
                                     <Badge variant="outline" className="text-xs">
-                                      {account.type === "business" ? "Business" : "Personal"}
+                                      {account.type === "business" ? "Бізнес" : "Особистий"}
                                     </Badge>
                                   </div>
                                 </div>
                               </div>
                               <div className="text-right">
                                 <div className="font-medium">
-                                  {account.balance.toLocaleString()} {account.currency}
+                                  {account.balance.toLocaleString("uk-UA")} {account.currency}
                                 </div>
                               </div>
                             </div>
@@ -486,11 +486,11 @@ export default function IntegrationsPage() {
           <Card>
             <CardContent className="py-12 text-center">
               <WifiOff className="size-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="font-medium mb-1">No Banks Connected</h3>
-              <p className="text-sm text-muted-foreground mb-4">Connect your first bank account to start tracking transactions</p>
+              <h3 className="font-medium mb-1">Банки не підключені</h3>
+              <p className="text-sm text-muted-foreground mb-4">Підключіть перший банківський рахунок, щоб почати відстежувати транзакції</p>
               <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
                 <Plus className="size-4" />
-                Add Bank
+                Додати банк
               </Button>
             </CardContent>
           </Card>
@@ -500,13 +500,13 @@ export default function IntegrationsPage() {
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Connect Bank Account</DialogTitle>
-            <DialogDescription>Token is sent one time on connect and stored encrypted on backend</DialogDescription>
+            <DialogTitle>Підключення банківського акаунта</DialogTitle>
+            <DialogDescription>Токен передається один раз під час підключення та зберігається зашифрованим на бекенді</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Bank Provider</Label>
+              <Label>Банківський провайдер</Label>
               <Select
                 value={addData.provider}
                 onValueChange={(v) => setAddData((prev) => ({ ...prev, provider: v as IntegrationProvider }))}
@@ -532,7 +532,7 @@ export default function IntegrationsPage() {
               <Input
                 id="token"
                 type="password"
-                placeholder="Paste your token here"
+                placeholder="Вставте токен тут"
                 value={addData.token}
                 onChange={(e) => setAddData((prev) => ({ ...prev, token: e.target.value }))}
               />
@@ -544,7 +544,7 @@ export default function IntegrationsPage() {
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"
                 >
-                  How to get your {getProviderMeta(addData.provider).tokenField}
+                  Як отримати {getProviderMeta(addData.provider).tokenField}
                 </a>
               </p>
             </div>
@@ -552,10 +552,10 @@ export default function IntegrationsPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
+              Скасувати
             </Button>
             <Button onClick={handleAddConnection} disabled={!addData.token.trim()}>
-              Connect
+              Підключити
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -565,22 +565,22 @@ export default function IntegrationsPage() {
       <Dialog open={!!reconnectTarget} onOpenChange={(open) => (!open ? setReconnectTarget(null) : null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reconnect integration</DialogTitle>
+            <DialogTitle>Перепідключення інтеграції</DialogTitle>
             <DialogDescription>
               {reconnectTarget
-                ? `Connection to ${getProviderMeta(reconnectTarget.provider).name} is unauthorized (401). Add a new token to continue sync.`
+                ? `Підключення до ${getProviderMeta(reconnectTarget.provider).name} не авторизоване (401). Додайте новий токен, щоб продовжити синхронізацію.`
                 : ""}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2 py-2">
             <Label htmlFor="reconnect-token">
-              {reconnectTarget ? getProviderMeta(reconnectTarget.provider).tokenField : "Token"}
+              {reconnectTarget ? getProviderMeta(reconnectTarget.provider).tokenField : "Токен"}
             </Label>
             <Input
               id="reconnect-token"
               type="password"
-              placeholder="Paste new token"
+              placeholder="Вставте новий токен"
               value={reconnectToken}
               onChange={(e) => setReconnectToken(e.target.value)}
             />
@@ -588,10 +588,10 @@ export default function IntegrationsPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setReconnectTarget(null)}>
-              Cancel
+              Скасувати
             </Button>
             <Button onClick={handleReconnect} disabled={!reconnectToken.trim() || isReconnectPending}>
-              {isReconnectPending ? "Saving..." : "Reconnect"}
+              {isReconnectPending ? "Збереження..." : "Перепідключити"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -601,19 +601,19 @@ export default function IntegrationsPage() {
       <AlertDialog open={!!deleteConnection} onOpenChange={() => setDeleteConnection(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect Bank</AlertDialogTitle>
+            <AlertDialogTitle>Відключити банк</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to disconnect {deleteConnection && getProviderMeta(deleteConnection.provider).name}?
-              Transaction sync will stop and you&apos;ll need to reconnect to resume.
+              Ви впевнені, що хочете відключити {deleteConnection && getProviderMeta(deleteConnection.provider).name}?
+              Синхронізація транзакцій зупиниться, і для відновлення потрібно буде підключити заново.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Скасувати</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConnection}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Disconnect
+              Відключити
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

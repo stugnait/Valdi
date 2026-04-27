@@ -16,18 +16,18 @@ import { workforceApi, type ApiCurrentUser, type ApiDeveloper, type ApiTeam } fr
 type Currency = "USD" | "UAH" | "EUR"
 
 const fiscalYearMonths = [
-  { value: "1", label: "January" },
-  { value: "2", label: "February" },
-  { value: "3", label: "March" },
-  { value: "4", label: "April" },
-  { value: "5", label: "May" },
-  { value: "6", label: "June" },
-  { value: "7", label: "July" },
-  { value: "8", label: "August" },
-  { value: "9", label: "September" },
-  { value: "10", label: "October" },
-  { value: "11", label: "November" },
-  { value: "12", label: "December" },
+  { value: "1", label: "Січень" },
+  { value: "2", label: "Лютий" },
+  { value: "3", label: "Березень" },
+  { value: "4", label: "Квітень" },
+  { value: "5", label: "Травень" },
+  { value: "6", label: "Червень" },
+  { value: "7", label: "Липень" },
+  { value: "8", label: "Серпень" },
+  { value: "9", label: "Вересень" },
+  { value: "10", label: "Жовтень" },
+  { value: "11", label: "Листопад" },
+  { value: "12", label: "Грудень" },
 ]
 
 export default function GeneralSettingsPage() {
@@ -73,12 +73,12 @@ export default function GeneralSettingsPage() {
         setDevelopers(devs)
         setTeams(teamsPayload)
         if (!savedCompanyName?.trim()) {
-          setSettings((prev) => ({ ...prev, companyName: me.username || "My Company" }))
+          setSettings((prev) => ({ ...prev, companyName: me.username || "Моя компанія" }))
         }
         setLoadError(null)
       } catch (error) {
         if (!mounted) return
-        setLoadError(error instanceof Error ? error.message : "Unable to load users")
+        setLoadError(error instanceof Error ? error.message : "Не вдалося завантажити користувачів")
       }
     }
 
@@ -147,32 +147,32 @@ export default function GeneralSettingsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">General Settings</h1>
-          <p className="text-sm text-muted-foreground">Configure your organization and system preferences</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Загальні налаштування</h1>
+          <p className="text-sm text-muted-foreground">Налаштуйте організацію та системні параметри</p>
         </div>
-        <Button onClick={handleSaveSettings} disabled={!hasChanges} className="gap-2"><Save className="size-4" />Save Changes</Button>
+        <Button onClick={handleSaveSettings} disabled={!hasChanges} className="gap-2"><Save className="size-4" />Зберегти зміни</Button>
       </div>
 
       {loadError ? <Alert variant="destructive"><AlertDescription>{loadError}</AlertDescription></Alert> : null}
       {actionError ? <Alert variant="destructive"><AlertDescription>{actionError}</AlertDescription></Alert> : null}
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="size-5" />Core Settings</CardTitle><CardDescription>Base configuration for your financial system</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="size-5" />Основні налаштування</CardTitle><CardDescription>Базова конфігурація вашої фінансової системи</CardDescription></CardHeader>
         <CardContent className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2"><Label htmlFor="companyName">Company Name</Label><Input id="companyName" value={settings.companyName} onChange={(e) => handleSettingChange("companyName", e.target.value)} placeholder="Your company name" /></div>
-            <div className="space-y-2"><Label htmlFor="timezone">Timezone</Label><Select value={settings.timezone} onValueChange={(v) => handleSettingChange("timezone", v)}><SelectTrigger id="timezone"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Europe/Kyiv">Europe/Kyiv (UTC+2)</SelectItem><SelectItem value="Europe/London">Europe/London (UTC+0)</SelectItem><SelectItem value="America/New_York">America/New York (UTC-5)</SelectItem><SelectItem value="America/Los_Angeles">America/Los Angeles (UTC-8)</SelectItem></SelectContent></Select></div>
+            <div className="space-y-2"><Label htmlFor="companyName">Назва компанії</Label><Input id="companyName" value={settings.companyName} onChange={(e) => handleSettingChange("companyName", e.target.value)} placeholder="Назва вашої компанії" /></div>
+            <div className="space-y-2"><Label htmlFor="timezone">Часовий пояс</Label><Select value={settings.timezone} onValueChange={(v) => handleSettingChange("timezone", v)}><SelectTrigger id="timezone"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Europe/Kyiv">Europe/Kyiv (UTC+2)</SelectItem><SelectItem value="Europe/London">Europe/London (UTC+0)</SelectItem><SelectItem value="America/New_York">America/New York (UTC-5)</SelectItem><SelectItem value="America/Los_Angeles">America/Los Angeles (UTC-8)</SelectItem></SelectContent></Select></div>
           </div>
           <Separator />
           <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2"><Label htmlFor="baseCurrency">Base Currency</Label><Select value={settings.baseCurrency} onValueChange={(v) => handleSettingChange("baseCurrency", v as Currency)}><SelectTrigger id="baseCurrency"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD - US Dollar ($)</SelectItem><SelectItem value="UAH">UAH - Ukrainian Hryvnia (₴)</SelectItem><SelectItem value="EUR">EUR - Euro (€)</SelectItem></SelectContent></Select></div>
-            <div className="space-y-2"><Label htmlFor="fiscalYear">Fiscal Year Start</Label><Select value={settings.fiscalYearStart} onValueChange={(v) => handleSettingChange("fiscalYearStart", v)}><SelectTrigger id="fiscalYear"><Calendar className="size-4 mr-2 text-muted-foreground" /><SelectValue /></SelectTrigger><SelectContent>{fiscalYearMonths.map((month) => <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label htmlFor="baseCurrency">Базова валюта</Label><Select value={settings.baseCurrency} onValueChange={(v) => handleSettingChange("baseCurrency", v as Currency)}><SelectTrigger id="baseCurrency"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD - Долар США ($)</SelectItem><SelectItem value="UAH">UAH - Українська гривня (₴)</SelectItem><SelectItem value="EUR">EUR - Євро (€)</SelectItem></SelectContent></Select></div>
+            <div className="space-y-2"><Label htmlFor="fiscalYear">Початок фінансового року</Label><Select value={settings.fiscalYearStart} onValueChange={(v) => handleSettingChange("fiscalYearStart", v)}><SelectTrigger id="fiscalYear"><Calendar className="size-4 mr-2 text-muted-foreground" /><SelectValue /></SelectTrigger><SelectContent>{fiscalYearMonths.map((month) => <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>)}</SelectContent></Select></div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Users className="size-5" />Team access (live)</CardTitle><CardDescription>Owner + members that currently belong to at least one team</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Users className="size-5" />Доступ команди (актуальні дані)</CardTitle><CardDescription>Власник + учасники, які зараз входять щонайменше в одну команду</CardDescription></CardHeader>
         <CardContent>
           <div className="space-y-4">
             {users.map((user) => (
@@ -181,16 +181,16 @@ export default function GeneralSettingsPage() {
                   <Avatar className="size-10"><AvatarFallback className="bg-primary/10 text-primary">{user.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback></Avatar>
                   <div><div className="flex items-center gap-2"><span className="font-medium">{user.name}</span>{user.role === "owner" ? <Crown className="size-4 text-amber-500" /> : null}</div><div className="flex items-center gap-2 text-sm text-muted-foreground"><Mail className="size-3" />{user.email}</div></div>
                 </div>
-                <Badge variant={user.role === "owner" ? "default" : "secondary"}>{user.role === "owner" ? "Owner" : user.isActive ? "Member" : "Inactive"}</Badge>
+                <Badge variant={user.role === "owner" ? "default" : "secondary"}>{user.role === "owner" ? "Власник" : user.isActive ? "Учасник" : "Неактивний"}</Badge>
               </div>
             ))}
-            {users.length === 0 ? <p className="text-sm text-muted-foreground">No users found from backend.</p> : null}
+            {users.length === 0 ? <p className="text-sm text-muted-foreground">Користувачів із бекенда не знайдено.</p> : null}
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Developers without team</CardTitle><CardDescription>These users are not part of any team now; you can remove them completely.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>Розробники без команди</CardTitle><CardDescription>Ці користувачі зараз не входять до жодної команди; їх можна повністю видалити.</CardDescription></CardHeader>
         <CardContent className="space-y-3">
           {orphanDevelopers.map((dev) => (
             <div key={dev.id} className="flex items-center justify-between rounded-lg border p-3">
@@ -205,11 +205,11 @@ export default function GeneralSettingsPage() {
                 disabled={deletingDevId === dev.id}
               >
                 <Trash2 className="mr-2 size-4" />
-                {deletingDevId === dev.id ? "Deleting..." : "Delete"}
+                {deletingDevId === dev.id ? "Видалення..." : "Видалити"}
               </Button>
             </div>
           ))}
-          {orphanDevelopers.length === 0 ? <p className="text-sm text-muted-foreground">No orphan developers.</p> : null}
+          {orphanDevelopers.length === 0 ? <p className="text-sm text-muted-foreground">Немає розробників без команди.</p> : null}
         </CardContent>
       </Card>
     </div>

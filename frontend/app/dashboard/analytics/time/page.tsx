@@ -54,6 +54,9 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { workforceApi } from "@/lib/api/workforce"
 
+const formatUsd = (value: number) =>
+  new Intl.NumberFormat("uk-UA", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value)
+
 const toNumber = (value: string | number | null | undefined) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0
   if (typeof value === "string") {
@@ -140,7 +143,7 @@ function useBaseFinancials() {
         setError(null)
       } catch (loadError) {
         if (!isMounted) return
-        setError(loadError instanceof Error ? loadError.message : "Unable to load forecast data")
+        setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити дані прогнозу")
       } finally {
         if (isMounted) setIsLoading(false)
       }
@@ -263,9 +266,9 @@ function GapProbabilityCard({ forecast }: { forecast: ReturnType<typeof useForec
             riskLevel === "medium" ? "text-amber-500" :
             "text-emerald-500"
           }`} />
-          Gap Probability
+          Ймовірність касового розриву
         </CardTitle>
-        <CardDescription>Chance of cash flow disruption</CardDescription>
+        <CardDescription>Імовірність порушення грошового потоку</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex items-end gap-4">
@@ -277,9 +280,9 @@ function GapProbabilityCard({ forecast }: { forecast: ReturnType<typeof useForec
             {probability}%
           </div>
           <div className="text-sm text-muted-foreground pb-2">
-            {riskLevel === "high" ? "Take action now" :
-             riskLevel === "medium" ? "Monitor closely" :
-             "Looking good"}
+            {riskLevel === "high" ? "Потрібні дії вже зараз" :
+             riskLevel === "medium" ? "Пильний моніторинг" :
+             "Ситуація стабільна"}
           </div>
         </div>
         
@@ -287,16 +290,16 @@ function GapProbabilityCard({ forecast }: { forecast: ReturnType<typeof useForec
           {forecast.daysUntilZero !== null && (
             <div className="flex items-center gap-2 text-sm text-red-600">
               <AlertTriangle className="h-4 w-4" />
-              Balance hits zero in {forecast.daysUntilZero} days
+              Баланс стане нульовим через {forecast.daysUntilZero} дн.
             </div>
           )}
           <div className="flex items-center gap-2 text-sm">
             <DollarSign className="h-4 w-4 text-muted-foreground" />
-            Min balance: ${forecast.minBalance.toLocaleString()}
+            Мінімальний баланс: {formatUsd(forecast.minBalance)}
           </div>
           <div className="flex items-center gap-2 text-sm">
             <Calendar className="h-4 w-4 text-muted-foreground" />
-            60-day projection: ${forecast.projectedEndBalance.toLocaleString()}
+            Прогноз на 60 днів: {formatUsd(forecast.projectedEndBalance)}
           </div>
         </div>
       </CardContent>
@@ -333,13 +336,13 @@ function WhatIfSimulator({
           <div>
             <CardTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-amber-500" />
-              What-If Simulator
+              Симулятор сценаріїв
             </CardTitle>
-            <CardDescription>Adjust parameters to see impact on cash flow</CardDescription>
+            <CardDescription>Змінюйте параметри, щоб побачити вплив на грошовий потік</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={onReset}>
             <RotateCcw className="h-4 w-4 mr-2" />
-            Reset
+            Скинути
           </Button>
         </div>
       </CardHeader>
@@ -348,13 +351,13 @@ function WhatIfSimulator({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="flex items-center gap-2">
-              Salary Adjustment
+              Коригування зарплат
               <Tooltip>
                 <TooltipTrigger>
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>What if you raise/cut salaries by X%?</p>
+                  <p>Що буде, якщо підвищити/знизити зарплати на X%?</p>
                 </TooltipContent>
               </Tooltip>
             </Label>
@@ -371,9 +374,9 @@ function WhatIfSimulator({
             className="w-full"
           />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>-30% cut</span>
-            <span>No change</span>
-            <span>+50% raise</span>
+            <span>-30% зниження</span>
+            <span>Без змін</span>
+            <span>+50% підвищення</span>
           </div>
         </div>
 
@@ -381,18 +384,18 @@ function WhatIfSimulator({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="flex items-center gap-2">
-              New Hires
+              Нові найми
               <Tooltip>
                 <TooltipTrigger>
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Each hire adds ~$4,000/month to burn rate</p>
+                  <p>Кожен найм додає ~4&nbsp;000 $/міс до витрат</p>
                 </TooltipContent>
               </Tooltip>
             </Label>
             <Badge variant={newHires > 0 ? "secondary" : "outline"}>
-              +{newHires} people
+              +{newHires} осіб
             </Badge>
           </div>
           <Slider
@@ -404,18 +407,18 @@ function WhatIfSimulator({
             className="w-full"
           />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>No hires</span>
+            <span>Без наймів</span>
             <span>+5</span>
-            <span>+10 people</span>
+            <span>+10 осіб</span>
           </div>
         </div>
 
         {/* Include Leads */}
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
           <div>
-            <Label className="font-medium">Include Lead Projects</Label>
+            <Label className="font-medium">Враховувати lead-проєкти</Label>
             <p className="text-xs text-muted-foreground">
-              Count potential revenue from leads
+              Додавати потенційний дохід із лідів
             </p>
           </div>
           <Switch
@@ -426,27 +429,27 @@ function WhatIfSimulator({
 
         {/* Impact Summary */}
         <div className="p-4 rounded-lg bg-muted/30 border">
-          <div className="text-sm font-medium mb-2">Impact Summary</div>
+          <div className="text-sm font-medium mb-2">Підсумок впливу</div>
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Salary change:</span>
+              <span className="text-muted-foreground">Зміна зарплат:</span>
               <span className={salaryAdjustment > 0 ? "text-red-500" : salaryAdjustment < 0 ? "text-emerald-500" : ""}>
-                {salaryAdjustment > 0 ? "+" : ""}${Math.round(
+                {salaryAdjustment > 0 ? "+" : ""}{formatUsd(Math.round(
                   totalLaborCost * (salaryAdjustment / 100)
-                ).toLocaleString()}/mo
+                ))}/міс
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">New hire cost:</span>
+              <span className="text-muted-foreground">Вартість нових наймів:</span>
               <span className={newHires > 0 ? "text-red-500" : ""}>
-                +${(newHires * 4000).toLocaleString()}/mo
+                +{formatUsd(newHires * 4000)}/міс
               </span>
             </div>
             {includeLeads && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Lead revenue:</span>
+                <span className="text-muted-foreground">Дохід із лідів:</span>
                 <span className="text-emerald-500">
-                  +${Math.round(leadMonthlyRevenue).toLocaleString()}/mo
+                  +{formatUsd(Math.round(leadMonthlyRevenue))}/міс
                 </span>
               </div>
             )}
@@ -481,15 +484,15 @@ export default function TimeMachinePage() {
               <Clock className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">The Time Machine</h1>
-              <p className="text-muted-foreground">60-day forecast based on backend data</p>
+              <h1 className="text-2xl font-bold">Машина часу</h1>
+              <p className="text-muted-foreground">60-денний прогноз на основі даних бекенда</p>
             </div>
           </div>
-          <Badge variant="outline" className="gap-1"><Play className="h-3 w-3" />API Simulation</Badge>
+          <Badge variant="outline" className="gap-1"><Play className="h-3 w-3" />API-симуляція</Badge>
         </div>
         {isLoading && (
           <Alert>
-            <AlertDescription>Loading forecast data from API...</AlertDescription>
+            <AlertDescription>Завантаження даних прогнозу з API...</AlertDescription>
           </Alert>
         )}
         {error && (
@@ -498,20 +501,17 @@ export default function TimeMachinePage() {
           </Alert>
         )}
 
-        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-        {isLoading && <Alert><AlertDescription>Loading forecast from API…</AlertDescription></Alert>}
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">Cash Flow Forecast
-                  <Tooltip><TooltipTrigger><Info className="h-4 w-4 text-muted-foreground" /></TooltipTrigger><TooltipContent>Based on analytics, projects, invoices, and expenses API endpoints.</TooltipContent></Tooltip>
+                <CardTitle className="flex items-center gap-2">Прогноз грошового потоку
+                  <Tooltip><TooltipTrigger><Info className="h-4 w-4 text-muted-foreground" /></TooltipTrigger><TooltipContent>На основі API ендпоінтів аналітики, проєктів, інвойсів і витрат.</TooltipContent></Tooltip>
                 </CardTitle>
-                <CardDescription>Projected balance over next 60 days</CardDescription>
+                <CardDescription>Прогнозований баланс на наступні 60 днів</CardDescription>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={{ balance: { label: "Balance", color: "#3B82F6" } }} className="h-[320px] w-full">
+                <ChartContainer config={{ balance: { label: "Баланс", color: "#3B82F6" } }} className="h-[320px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={forecast.data}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -523,7 +523,7 @@ export default function TimeMachinePage() {
                       />
                       <YAxis 
                         tick={{ fontSize: 11 }}
-                        tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                        tickFormatter={(value) => `${new Intl.NumberFormat("uk-UA").format(value / 1000)} тис. $`}
                         className="text-muted-foreground"
                       />
                       <ChartTooltip 
@@ -535,13 +535,13 @@ export default function TimeMachinePage() {
                               <div className="font-medium">{data.date}</div>
                               <div className="mt-1 space-y-1 text-sm">
                                 <div className="flex justify-between gap-4">
-                                  <span className="text-muted-foreground">Balance:</span>
-                                  <span className="font-mono">${data.balance.toLocaleString()}</span>
+                                  <span className="text-muted-foreground">Баланс:</span>
+                                  <span className="font-mono">{formatUsd(data.balance)}</span>
                                 </div>
                                 {data.hasInvoice && (
                                   <div className="flex justify-between gap-4 text-emerald-600">
-                                    <span>Invoice:</span>
-                                    <span className="font-mono">+${data.income.toLocaleString()}</span>
+                                    <span>Інвойс:</span>
+                                    <span className="font-mono">+{formatUsd(data.income)}</span>
                                   </div>
                                 )}
                               </div>
@@ -556,7 +556,7 @@ export default function TimeMachinePage() {
                           y={baseData.currentCash * 0.3}
                           stroke="#EF4444"
                           strokeDasharray="5 5"
-                          label={{ value: "Risk Zone", position: "right", fontSize: 10, fill: "#EF4444" }}
+                          label={{ value: "Зона ризику", position: "right", fontSize: 10, fill: "#EF4444" }}
                         />
                       )}
                       
@@ -606,16 +606,16 @@ export default function TimeMachinePage() {
 
             <Card className="mt-6">
               <CardHeader>
-                <CardTitle className="text-lg">Expected income</CardTitle>
+                <CardTitle className="text-lg">Очікуваний дохід</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {(baseData?.pendingInvoices ?? []).slice(0, 5).map((invoice) => (
                   <div key={invoice.id} className="flex items-center justify-between text-sm">
                     <span>{invoice.name}</span>
-                    <span className="font-mono text-emerald-600">+${invoice.amount.toLocaleString()}</span>
+                    <span className="font-mono text-emerald-600">+{formatUsd(invoice.amount)}</span>
                   </div>
                 ))}
-                {(baseData?.pendingInvoices.length ?? 0) === 0 && <p className="text-sm text-muted-foreground">No pending invoices.</p>}
+                {(baseData?.pendingInvoices.length ?? 0) === 0 && <p className="text-sm text-muted-foreground">Немає інвойсів в очікуванні.</p>}
               </CardContent>
             </Card>
           </div>

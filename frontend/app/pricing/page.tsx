@@ -12,7 +12,7 @@ const plans = [
     tagline: "Для фрілансерів або щоб просто поклацати.",
     monthlyPrice: 0,
     yearlyPrice: 0,
-    cta: "Спробувати і зрозуміти, що треба Pro",
+    cta: "Спробувати безкоштовно",
     ctaStyle: "secondary" as const,
     popular: false,
     features: [
@@ -31,10 +31,10 @@ const plans = [
   {
     id: "pro",
     name: "Agency Pro",
-    tagline: "Для реальних пацанів з IT-агенцій.",
+    tagline: "Для агенцій, які хочуть керувати фінансами впевнено та прозоро.",
     monthlyPrice: 29,
     yearlyPrice: 23,
-    cta: "Залетіти в Pro",
+    cta: "Перейти на Pro",
     ctaStyle: "primary" as const,
     popular: true,
     features: [
@@ -53,7 +53,7 @@ const plans = [
     tagline: "Для тих, у кого розробників більше, ніж кави.",
     monthlyPrice: null,
     yearlyPrice: null,
-    cta: "Потерти за бізнес",
+    cta: "Обговорити умови",
     ctaStyle: "outline" as const,
     popular: false,
     features: [
@@ -101,7 +101,7 @@ export default function PricingPage() {
             Обирай свій рівень контролю.
           </h1>
           <p className="text-lg text-muted-foreground text-balance">
-            Почни безкоштовно, масштабуйся, коли бабки потечуть рікою.
+            Почніть безкоштовно та переходьте на розширений план, коли бізнес зростає.
           </p>
 
           {/* Toggle */}
@@ -164,7 +164,7 @@ export default function PricingPage() {
                   {plan.monthlyPrice === null ? (
                     <div>
                       <span className="text-4xl font-bold text-foreground">Custom</span>
-                      <p className="text-sm text-muted-foreground mt-1">Пишіть у телеграм</p>
+                      <p className="text-sm text-muted-foreground mt-1">Зв’яжіться з нами для персональної пропозиції</p>
                     </div>
                   ) : plan.monthlyPrice === 0 ? (
                     <div>
