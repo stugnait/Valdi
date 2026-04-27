@@ -181,9 +181,10 @@ export function AppSidebar() {
 
     const emailPrefix = email.includes("@") ? email.split("@")[0] : email
     const fallbackName = emailPrefix || "Користувач"
+    const fallbackCompanyName = "Фінанси агенції"
 
     setUserName(savedName.trim() || fallbackName)
-    setCompanyName(savedCompanyName.trim() || "Фінанси агенції")
+    setCompanyName(savedCompanyName.trim() || fallbackCompanyName)
   }, [])
 
   const userInitials = userName
