@@ -65,6 +65,9 @@ export default function ProfilePage() {
 
         setUser(nextUser)
         setEditedUser({ username: nextUser.username, email: nextUser.email })
+        localStorage.setItem("user_display_name", nextUser.username)
+        localStorage.setItem("user_email", nextUser.email)
+        window.dispatchEvent(new Event("user-profile-updated"))
       } catch (e) {
         if (!isMounted) return
         setError(e instanceof Error ? e.message : "Не вдалося завантажити профіль")
@@ -121,6 +124,9 @@ export default function ProfilePage() {
       }
       setUser(nextUser)
       setEditedUser({ username: nextUser.username, email: nextUser.email })
+      localStorage.setItem("user_display_name", nextUser.username)
+      localStorage.setItem("user_email", nextUser.email)
+      window.dispatchEvent(new Event("user-profile-updated"))
       setSuccess("Дані профілю успішно оновлено.")
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не вдалося оновити профіль")
