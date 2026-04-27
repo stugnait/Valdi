@@ -22,20 +22,16 @@ const BREADCRUMB_TITLE_MAP: Record<string, string> = {
   clients: "Клієнти",
   projects: "Проєкти",
   create: "Створення",
-  spendings: "Витрати",
   recurring: "Регулярні",
   variable: "Змінні",
   rules: "Правила",
   subscriptions: "Підписки",
   invoices: "Інвойси",
-  reports: "Звіти",
   taxes: "Податкові звіти",
-  analytics: "Аналітика",
   health: "Загальний стан",
   time: "Динаміка у часі",
   roi: "Ефективність та ROI",
   anomalies: "Аномалії та витоки",
-  settings: "Налаштування",
   general: "Загальні",
   billing: "Оплата",
   integrations: "Інтеграції",
@@ -43,7 +39,7 @@ const BREADCRUMB_TITLE_MAP: Record<string, string> = {
   support: "Підтримка",
 }
 
-function getBreadcrumbLabel(segment: string, previousSegment?: string): string {
+function getSegmentLabel(segment: string, previousSegment?: string): string {
   if (BREADCRUMB_TITLE_MAP[segment]) {
     return BREADCRUMB_TITLE_MAP[segment]
   }
@@ -67,21 +63,41 @@ export default function DashboardLayout({
   const router = useRouter()
   const pathname = usePathname()
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
-  const [dynamicBreadcrumbLabels, setDynamicBreadcrumbLabels] = useState<Record<string, string>>({})
+  const [teamBreadcrumbLabel, setTeamBreadcrumbLabel] = useState<string | null>(null)
 
   const breadcrumbItems = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean)
+    if (segments.length === 0) return []
 
-    return segments.map((segment, index) => {
-      const href = `/${segments.slice(0, index + 1).join("/")}`
-      return {
-        href,
-        label: dynamicBreadcrumbLabels[href] ?? getBreadcrumbLabel(segment, segments[index - 1]),
-        isCurrent: index === segments.length - 1,
-      }
-    })
-  }, [dynamicBreadcrumbLabels, pathname])
+    const dashboardCrumb = {
+      href: "/dashboard",
+      label: "Дашборд",
+      isCurrent: segments.length === 1,
+    }
 
+    if (segments.length === 1) {
+      return [dashboardCrumb]
+    }
+
+    const lastIndex = segments.length - 1
+    const lastSegment = segments[lastIndex]
+    const parentSegment = segments[lastIndex - 1]
+    const lastHref = `/${segments.join("/")}`
+
+    const lastLabel =
+      teamBreadcrumbLabel && parentSegment === "teams"
+        ? teamBreadcrumbLabel
+        : getSegmentLabel(lastSegment, parentSegment)
+
+    return [
+      { ...dashboardCrumb, isCurrent: false },
+      {
+        href: lastHref,
+        label: lastLabel,
+        isCurrent: true,
+      },
+    ]
+  }, [pathname, teamBreadcrumbLabel])
 
 
   useEffect(() => {
@@ -123,11 +139,11 @@ export default function DashboardLayout({
   useEffect(() => {
     let isCancelled = false
 
-    const loadDynamicBreadcrumbLabel = async () => {
+    const loadTeamBreadcrumbLabel = async () => {
       const teamMatch = pathname.match(/^\/dashboard\/teams\/([^/]+)$/)
 
       if (!teamMatch) {
-        setDynamicBreadcrumbLabels({})
+        setTeamBreadcrumbLabel(null)
         return
       }
 
@@ -136,16 +152,16 @@ export default function DashboardLayout({
       try {
         const team = await workforceApi.getTeam(teamId)
         if (!isCancelled) {
-          setDynamicBreadcrumbLabels({ [`/dashboard/teams/${teamId}`]: team.name })
+          setTeamBreadcrumbLabel(team.name)
         }
       } catch {
         if (!isCancelled) {
-          setDynamicBreadcrumbLabels({})
+          setTeamBreadcrumbLabel(null)
         }
       }
     }
 
-    void loadDynamicBreadcrumbLabel()
+    void loadTeamBreadcrumbLabel()
 
     return () => {
       isCancelled = true
