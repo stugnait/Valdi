@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
@@ -14,6 +14,37 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 
+const BREADCRUMB_TITLE_MAP: Record<string, string> = {
+  dashboard: "Дашборд",
+  teams: "Команди",
+  clients: "Клієнти",
+  projects: "Проєкти",
+  create: "Створення",
+  spendings: "Витрати",
+  recurring: "Регулярні",
+  variable: "Змінні",
+  rules: "Правила",
+  subscriptions: "Підписки",
+  invoices: "Інвойси",
+  reports: "Звіти",
+  taxes: "Податкові звіти",
+  analytics: "Аналітика",
+  health: "Загальний стан",
+  time: "Динаміка у часі",
+  roi: "Ефективність та ROI",
+  anomalies: "Аномалії та витоки",
+  settings: "Налаштування",
+  general: "Загальні",
+  billing: "Оплата",
+  integrations: "Інтеграції",
+  profile: "Профіль",
+  support: "Підтримка",
+}
+
+function getBreadcrumbLabel(segment: string): string {
+  return BREADCRUMB_TITLE_MAP[segment] ?? decodeURIComponent(segment)
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -22,6 +53,16 @@ export default function DashboardLayout({
   const router = useRouter()
   const pathname = usePathname()
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+  const breadcrumbs = useMemo(() => {
+    const segments = pathname.split("/").filter(Boolean)
+
+    return segments.map((segment, index) => ({
+      href: `/${segments.slice(0, index + 1).join("/")}`,
+      label: getBreadcrumbLabel(segment),
+      isCurrent: index === segments.length - 1,
+    }))
+  }, [pathname])
 
   useEffect(() => {
     const accessToken = localStorage.getItem("access_token")
@@ -61,13 +102,18 @@ export default function DashboardLayout({
           <Separator orientation="vertical" className="mr-2 h-4" />
           <Breadcrumb>
             <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Overview</BreadcrumbPage>
-              </BreadcrumbItem>
+              {breadcrumbs.map((breadcrumb, index) => (
+                <Fragment key={breadcrumb.href}>
+                  <BreadcrumbItem>
+                    {breadcrumb.isCurrent ? (
+                      <BreadcrumbPage>{breadcrumb.label}</BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink href={breadcrumb.href}>{breadcrumb.label}</BreadcrumbLink>
+                    )}
+                  </BreadcrumbItem>
+                  {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
+                </Fragment>
+              ))}
             </BreadcrumbList>
           </Breadcrumb>
         </header>
