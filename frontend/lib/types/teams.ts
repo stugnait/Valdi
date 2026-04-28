@@ -23,6 +23,7 @@ export interface TeamMember {
   skills: Skill[]
   utilization: number // percentage 0-100
   revenue: number
+  joinDate?: string
   teamMemberships: TeamMembership[] // for multi-team membership
 }
 
