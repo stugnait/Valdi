@@ -63,6 +63,7 @@ import {
   type Skill,
   type TeamMembership
 } from "@/lib/types/teams"
+import { expenseCategories } from "@/lib/types/spendings"
 import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
 import {
   deleteMemberUiData,
@@ -1316,12 +1317,26 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
             </div>
             <div className="space-y-2">
               <Label htmlFor="overhead-category">Категорія</Label>
-              <Input
-                id="overhead-category"
-                value={overheadForm.category}
-                onChange={(e) => setOverheadForm({ ...overheadForm, category: e.target.value })}
-                placeholder="Софт, інфраструктура тощо"
-              />
+              <Select
+                value={overheadForm.category || "__placeholder__"}
+                onValueChange={(value) =>
+                  setOverheadForm({ ...overheadForm, category: value === "__placeholder__" ? "" : value })
+                }
+              >
+                <SelectTrigger id="overhead-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__placeholder__" disabled>
+                    Оберіть категорію
+                  </SelectItem>
+                  {expenseCategories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -1367,7 +1382,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
             <Button variant="outline" onClick={closeOverheadDialog}>
               Скасувати
             </Button>
-            <Button onClick={handleSaveOverhead} disabled={!overheadForm.name.trim()}>
+            <Button onClick={handleSaveOverhead} disabled={!overheadForm.name.trim() || !overheadForm.category}>
               {selectedOverhead ? "Зберегти" : "Додати"}
             </Button>
           </DialogFooter>
