@@ -323,6 +323,15 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     void loadTeam()
   }, [id])
 
+  useEffect(() => {
+    if (isOverheadDialogOpen && !selectedOverhead) {
+      setOverheadForm((prev) => ({
+        ...prev,
+        paidDate: new Date().toISOString().split("T")[0],
+      }))
+    }
+  }, [isOverheadDialogOpen, selectedOverhead])
+
   if (isLoading) {
     return <div className="py-20 text-center text-sm text-muted-foreground">Завантаження команди...</div>
   }
