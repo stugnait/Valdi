@@ -85,6 +85,7 @@ export default function TeamsHubPage() {
       const developer = developersById.get(membership.developer)
       const baseRate = Number(developer?.hourly_rate ?? 0) * MONTHLY_WORK_HOURS
       const utilization = membership.allocation
+      const savedMemberUi = getMemberUiData(String(membership.developer))
 
       return {
         id: String(membership.developer),
@@ -93,8 +94,8 @@ export default function TeamsHubPage() {
         role: developer?.role ?? "",
         baseRate,
         rateType: "monthly" as const,
-        teamOverheadShare: 0,
-        companyOverheadShare: 0,
+        teamOverheadShare: savedMemberUi.teamOverheadShare ?? 0,
+        companyOverheadShare: savedMemberUi.companyOverheadShare ?? 280,
         skills: [],
         utilization,
         revenue: 0,
