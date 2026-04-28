@@ -575,6 +575,15 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     })
   }
 
+  useEffect(() => {
+    if (isOverheadDialogOpen && !selectedOverhead) {
+      setOverheadForm((prev) => ({
+        ...prev,
+        paidDate: new Date().toISOString().split("T")[0],
+      }))
+    }
+  }, [isOverheadDialogOpen, selectedOverhead])
+
   const totalOverheadsCost = team.overheads.reduce((sum, o) => {
     if (o.frequency === "yearly") return sum + o.amount / 12
     if (o.frequency === "one-time") return sum + o.amount / 12
