@@ -14,6 +14,7 @@ type AuthTab = "signup" | "login"
 type AuthResponse = {
   access: string
   refresh: string
+  is_new_user?: boolean
   user?: {
     id: number
     username: string
@@ -165,10 +166,9 @@ export default function AuthPage() {
   }
 
   const redirectAfterAuth = useCallback(
-    (mode: "signup" | "login" | "google-login" = "login") => {
+    (mode: "signup" | "login" = "login") => {
       const nextPath = searchParams.get("next")
-      const defaultPath = mode === "signup" ? "/onboarding" : "/dashboard"
-      const target = nextPath || defaultPath
+      const target = nextPath || (mode === "signup" ? "/onboarding" : "/dashboard")
       router.push(target)
     },
     [router, searchParams],
@@ -234,7 +234,7 @@ export default function AuthPage() {
               const data = (await apiResponse.json()) as AuthResponse
               persistSession(data)
               setSuccess("Успішний вхід через Google ✨")
-              redirectAfterAuth("google-login")
+              redirectAfterAuth(data.is_new_user ? "signup" : "login")
             } catch (err) {
               setError(err instanceof Error ? err.message : "Google авторизація не вдалася")
             } finally {

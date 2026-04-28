@@ -21,17 +21,13 @@ export function Hero() {
 
       {/* Headline */}
       <h1 className="relative text-center text-4xl md:text-5xl lg:text-6xl font-bold text-foreground text-balance leading-tight max-w-4xl mb-5">
-        Твій бізнес{" "}
-        <span className="text-primary">не табличка</span>
-        {" "}в Excel.{" "}
-        <span className="text-muted-foreground">Досить страждати.</span>
+          Забудь про Excel. <br />
+          Керуй фінансами <span className="text-primary">професійно</span>
       </h1>
 
       {/* Subheadline */}
       <p className="relative text-center text-base md:text-lg text-muted-foreground max-w-2xl leading-relaxed mb-8 text-pretty">
-        Поки ти колупаєшся у формулах, твої бабки витікають. Автоматизуй фінанси
-        свого агентства: від транзакцій у Моно до реального профіту з кожного
-        розробника.
+          Звільніть час для розвитку бізнесу, а не для формул. Автоматизуйте фінанси вашого агентства: від миттєвої синхронізації з банками до розрахунку реального прибутку з кожного проекту.
       </p>
 
       {/* CTA buttons */}
@@ -52,7 +48,7 @@ export function Hero() {
       </div>
 
       {/* Social proof */}
-      <div className="relative flex items-center gap-2 mb-12 text-xs text-muted-foreground">
+      <div className="relative flex items-center gap-3 mb-12 text-xs text-muted-foreground animate-fade-in">
         <div className="flex -space-x-2">
           {["#2563eb", "#10b981", "#f59e0b", "#ef4444"].map((color, i) => (
             <div
@@ -63,7 +59,7 @@ export function Hero() {
           ))}
         </div>
         <span>
-          <strong className="text-foreground font-semibold">120+</strong> агентств вже рахують гроші правильно
+          <strong className="text-foreground font-semibold">120+ агентств</strong> вже автоматизували фінансовий облік
         </span>
       </div>
 

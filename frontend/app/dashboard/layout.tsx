@@ -100,6 +100,43 @@ export default function DashboardLayout({
   }, [pathname, teamBreadcrumbLabel])
 
 
+
+  useEffect(() => {
+    const activityEvents: Array<keyof WindowEventMap> = [
+      "click",
+      "mousemove",
+      "keydown",
+      "scroll",
+      "touchstart",
+    ]
+
+    const onActivity = () => {
+      session.markUserActivity()
+    }
+
+    for (const eventName of activityEvents) {
+      window.addEventListener(eventName, onActivity, { passive: true })
+    }
+
+    const checkSessionByInactivity = () => {
+      if (!session.hasSessionExpiredByInactivity()) return
+
+      session.clearSession()
+      router.replace(`/auth?next=${encodeURIComponent(pathname)}`)
+    }
+
+    const intervalId = window.setInterval(checkSessionByInactivity, 60_000)
+
+    onActivity()
+
+    return () => {
+      for (const eventName of activityEvents) {
+        window.removeEventListener(eventName, onActivity)
+      }
+      window.clearInterval(intervalId)
+    }
+  }, [pathname, router])
+
   useEffect(() => {
     const activityEvents: Array<keyof WindowEventMap> = [
       "click",
@@ -169,30 +206,32 @@ export default function DashboardLayout({
   }, [pathname])
 
   useEffect(() => {
-    const accessToken = localStorage.getItem("access_token")
-    const isTokenValid = (() => {
-      if (!accessToken) return false
-      try {
-        const payload = JSON.parse(atob(accessToken.split(".")[1] ?? ""))
-        const exp = Number(payload.exp ?? 0)
-        return exp * 1000 > Date.now()
-      } catch {
-        return false
+    let isCancelled = false
+
+    const verifySession = async () => {
+      if (session.hasSessionExpiredByInactivity()) {
+        session.clearSession()
+        router.replace(`/auth?next=${encodeURIComponent(pathname)}`)
+        return
       }
-    })()
 
-    if (session.hasSessionExpiredByInactivity()) {
-      session.clearSession()
-      router.replace(`/auth?next=${encodeURIComponent(pathname)}`)
-      return
+      const hasActiveAccessToken = await session.ensureActiveAccessToken()
+      if (!hasActiveAccessToken) {
+        session.clearSession()
+        router.replace(`/auth?next=${encodeURIComponent(pathname)}`)
+        return
+      }
+
+      if (!isCancelled) {
+        setIsCheckingAuth(false)
+      }
     }
 
-    if (!isTokenValid) {
-      router.replace(`/auth?next=${encodeURIComponent(pathname)}`)
-      return
-    }
+    void verifySession()
 
-    setIsCheckingAuth(false)
+    return () => {
+      isCancelled = true
+    }
   }, [pathname, router])
 
   if (isCheckingAuth) {
