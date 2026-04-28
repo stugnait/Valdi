@@ -47,7 +47,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { type Team } from "@/lib/types/teams"
 import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
-import { deleteTeamUiMeta, getMemberUiData, getTeamOverheads, getTeamUiMeta, setTeamUiMeta } from "@/lib/storage/team-ui"
+import { deleteTeamUiMeta, getTeamOverheads, getTeamUiMeta, setTeamUiMeta } from "@/lib/storage/team-ui"
 import { calculateTeamMetrics, MONTHLY_WORK_HOURS } from "@/lib/utils/team-metrics"
 
 const colorOptions = [
@@ -106,6 +106,11 @@ export default function TeamsHubPage() {
     const metrics = calculateTeamMetrics(members, overheads)
     const teamContribution = totals.laborCost > 0 ? metrics.teamLaborCost / totals.laborCost : 0
     const teamRevenue = totals.revenue * teamContribution
+    const membersWithShares = members.map((member) => ({
+      ...member,
+      teamOverheadShare: metrics.memberCostById.get(member.id)?.teamOverheadShare ?? 0,
+      companyOverheadShare: metrics.memberCostById.get(member.id)?.companyOverheadShare ?? 0,
+    }))
 
     return {
       id: normalizedId,
@@ -116,7 +121,7 @@ export default function TeamsHubPage() {
       burnRate: metrics.burnRate,
       utilization: metrics.utilization,
       efficiencyScore: metrics.burnRate > 0 ? teamRevenue / metrics.burnRate : 0,
-      members,
+      members: membersWithShares,
       overheads,
       burnRateHistory: [],
     }

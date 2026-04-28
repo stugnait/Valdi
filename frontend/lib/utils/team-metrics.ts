@@ -18,19 +18,39 @@ export const calculateEmployeeBaseCost = (member: TeamMember) =>
 export const calculateTeamOverheadCost = (overheads: TeamOverhead[]) =>
   overheads.reduce((sum, overhead) => sum + toMonthlyOverheadCost(overhead), 0)
 
-export const calculateTeamMetrics = (members: TeamMember[], teamOverheads: TeamOverhead[]) => {
-  const teamLaborCost = members.reduce((sum, member) => sum + calculateEmployeeBaseCost(member), 0)
-  const teamOverheadShare = members.reduce(
-    (sum, member) => sum + member.teamOverheadShare * (member.utilization / 100),
-    0
-  )
-  const companyOverheadShare = members.reduce(
-    (sum, member) => sum + member.companyOverheadShare * (member.utilization / 100),
-    0
-  )
+export const calculateTeamMetrics = (
+  members: TeamMember[],
+  teamOverheads: TeamOverhead[],
+  companyOverheadCost = 0
+) => {
+  const baseCosts = members.map((member) => calculateEmployeeBaseCost(member))
+  const teamLaborCost = baseCosts.reduce((sum, baseCost) => sum + baseCost, 0)
   const teamOverheadCost = calculateTeamOverheadCost(teamOverheads)
+  const memberCostById = new Map<string, {
+    baseCost: number
+    teamOverheadShare: number
+    companyOverheadShare: number
+    totalCost: number
+    share: number
+  }>()
 
-  const burnRate = teamLaborCost + teamOverheadCost + teamOverheadShare + companyOverheadShare
+  members.forEach((member, index) => {
+    const baseCost = baseCosts[index] ?? 0
+    const share = teamLaborCost > 0 ? baseCost / teamLaborCost : 0
+    const teamOverheadShare = teamOverheadCost * share
+    const companyOverheadShare = companyOverheadCost * share
+    const totalCost = baseCost + teamOverheadShare + companyOverheadShare
+
+    memberCostById.set(member.id, {
+      baseCost,
+      share,
+      teamOverheadShare,
+      companyOverheadShare,
+      totalCost,
+    })
+  })
+
+  const burnRate = Array.from(memberCostById.values()).reduce((sum, memberCost) => sum + memberCost.totalCost, 0)
   const allocatedHours = members.reduce(
     (sum, member) => sum + MONTHLY_WORK_HOURS * (member.utilization / 100),
     0
@@ -41,11 +61,11 @@ export const calculateTeamMetrics = (members: TeamMember[], teamOverheads: TeamO
   return {
     teamLaborCost,
     teamOverheadCost,
-    teamOverheadShare,
-    companyOverheadShare,
+    companyOverheadCost,
     burnRate,
     allocatedHours,
     availableHours,
     utilization,
+    memberCostById,
   }
 }

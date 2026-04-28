@@ -106,8 +106,6 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     role: "",
     baseRate: "",
     rateType: "monthly" as "monthly" | "hourly",
-    teamOverheadShare: "",
-    companyOverheadShare: "",
     skills: [] as Skill[],
     teamMemberships: [] as TeamMembership[],
   })
@@ -141,8 +139,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         role: developer?.role ?? "",
         baseRate,
         rateType: "monthly" as const,
-        teamOverheadShare: savedMemberUi.teamOverheadShare ?? 0,
-        companyOverheadShare: savedMemberUi.companyOverheadShare ?? 280,
+        teamOverheadShare: 0,
+        companyOverheadShare: 0,
         skills: savedMemberUi.skills ?? [],
         utilization,
         revenue: 0,
@@ -156,9 +154,9 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     const membersWithCost = members.map((member) => ({
       ...member,
       monthlyCost:
-        calculateEmployeeBaseCost(member) +
-        member.teamOverheadShare * (member.utilization / 100) +
-        member.companyOverheadShare * (member.utilization / 100),
+        metrics.memberCostById.get(member.id)?.totalCost ?? calculateEmployeeBaseCost(member),
+      teamOverheadShare: metrics.memberCostById.get(member.id)?.teamOverheadShare ?? 0,
+      companyOverheadShare: metrics.memberCostById.get(member.id)?.companyOverheadShare ?? 0,
     }))
     const membersWithRevenue = membersWithCost.map((member) => ({
       ...member,
@@ -319,10 +317,6 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     try {
       const baseRate = parseFloat(memberForm.baseRate) || 0
       const hourlyRate = toHourlyRatePayload(baseRate, memberForm.rateType)
-      const teamOverheadShare =
-        memberForm.teamOverheadShare.trim() === "" ? 0 : parseFloat(memberForm.teamOverheadShare) || 0
-      const companyOverheadShare =
-        memberForm.companyOverheadShare.trim() === "" ? 280 : parseFloat(memberForm.companyOverheadShare) || 0
       const apiDeveloper = selectedMember
         ? await workforceApi.updateDeveloper(selectedMember.id, {
             full_name: memberForm.name,
@@ -345,8 +339,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: memberForm.role,
       baseRate,
       rateType: memberForm.rateType,
-      teamOverheadShare,
-      companyOverheadShare,
+      teamOverheadShare: 0,
+      companyOverheadShare: 0,
       skills: memberForm.skills,
       utilization: 0,
       revenue: 0,
@@ -355,8 +349,6 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         : [{ teamId: team.id, teamName: team.name, allocation: 100 }],
     }
       setMemberUiData(newMember.id, {
-        teamOverheadShare,
-        companyOverheadShare,
         skills: newMember.skills,
       })
 
@@ -395,8 +387,6 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: member.role,
       baseRate: member.baseRate.toString(),
       rateType: member.rateType,
-      teamOverheadShare: member.teamOverheadShare.toString(),
-      companyOverheadShare: member.companyOverheadShare.toString(),
       skills: member.skills,
       teamMemberships: member.teamMemberships,
     })
@@ -412,8 +402,6 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: "",
       baseRate: "",
       rateType: "monthly",
-      teamOverheadShare: "",
-      companyOverheadShare: "",
       skills: [],
       teamMemberships: [],
     })
@@ -731,7 +719,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
 
           <div className="space-y-3">
             {team.members.map((member) => {
-              const totalCost = member.baseRate + member.teamOverheadShare + member.companyOverheadShare
+              const employeeBaseCost = calculateEmployeeBaseCost(member)
+              const totalCost = employeeBaseCost + member.teamOverheadShare + member.companyOverheadShare
               const isMultiTeam = member.teamMemberships.length > 1
 
               return (
@@ -804,8 +793,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                         {/* Cost Breakdown */}
                         <div className="grid grid-cols-4 gap-4 rounded-lg bg-muted/50 p-3 text-sm">
                           <div>
-                            <p className="text-muted-foreground text-xs">Базова ставка</p>
-                            <p className="font-medium">{formatCurrency(member.baseRate)}</p>
+                            <p className="text-muted-foreground text-xs">Базова вартість</p>
+                            <p className="font-medium">{formatCurrency(employeeBaseCost)}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground text-xs">Командні витрати</p>
@@ -1027,28 +1016,6 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                     <SelectItem value="hourly">Погодинна</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="member-team-overhead">Командні витрати ($/міс)</Label>
-                <Input
-                  id="member-team-overhead"
-                  type="number"
-                  value={memberForm.teamOverheadShare === "0" ? "" : memberForm.teamOverheadShare}
-                  onChange={(e) => setMemberForm({ ...memberForm, teamOverheadShare: e.target.value })}
-                  placeholder="0"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="member-company-overhead">Витрати компанії ($/міс)</Label>
-                <Input
-                  id="member-company-overhead"
-                  type="number"
-                  value={memberForm.companyOverheadShare === "280" ? "" : memberForm.companyOverheadShare}
-                  onChange={(e) => setMemberForm({ ...memberForm, companyOverheadShare: e.target.value })}
-                  placeholder="280"
-                />
               </div>
             </div>
             <div className="space-y-2">
