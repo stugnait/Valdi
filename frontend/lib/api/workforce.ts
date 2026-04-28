@@ -258,7 +258,65 @@ function getAccessToken() {
   return localStorage.getItem("access_token") ?? ""
 }
 
-async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+function setAccessToken(accessToken: string) {
+  if (typeof window === "undefined") return
+  localStorage.setItem("access_token", accessToken)
+  document.cookie = `access_token=${accessToken}; path=/; samesite=lax`
+}
+
+function clearStoredTokens() {
+  if (typeof window === "undefined") return
+  localStorage.removeItem("access_token")
+  localStorage.removeItem("refresh_token")
+  document.cookie = "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax"
+  document.cookie = "refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax"
+}
+
+function isInvalidJwtMessage(message: string) {
+  const normalized = message.toLowerCase()
+  return normalized.includes("token not valid") || normalized.includes("token is invalid")
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null
+
+  const refreshToken = localStorage.getItem("refresh_token")
+  if (!refreshToken) return null
+
+  const response = await fetch(`${API_BASE_URL}/api/auth/refresh/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh: refreshToken }),
+  })
+
+  if (!response.ok) {
+    clearStoredTokens()
+    return null
+  }
+
+  const payload = (await response.json()) as { access?: string }
+  if (!payload.access) {
+    clearStoredTokens()
+    return null
+  }
+
+  setAccessToken(payload.access)
+  return payload.access
+}
+
+async function extractErrorMessage(response: Response) {
+  const contentType = response.headers.get("content-type") ?? ""
+
+  if (contentType.includes("application/json")) {
+    const payload = (await response.json()) as { detail?: string }
+    return payload.detail || `API request failed: ${response.status}`
+  }
+
+  const text = await response.text()
+  return text || `API request failed: ${response.status}`
+}
+
+async function apiRequest<T>(path: string, init: RequestInit = {}, hasRetried = false): Promise<T> {
   const token = getAccessToken()
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -270,14 +328,18 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   })
 
   if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? ""
-    if (contentType.includes("application/json")) {
-      const payload = (await response.json()) as { detail?: string }
-      throw new Error(payload.detail || `API request failed: ${response.status}`)
+    const errorMessage = await extractErrorMessage(response)
+
+    if (response.status === 401 && !hasRetried && isInvalidJwtMessage(errorMessage)) {
+      const refreshedAccessToken = await refreshAccessToken()
+      if (refreshedAccessToken) {
+        return apiRequest<T>(path, init, true)
+      }
+
+      throw new Error("Сесія завершилась. Увійдіть повторно.")
     }
 
-    const text = await response.text()
-    throw new Error(text || `API request failed: ${response.status}`)
+    throw new Error(errorMessage)
   }
 
   if (response.status === 204) {
