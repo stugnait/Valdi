@@ -5,7 +5,6 @@ import { Menu, X } from "lucide-react"
 import Link from "next/link"
 
 const navLinks = [
-  { label: "Можливості", href: "/about" },
   { label: "Тарифи", href: "/pricing" },
   { label: "Про продукт", href: "/about" },
 ]
@@ -42,39 +41,44 @@ export function Navbar() {
         scrolled ? "bg-white/95 backdrop-blur-md border-b border-border shadow-sm" : "bg-transparent"
       }`}
     >
-      <nav className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <a href="#" className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-white font-bold text-xs">V</span>
-          </div>
-          <span className="font-semibold text-foreground text-base tracking-tight">Vardi</span>
-        </a>
+      <nav className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between relative">
+        {/* 1. Блок Логотипа (зліва) */}
+        <div className="flex-1 flex justify-start">
+          <a href="#" className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-white font-bold text-xs">V</span>
+            </div>
+            <span className="font-semibold text-foreground text-base tracking-tight">Vardi</span>
+          </a>
+        </div>
 
-        <ul className="hidden md:flex items-center gap-8">
+        {/* 2. Блок Посилань (Абсолютний центр) */}
+        <ul className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
           {navLinks.map((item) => (
-            <li key={item.label}>
-              <Link
-                href={item.href}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
-              >
-                {item.label}
-              </Link>
-            </li>
+              <li key={item.label}>
+                <Link
+                    href={item.href}
+                    className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors duration-200"
+                >
+                  {item.label}
+                </Link>
+              </li>
           ))}
         </ul>
 
-        <div className="hidden md:flex items-center gap-3">
+        {/* 3. Блок Кнопок (справа) */}
+        <div className="hidden md:flex flex-1 items-center justify-end gap-3">
           <Link
-            href={authHref}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5"
+              href={authHref}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5"
           >
             Увійти
           </Link>
           <Link
-            href={authHref}
-            className="text-sm font-semibold bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              href={authHref}
+              className="text-sm font-semibold bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all shadow-sm active:scale-95"
           >
-            Залетіти безкоштовно
+            Почати безкоштовно
           </Link>
         </div>
 
@@ -108,7 +112,7 @@ export function Navbar() {
               className="text-sm font-semibold bg-primary text-white px-4 py-2 rounded-lg text-center hover:bg-blue-700 transition-colors"
               onClick={() => setMenuOpen(false)}
             >
-              Залетіти безкоштовно
+              Почати безкоштовно
             </Link>
           </div>
         </div>

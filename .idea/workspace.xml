@@ -6,6 +6,16 @@
   <component name="ChangeListManager">
     <list default="true" id="d8b0ff81-3a0c-4ea7-a254-99ae932104e2" name="Changes" comment="frontend UI done">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/.env" beforeDir="false" afterPath="$PROJECT_DIR$/backend/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/.idea/backend.iml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/.idea/backend.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/teams/[id]/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/teams/[id]/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/landing/cta-section.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/landing/cta-section.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/landing/features-grid.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/landing/features-grid.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/landing/hero.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/landing/hero.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/landing/navbar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/landing/navbar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/landing/pain-section.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/landing/pain-section.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/landing/social-proof.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/landing/social-proof.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -13,20 +23,26 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="filling-fix" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="UPDATE_TYPE" value="REBASE" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "stugnait"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;stugnait&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/stugnait/Valdi.git",
-    "accountId": "709f74d2-fdf2-4104-ba9e-3f0c50f44d07"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/stugnait/Valdi.git&quot;,
+    &quot;accountId&quot;: &quot;0358918a-96f2-4cd8-96fb-0b74104dc050&quot;
   }
-}]]></component>
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 5
 }</component>
@@ -38,35 +54,38 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "git-widget-placeholder": "main",
-    "javascript.preferred.runtime.type.id": "node",
-    "js.debugger.nextJs.config.created.client": "true",
-    "js.debugger.nextJs.config.created.server": "true",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_interpreter_path": "node",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "preferences.lookFeel",
-    "ts.external.directory.path": "D:\\vardi\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;javascript.preferred.runtime.type.id&quot;: &quot;node&quot;,
+    &quot;js.debugger.nextJs.config.created.client&quot;: &quot;true&quot;,
+    &quot;js.debugger.nextJs.config.created.server&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/User/Desktop/University/vardi/Valdi&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_interpreter_path&quot;: &quot;node&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\User\\Desktop\\University\\vardi\\Valdi\\frontend\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\User\Desktop\University\vardi\Valdi\frontend" />
       <recent name="D:\vardi\frontend" />
       <recent name="D:\vardi" />
       <recent name="D:\vardi\app\pricing" />
       <recent name="D:\vardi\app\onboarding" />
-      <recent name="D:\vardi\app\auth" />
     </key>
   </component>
   <component name="RunManager" selected="npm.Next.js: server-side">
@@ -87,7 +106,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-WS-253.31033.133" />
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-WS-253.32098.39" />
       </set>
     </attachedChunks>
   </component>
@@ -101,6 +120,11 @@
       <workItem from="1776872167172" duration="3912000" />
       <workItem from="1776876811596" duration="2488000" />
       <workItem from="1776888294278" duration="1804000" />
+      <workItem from="1776941922407" duration="351000" />
+      <workItem from="1776942875213" duration="8135000" />
+      <workItem from="1777218248407" duration="18308000" />
+      <workItem from="1777315711137" duration="9993000" />
+      <workItem from="1777396260897" duration="13013000" />
     </task>
     <task id="LOCAL-00001" summary="frontend UI done">
       <option name="closed" value="true" />
