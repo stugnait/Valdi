@@ -57,7 +57,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { 
-  mockSkills, 
   type Team, 
   type TeamMember, 
   type TeamOverhead,
@@ -84,6 +83,28 @@ import {
   Legend,
 } from "recharts"
 import { calculateEmployeeBaseCost, calculateTeamMetrics, MONTHLY_WORK_HOURS } from "@/lib/utils/team-metrics"
+
+const skillGroups: Array<{ title: string; skills: Skill[] }> = [
+  {
+    title: "Frontend",
+    skills: [
+      { id: "react", name: "React", color: "#61DAFB" },
+      { id: "vue", name: "Vue", color: "#42B883" },
+      { id: "angular", name: "Angular", color: "#DD0031" },
+      { id: "typescript", name: "TypeScript", color: "#3178C6" },
+      { id: "javascript", name: "JavaScript", color: "#F7DF1E" },
+    ],
+  },
+  {
+    title: "Backend",
+    skills: [
+      { id: "nodejs", name: "Node.js", color: "#339933" },
+      { id: "python", name: "Python", color: "#3776AB" },
+      { id: "java", name: "Java", color: "#F89820" },
+      { id: "go", name: "Go", color: "#00ADD8" },
+    ],
+  },
+]
 
 const toHourlyRatePayload = (baseRate: number, rateType: "monthly" | "hourly") => {
   const rawHourly = rateType === "monthly" ? baseRate / MONTHLY_WORK_HOURS : baseRate
@@ -1092,29 +1113,38 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
             </div>
             <div className="space-y-2">
               <Label>Навички</Label>
-              <div className="flex flex-wrap gap-2">
-                {mockSkills.map((skill) => {
-                  const isSelected = memberForm.skills.some(s => s.id === skill.id)
-                  return (
-                    <button
-                      key={skill.id}
-                      type="button"
-                      onClick={() => toggleSkill(skill)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                        isSelected 
-                          ? "ring-2 ring-offset-1" 
-                          : "opacity-60 hover:opacity-100"
-                      }`}
-                      style={{ 
-                        backgroundColor: `${skill.color}20`, 
-                        color: skill.color,
-                        borderColor: skill.color,
-                      }}
-                    >
-                      {isSelected && "✓ "}{skill.name}
-                    </button>
-                  )
-                })}
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-muted-foreground">Tech Stack</p>
+                {skillGroups.map((group) => (
+                  <div key={group.title} className="space-y-2">
+                    <p className="text-xs font-semibold text-foreground/80">{group.title}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {group.skills.map((skill) => {
+                        const isSelected = memberForm.skills.some((s) => s.id === skill.id)
+                        return (
+                          <button
+                            key={skill.id}
+                            type="button"
+                            onClick={() => toggleSkill(skill)}
+                            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                              isSelected
+                                ? "ring-2 ring-offset-1"
+                                : "opacity-60 hover:opacity-100"
+                            }`}
+                            style={{
+                              backgroundColor: `${skill.color}20`,
+                              color: skill.color,
+                              borderColor: skill.color,
+                            }}
+                          >
+                            {isSelected && "✓ "}
+                            {skill.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
             <div className="space-y-2">
