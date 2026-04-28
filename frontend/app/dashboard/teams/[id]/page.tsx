@@ -87,6 +87,12 @@ import {
 } from "recharts"
 import { calculateEmployeeBaseCost, calculateTeamMetrics, MONTHLY_WORK_HOURS } from "@/lib/utils/team-metrics"
 
+const getTodayLocalDateString = () => {
+  const now = new Date()
+  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().split("T")[0]
+}
+
 const skillGroups: Array<{ title: string; skills: Skill[] }> = [
   {
     title: "Frontend",
@@ -145,7 +151,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     frequency: "monthly" as "monthly" | "yearly" | "one-time",
     category: "",
     source: "cash" as "cash" | "monobank" | "privat24",
-    paidDate: new Date().toISOString().split("T")[0],
+    paidDate: getTodayLocalDateString(),
   })
 
   const toUiTeam = (
@@ -504,7 +510,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     })
     setTeamOverheads(team.id, updatedOverheads)
     const amount = parseFloat(overheadForm.amount) || 0
-    const paidDate = overheadForm.paidDate || new Date().toISOString().split("T")[0]
+    const paidDate = overheadForm.paidDate || getTodayLocalDateString()
 
     try {
       if (overheadForm.frequency === "one-time") {
@@ -566,7 +572,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       frequency: overhead.frequency,
       category: overhead.category,
       source: "cash",
-      paidDate: new Date().toISOString().split("T")[0],
+      paidDate: getTodayLocalDateString(),
     })
     setIsOverheadDialogOpen(true)
   }
@@ -579,7 +585,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       frequency: "monthly",
       category: "",
       source: "cash",
-      paidDate: new Date().toISOString().split("T")[0],
+      paidDate: getTodayLocalDateString(),
     })
     setIsOverheadDialogOpen(true)
   }
@@ -593,7 +599,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       frequency: "monthly",
       category: "",
       source: "cash",
-      paidDate: new Date().toISOString().split("T")[0],
+      paidDate: getTodayLocalDateString(),
     })
   }
 
