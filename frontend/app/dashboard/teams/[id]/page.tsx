@@ -106,6 +106,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     role: "",
     baseRate: "",
     rateType: "monthly" as "monthly" | "hourly",
+    currentTeamAllocation: "100",
     skills: [] as Skill[],
     teamMemberships: [] as TeamMembership[],
   })
@@ -317,6 +318,10 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     try {
       const baseRate = parseFloat(memberForm.baseRate) || 0
       const hourlyRate = toHourlyRatePayload(baseRate, memberForm.rateType)
+      const currentTeamAllocation = Math.min(
+        100,
+        Math.max(0, parseInt(memberForm.currentTeamAllocation, 10) || 100)
+      )
       const apiDeveloper = selectedMember
         ? await workforceApi.updateDeveloper(selectedMember.id, {
             full_name: memberForm.name,
@@ -344,9 +349,15 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       skills: memberForm.skills,
       utilization: 0,
       revenue: 0,
-      teamMemberships: memberForm.teamMemberships.length > 0 
-        ? memberForm.teamMemberships 
-        : [{ teamId: team.id, teamName: team.name, allocation: 100 }],
+      teamMemberships: (() => {
+        const nonCurrentTeamMemberships = memberForm.teamMemberships.filter(
+          (membership) => String(membership.teamId) !== String(team.id)
+        )
+        return [
+          { teamId: team.id, teamName: team.name, allocation: currentTeamAllocation },
+          ...nonCurrentTeamMemberships,
+        ]
+      })(),
     }
       setMemberUiData(newMember.id, {
         skills: newMember.skills,
@@ -387,6 +398,9 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: member.role,
       baseRate: member.baseRate.toString(),
       rateType: member.rateType,
+      currentTeamAllocation:
+        member.teamMemberships.find((membership) => String(membership.teamId) === String(team?.id))?.allocation.toString()
+        ?? "100",
       skills: member.skills,
       teamMemberships: member.teamMemberships,
     })
@@ -402,6 +416,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: "",
       baseRate: "",
       rateType: "monthly",
+      currentTeamAllocation: "100",
       skills: [],
       teamMemberships: [],
     })
@@ -1017,6 +1032,18 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="member-current-allocation">Залученість у цій команді (%)</Label>
+              <Input
+                id="member-current-allocation"
+                type="number"
+                min={0}
+                max={100}
+                value={memberForm.currentTeamAllocation}
+                onChange={(e) => setMemberForm({ ...memberForm, currentTeamAllocation: e.target.value })}
+                placeholder="100"
+              />
             </div>
             <div className="space-y-2">
               <Label>Навички</Label>
