@@ -120,6 +120,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     amount: "",
     frequency: "monthly" as "monthly" | "yearly" | "one-time",
     category: "",
+    source: "cash" as "cash" | "monobank" | "privat24",
+    paidDate: new Date().toISOString().split("T")[0],
   })
 
   const toUiTeam = (
@@ -438,7 +440,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   // Overhead CRUD handlers
-  const handleSaveOverhead = () => {
+  const handleSaveOverhead = async () => {
     if (!team) return
     
     const newOverhead: TeamOverhead = {
@@ -457,6 +459,45 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       overheads: updatedOverheads,
     })
     setTeamOverheads(team.id, updatedOverheads)
+    const amount = parseFloat(overheadForm.amount) || 0
+    const paidDate = overheadForm.paidDate || new Date().toISOString().split("T")[0]
+
+    try {
+      if (overheadForm.frequency === "one-time") {
+        await workforceApi.createVariableExpense({
+          name: overheadForm.name,
+          amount: amount.toString(),
+          currency: "USD",
+          category: overheadForm.category || "Team overhead",
+          source: overheadForm.source,
+          expense_date: paidDate,
+          description: `Team overhead: ${team.name}`,
+          allocation_type: "team",
+          team: Number(team.id),
+        })
+      } else {
+        const nextDate = new Date(paidDate)
+        if (overheadForm.frequency === "monthly") nextDate.setMonth(nextDate.getMonth() + 1)
+        if (overheadForm.frequency === "yearly") nextDate.setFullYear(nextDate.getFullYear() + 1)
+
+        await workforceApi.createRecurringExpense({
+          name: overheadForm.name,
+          amount: amount.toString(),
+          currency: "USD",
+          cycle: overheadForm.frequency === "monthly" ? "monthly" : "yearly",
+          category: overheadForm.category || "Team overhead",
+          source: overheadForm.source,
+          allocation_type: "team",
+          team: Number(team.id),
+          status: "pending",
+          next_payment_date: nextDate.toISOString().split("T")[0],
+          last_paid_date: paidDate,
+          description: `Team overhead: ${team.name}`,
+        })
+      }
+    } catch (syncError) {
+      setError(syncError instanceof Error ? syncError.message : "Не вдалося синхронізувати витрату")
+    }
 
     closeOverheadDialog()
   }
@@ -480,6 +521,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       amount: overhead.amount.toString(),
       frequency: overhead.frequency,
       category: overhead.category,
+      source: "cash",
+      paidDate: new Date().toISOString().split("T")[0],
     })
     setIsOverheadDialogOpen(true)
   }
@@ -492,6 +535,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       amount: "",
       frequency: "monthly",
       category: "",
+      source: "cash",
+      paidDate: new Date().toISOString().split("T")[0],
     })
   }
 
@@ -1040,7 +1085,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 type="number"
                 min={0}
                 max={100}
-                value={memberForm.currentTeamAllocation}
+                value={memberForm.currentTeamAllocation === "100" ? "" : memberForm.currentTeamAllocation}
                 onChange={(e) => setMemberForm({ ...memberForm, currentTeamAllocation: e.target.value })}
                 placeholder="100"
               />
@@ -1235,6 +1280,45 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 placeholder="Софт, інфраструктура тощо"
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Тип оплати</Label>
+                <Select
+                  value={overheadForm.source}
+                  onValueChange={(v: "cash" | "monobank" | "privat24") => setOverheadForm({ ...overheadForm, source: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Готівка</SelectItem>
+                    <SelectItem value="monobank">Monobank</SelectItem>
+                    <SelectItem value="privat24">Privat24</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="overhead-paid-date">Дата оплати</Label>
+                <Input
+                  id="overhead-paid-date"
+                  type="date"
+                  value={overheadForm.paidDate}
+                  onChange={(e) => setOverheadForm({ ...overheadForm, paidDate: e.target.value })}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {overheadForm.frequency === "one-time"
+                ? "Одноразова витрата буде додана у розділ “Змінні”."
+                : `Наступна оплата буде ${overheadForm.frequency === "monthly" ? "наступного місяця" : "наступного року"} у дату ${
+                    (() => {
+                      const baseDate = new Date(overheadForm.paidDate || new Date().toISOString().split("T")[0])
+                      if (overheadForm.frequency === "monthly") baseDate.setMonth(baseDate.getMonth() + 1)
+                      if (overheadForm.frequency === "yearly") baseDate.setFullYear(baseDate.getFullYear() + 1)
+                      return baseDate.toLocaleDateString("uk-UA")
+                    })()
+                  }.`}
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeOverheadDialog}>
