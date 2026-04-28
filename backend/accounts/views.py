@@ -1,5 +1,6 @@
 import os
 import random
+import re
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
@@ -26,10 +27,26 @@ from .serializers import (
 )
 
 User = get_user_model()
+GOOGLE_CLIENT_ID_PATTERN = re.compile(r'[\w-]+\.apps\.googleusercontent\.com')
 
 
 def _password_code_cache_key(user_id: int) -> str:
     return f"password-change-code:{user_id}"
+
+
+def _parse_google_client_ids(raw_value: str) -> list[str]:
+    """
+    Parse Google OAuth client IDs from env string.
+
+    Handles accidental copy/paste artifacts (extra words/newlines) by extracting
+    only values matching *.apps.googleusercontent.com.
+    """
+    if not raw_value:
+        return []
+
+    found_ids = GOOGLE_CLIENT_ID_PATTERN.findall(raw_value)
+    # Keep order stable while removing duplicates
+    return list(dict.fromkeys(client_id.strip() for client_id in found_ids if client_id.strip()))
 
 
 class RegisterView(APIView):
@@ -75,11 +92,9 @@ class GoogleAuthView(APIView):
         if not raw_token:
             return Response({'detail': 'id_token is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        configured_client_ids = [
-            item.strip()
-            for item in os.getenv('GOOGLE_CLIENT_IDS', os.getenv('GOOGLE_CLIENT_ID', '')).split(',')
-            if item.strip()
-        ]
+        configured_client_ids = _parse_google_client_ids(
+            os.getenv('GOOGLE_CLIENT_IDS', os.getenv('GOOGLE_CLIENT_ID', ''))
+        )
         if not configured_client_ids:
             return Response(
                 {'detail': 'GOOGLE_CLIENT_ID/GOOGLE_CLIENT_IDS не налаштований на бекенді.'},
@@ -98,13 +113,28 @@ class GoogleAuthView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        token_audience = (payload.get('aud') or '').strip()
-        if token_audience not in configured_client_ids:
+        token_audiences = set()
+
+        payload_aud = payload.get('aud')
+        if isinstance(payload_aud, str):
+            if payload_aud.strip():
+                token_audiences.add(payload_aud.strip())
+        elif isinstance(payload_aud, list):
+            token_audiences.update(
+                aud.strip() for aud in payload_aud if isinstance(aud, str) and aud.strip()
+            )
+
+        authorized_party = payload.get('azp')
+        if isinstance(authorized_party, str) and authorized_party.strip():
+            token_audiences.add(authorized_party.strip())
+
+        if not token_audiences.intersection(configured_client_ids):
             return Response(
                 {
                     'detail': (
                         'Google токен має неправильний client_id (aud). '
-                        f'Отримано: {token_audience}'
+                        f'Отримано aud/azp: {", ".join(sorted(token_audiences)) or "empty"}. '
+                        f'Очікується один із: {", ".join(configured_client_ids)}'
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
