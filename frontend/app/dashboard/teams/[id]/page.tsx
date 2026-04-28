@@ -68,7 +68,9 @@ import {
   deleteMemberUiData,
   getMemberUiData,
   getTeamOverheads,
+  getTeamMemberJoinDate,
   getTeamUiMeta,
+  setTeamMemberJoinDate,
   setMemberUiData,
   setTeamOverheads,
 } from "@/lib/storage/team-ui"
@@ -156,6 +158,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       const utilization = membership.allocation
 
       const savedMemberUi = getMemberUiData(String(membership.developer))
+      const storedJoinDate = getTeamMemberJoinDate(String(apiTeam.id), String(membership.developer))
+      const joinDate = storedJoinDate || developer?.created_at?.split("T")[0] || new Date().toISOString().split("T")[0]
       return {
         id: String(membership.developer),
         name: membership.developer_name ?? developer?.full_name ?? "Розробник",
@@ -169,16 +173,19 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         utilization,
         revenue: 0,
         teamMemberships: [{ teamId: String(apiTeam.id), teamName: apiTeam.name, allocation: membership.allocation }],
+        joinDate,
       }
     })
     const overheads = getTeamOverheads(String(apiTeam.id))
-    const metrics = calculateTeamMetrics(members, overheads)
+    const nowDate = new Date()
+    const activeMembers = members.filter((member) => new Date(member.joinDate) <= nowDate)
+    const metrics = calculateTeamMetrics(activeMembers, overheads)
     const teamContribution = totals.laborCost > 0 ? metrics.teamLaborCost / totals.laborCost : 0
     const totalRevenue = totals.revenue * teamContribution
     const membersWithCost = members.map((member) => ({
       ...member,
       monthlyCost:
-        metrics.memberCostById.get(member.id)?.totalCost ?? calculateEmployeeBaseCost(member),
+        metrics.memberCostById.get(member.id)?.totalCost ?? 0,
       teamOverheadShare: metrics.memberCostById.get(member.id)?.teamOverheadShare ?? 0,
       companyOverheadShare: metrics.memberCostById.get(member.id)?.companyOverheadShare ?? 0,
     }))
@@ -189,10 +196,15 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     const now = new Date()
     const burnRateHistory = Array.from({ length: 6 }).map((_, index) => {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1)
+      const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0)
+      const historicalMembers = members.filter((member) => new Date(member.joinDate) <= monthEnd)
+      const historicalMetrics = calculateTeamMetrics(historicalMembers, overheads)
+      const historicalContribution = totals.laborCost > 0 ? historicalMetrics.teamLaborCost / totals.laborCost : 0
+      const historicalRevenue = totals.revenue * historicalContribution
       return {
         month: monthDate.toLocaleDateString("uk-UA", { month: "short" }),
-        burnRate: metrics.burnRate,
-        revenue: totalRevenue,
+        burnRate: historicalMetrics.burnRate,
+        revenue: historicalRevenue,
       }
     })
 
@@ -391,6 +403,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         apiDeveloper.teams.map((teamMembership) => teamMembership.id),
         newMember.teamMemberships
       )
+      setTeamMemberJoinDate(String(team.id), String(apiDeveloper.id), new Date().toISOString().split("T")[0])
       await loadTeam()
       closeMemberDialog()
     } catch (err) {
