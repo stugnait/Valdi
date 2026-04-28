@@ -1,5 +1,6 @@
 import os
 import random
+import re
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
@@ -26,10 +27,26 @@ from .serializers import (
 )
 
 User = get_user_model()
+GOOGLE_CLIENT_ID_PATTERN = re.compile(r'[\w-]+\.apps\.googleusercontent\.com')
 
 
 def _password_code_cache_key(user_id: int) -> str:
     return f"password-change-code:{user_id}"
+
+
+def _parse_google_client_ids(raw_value: str) -> list[str]:
+    """
+    Parse Google OAuth client IDs from env string.
+
+    Handles accidental copy/paste artifacts (extra words/newlines) by extracting
+    only values matching *.apps.googleusercontent.com.
+    """
+    if not raw_value:
+        return []
+
+    found_ids = GOOGLE_CLIENT_ID_PATTERN.findall(raw_value)
+    # Keep order stable while removing duplicates
+    return list(dict.fromkeys(client_id.strip() for client_id in found_ids if client_id.strip()))
 
 
 class RegisterView(APIView):
@@ -75,11 +92,9 @@ class GoogleAuthView(APIView):
         if not raw_token:
             return Response({'detail': 'id_token is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        configured_client_ids = [
-            item.strip()
-            for item in os.getenv('GOOGLE_CLIENT_IDS', os.getenv('GOOGLE_CLIENT_ID', '')).split(',')
-            if item.strip()
-        ]
+        configured_client_ids = _parse_google_client_ids(
+            os.getenv('GOOGLE_CLIENT_IDS', os.getenv('GOOGLE_CLIENT_ID', ''))
+        )
         if not configured_client_ids:
             return Response(
                 {'detail': 'GOOGLE_CLIENT_ID/GOOGLE_CLIENT_IDS не налаштований на бекенді.'},
