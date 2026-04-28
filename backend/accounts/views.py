@@ -98,13 +98,28 @@ class GoogleAuthView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        token_audience = (payload.get('aud') or '').strip()
-        if token_audience not in configured_client_ids:
+        token_audiences = set()
+
+        payload_aud = payload.get('aud')
+        if isinstance(payload_aud, str):
+            if payload_aud.strip():
+                token_audiences.add(payload_aud.strip())
+        elif isinstance(payload_aud, list):
+            token_audiences.update(
+                aud.strip() for aud in payload_aud if isinstance(aud, str) and aud.strip()
+            )
+
+        authorized_party = payload.get('azp')
+        if isinstance(authorized_party, str) and authorized_party.strip():
+            token_audiences.add(authorized_party.strip())
+
+        if not token_audiences.intersection(configured_client_ids):
             return Response(
                 {
                     'detail': (
                         'Google токен має неправильний client_id (aud). '
-                        f'Отримано: {token_audience}'
+                        f'Отримано aud/azp: {", ".join(sorted(token_audiences)) or "empty"}. '
+                        f'Очікується один із: {", ".join(configured_client_ids)}'
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
