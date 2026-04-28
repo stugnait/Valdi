@@ -571,6 +571,19 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     setIsOverheadDialogOpen(true)
   }
 
+  const openCreateOverhead = () => {
+    setSelectedOverhead(null)
+    setOverheadForm({
+      name: "",
+      amount: "",
+      frequency: "monthly",
+      category: "",
+      source: "cash",
+      paidDate: new Date().toISOString().split("T")[0],
+    })
+    setIsOverheadDialogOpen(true)
+  }
+
   const closeOverheadDialog = () => {
     setIsOverheadDialogOpen(false)
     setSelectedOverhead(null)
@@ -981,7 +994,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 Витрати, що стосуються тільки цієї команди — {formatCurrency(totalOverheadsCost)}/міс
               </p>
             </div>
-            <Button onClick={() => setIsOverheadDialogOpen(true)}>
+            <Button onClick={openCreateOverhead}>
               <Plus className="mr-2 size-4" />
               Додати витрату
             </Button>
@@ -1051,7 +1064,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                   <DollarSign className="size-12 text-muted-foreground/50" />
                   <h3 className="mt-4 font-semibold">Немає командних витрат</h3>
                   <p className="text-sm text-muted-foreground">Додайте витрати, специфічні для цієї команди</p>
-                  <Button className="mt-4" onClick={() => setIsOverheadDialogOpen(true)}>
+                  <Button className="mt-4" onClick={openCreateOverhead}>
                     <Plus className="mr-2 size-4" />
                     Додати витрату
                   </Button>
