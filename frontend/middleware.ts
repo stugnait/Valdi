@@ -21,8 +21,12 @@ function isJwtActive(token: string | undefined) {
 
 export function middleware(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value
+  const refreshToken = request.cookies.get("refresh_token")?.value
 
-  if (!isJwtActive(accessToken)) {
+  const hasActiveAccess = isJwtActive(accessToken)
+  const hasActiveRefresh = isJwtActive(refreshToken)
+
+  if (!hasActiveAccess && !hasActiveRefresh) {
     const loginUrl = new URL("/auth", request.url)
     loginUrl.searchParams.set("next", request.nextUrl.pathname)
     return NextResponse.redirect(loginUrl)
