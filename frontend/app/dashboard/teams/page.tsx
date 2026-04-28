@@ -232,7 +232,9 @@ export default function TeamsHubPage() {
     }).format(value)
   }
 
-  const totalHeadcount = teams.reduce((sum, t) => sum + t.headcount, 0)
+  const totalHeadcount = new Set(
+    teams.flatMap((team) => team.members.map((member) => member.id))
+  ).size
   const totalBurnRate = teams.reduce((sum, t) => sum + t.burnRate, 0)
   const companyHours = teams.reduce(
     (acc, team) => ({
