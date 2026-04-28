@@ -148,9 +148,11 @@ class GoogleAuthView(APIView):
             )
 
         user = User.objects.filter(email=email).first()
+        is_new_user = False
         if not user:
             username = generate_unique_username(email.split('@')[0])
             user = User.objects.create_user(username=username, email=email)
+            is_new_user = True
 
         refresh = RefreshToken.for_user(user)
         return Response(
@@ -158,6 +160,7 @@ class GoogleAuthView(APIView):
                 'user': UserSerializer(user).data,
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
+                'is_new_user': is_new_user,
             },
             status=status.HTTP_200_OK,
         )
