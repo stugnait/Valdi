@@ -2,8 +2,8 @@ const testimonials = [
   {
     initials: "ІГ",
     avatarClass: "bg-blue-100 text-blue-700",
-    name: "Ігор, Founder",
-    company: "RichYou Agency",
+    name: "Ігор Г.",
+    company: "Founder, RichYou Agency",
     quote:
       "Я думав, що я багатий, поки не поставив цей SaaS. Виявилося, що я працюю за їжу. Тепер я реально керую агентством.",
   },
@@ -11,9 +11,9 @@ const testimonials = [
     initials: "АС",
     avatarClass: "bg-emerald-100 text-emerald-700",
     name: "Анонімний студент",
-    company: 'КПІ, спеціальність "Фінанси"',
+    company: 'CEO, TechFlow Studio',
     quote:
-      "На захисті диплома мені поставили 100 балів, бо я показав цей лендос. А ще я нарешті звільнив того розраба, який просто \"їв\" бюджет проекту.",
+      "Система допомогла виявити проекти, які фактично працювали в нуль через невраховані хотфікси. Тепер ми фокусуємося лише на прибуткових напрямках.",
   },
   {
     initials: "ДК",
@@ -21,7 +21,7 @@ const testimonials = [
     name: "Дмитро К.",
     company: "Founder, Digital Studio",
     quote:
-      "Моя дівчина-бариста тепер не питає, де бабки, бо я показую їй дашборд Vardi. Спокій у сім'ї дорожче за підписку.",
+      "Найбільша цінність Vardi — це спокій. Я точно знаю, скільки ми заробимо наступного місяця і чи вистачить нам на операційні витрати без касових розривів.",
   },
 ]
 
@@ -43,10 +43,10 @@ export function SocialProof() {
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col items-center text-center mb-14">
           <span className="text-xs font-semibold text-primary uppercase tracking-widest mb-3">
-            Відгуки з гумором
+            Досвід користувачів
           </span>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground text-balance max-w-xl leading-tight">
-            Що кажуть ті, хто вже перестав рахувати на пальцях
+            Відгуки власників, які обрали автоматизацію
           </h2>
         </div>
 
