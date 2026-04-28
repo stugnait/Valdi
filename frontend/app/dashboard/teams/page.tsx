@@ -47,7 +47,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { type Team } from "@/lib/types/teams"
 import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
-import { deleteTeamUiMeta, getTeamUiMeta, setTeamUiMeta } from "@/lib/storage/team-ui"
+import { deleteTeamUiMeta, getTeamOverheads, getTeamUiMeta, setTeamUiMeta } from "@/lib/storage/team-ui"
+import { calculateTeamMetrics, MONTHLY_WORK_HOURS } from "@/lib/utils/team-metrics"
 
 const colorOptions = [
   { name: "Blue", value: "#2563eb" },
@@ -57,12 +58,11 @@ const colorOptions = [
   { name: "Red", value: "#ef4444" },
   { name: "Cyan", value: "#06b6d4" },
 ]
-const MONTHLY_HOURS = 160
-
 export default function TeamsHubPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
+  const [companyRevenue, setCompanyRevenue] = useState(0)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
@@ -83,7 +83,7 @@ export default function TeamsHubPage() {
     const color = getTeamUiMeta(String(team.id)).color ?? defaultColor
     const members = team.memberships.map((membership) => {
       const developer = developersById.get(membership.developer)
-      const baseRate = Number(developer?.hourly_rate ?? 0) * MONTHLY_HOURS
+      const baseRate = Number(developer?.hourly_rate ?? 0) * MONTHLY_WORK_HOURS
       const utilization = membership.allocation
 
       return {
@@ -101,11 +101,15 @@ export default function TeamsHubPage() {
         teamMemberships: [{ teamId: normalizedId, teamName: team.name, allocation: membership.allocation }],
       }
     })
-    const burnRate = members.reduce((sum, member) => sum + member.baseRate * (member.utilization / 100), 0)
-    const teamRevenue = totals.laborCost > 0 ? (burnRate / totals.laborCost) * totals.revenue : 0
-    const utilization = members.length > 0
-      ? Math.round(members.reduce((sum, member) => sum + member.utilization, 0) / members.length)
-      : 0
+    const overheads = getTeamOverheads(normalizedId)
+    const metrics = calculateTeamMetrics(members, overheads)
+    const teamContribution = totals.laborCost > 0 ? metrics.teamLaborCost / totals.laborCost : 0
+    const teamRevenue = totals.revenue * teamContribution
+    const membersWithShares = members.map((member) => ({
+      ...member,
+      teamOverheadShare: metrics.memberCostById.get(member.id)?.teamOverheadShare ?? 0,
+      companyOverheadShare: metrics.memberCostById.get(member.id)?.companyOverheadShare ?? 0,
+    }))
 
     return {
       id: normalizedId,
@@ -113,11 +117,11 @@ export default function TeamsHubPage() {
       description: team.description,
       color,
       headcount: members.length,
-      burnRate,
-      utilization,
-      efficiencyScore: burnRate > 0 ? teamRevenue / burnRate : 0,
-      members,
-      overheads: [],
+      burnRate: metrics.burnRate,
+      utilization: metrics.utilization,
+      efficiencyScore: metrics.burnRate > 0 ? teamRevenue / metrics.burnRate : 0,
+      members: membersWithShares,
+      overheads,
       burnRateHistory: [],
     }
   }
@@ -138,6 +142,7 @@ export default function TeamsHubPage() {
         }),
         { revenue: 0, laborCost: 0 }
       )
+      setCompanyRevenue(totals.revenue)
       const developersById = new Map(developersData.map((developer) => [developer.id, developer]))
       setTeams(teamsData.map((team) => toUiTeam(team, developersById, totals)))
     } catch (err) {
@@ -228,11 +233,21 @@ export default function TeamsHubPage() {
 
   const totalHeadcount = teams.reduce((sum, t) => sum + t.headcount, 0)
   const totalBurnRate = teams.reduce((sum, t) => sum + t.burnRate, 0)
-  const avgUtilization = teams.length > 0 
-    ? Math.round(teams.reduce((sum, t) => sum + t.utilization, 0) / teams.length)
+  const companyHours = teams.reduce(
+    (acc, team) => ({
+      allocated: acc.allocated + team.members.reduce(
+        (sum, member) => sum + MONTHLY_WORK_HOURS * (member.utilization / 100),
+        0
+      ),
+      available: acc.available + team.members.length * MONTHLY_WORK_HOURS,
+    }),
+    { allocated: 0, available: 0 }
+  )
+  const avgUtilization = companyHours.available > 0
+    ? Math.round((companyHours.allocated / companyHours.available) * 100)
     : 0
-  const avgEfficiency = teams.length > 0
-    ? (teams.reduce((sum, t) => sum + t.efficiencyScore, 0) / teams.length).toFixed(2)
+  const avgEfficiency = totalBurnRate > 0
+    ? (companyRevenue / totalBurnRate).toFixed(2)
     : "0"
 
   return (
@@ -295,7 +310,7 @@ export default function TeamsHubPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Середня Efficiency
+              Загальна Efficiency
             </CardTitle>
           </CardHeader>
           <CardContent>
