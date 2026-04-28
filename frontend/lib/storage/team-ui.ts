@@ -19,6 +19,7 @@ export interface StoredTeamOverhead {
 const TEAM_META_KEY = "valdi.teamUiMeta"
 const MEMBER_UI_KEY = "valdi.memberUiData"
 const TEAM_OVERHEADS_KEY = "valdi.teamOverheads"
+const TEAM_MEMBER_JOIN_DATES_KEY = "valdi.teamMemberJoinDates"
 
 function readJson<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback
@@ -92,4 +93,15 @@ export function setTeamOverheads(teamId: string, overheads: StoredTeamOverhead[]
   const map = getTeamOverheadsMap()
   map[teamId] = overheads
   writeJson(TEAM_OVERHEADS_KEY, map)
+}
+
+export function getTeamMemberJoinDate(teamId: string, memberId: string): string | null {
+  const map = readJson<Record<string, string>>(TEAM_MEMBER_JOIN_DATES_KEY, {})
+  return map[`${teamId}:${memberId}`] ?? null
+}
+
+export function setTeamMemberJoinDate(teamId: string, memberId: string, joinDate: string) {
+  const map = readJson<Record<string, string>>(TEAM_MEMBER_JOIN_DATES_KEY, {})
+  map[`${teamId}:${memberId}`] = joinDate
+  writeJson(TEAM_MEMBER_JOIN_DATES_KEY, map)
 }
