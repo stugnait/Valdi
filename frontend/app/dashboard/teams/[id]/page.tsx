@@ -83,10 +83,10 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
-const MONTHLY_HOURS = 160
+import { calculateEmployeeBaseCost, calculateTeamMetrics, MONTHLY_WORK_HOURS } from "@/lib/utils/team-metrics"
 
 const toHourlyRatePayload = (baseRate: number, rateType: "monthly" | "hourly") => {
-  const rawHourly = rateType === "monthly" ? baseRate / MONTHLY_HOURS : baseRate
+  const rawHourly = rateType === "monthly" ? baseRate / MONTHLY_WORK_HOURS : baseRate
   return Math.round(rawHourly * 100) / 100
 }
 
@@ -130,7 +130,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
   ): Team => {
     const members = apiTeam.memberships.map((membership) => {
       const developer = developersById.get(membership.developer)
-      const baseRate = Number(developer?.hourly_rate ?? 0) * MONTHLY_HOURS
+      const baseRate = Number(developer?.hourly_rate ?? 0) * MONTHLY_WORK_HOURS
       const utilization = membership.allocation
 
       const savedMemberUi = getMemberUiData(String(membership.developer))
@@ -149,25 +149,27 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         teamMemberships: [{ teamId: String(apiTeam.id), teamName: apiTeam.name, allocation: membership.allocation }],
       }
     })
+    const overheads = getTeamOverheads(String(apiTeam.id))
+    const metrics = calculateTeamMetrics(members, overheads)
+    const teamContribution = totals.laborCost > 0 ? metrics.teamLaborCost / totals.laborCost : 0
+    const totalRevenue = totals.revenue * teamContribution
     const membersWithCost = members.map((member) => ({
       ...member,
-      monthlyCost: (member.baseRate + member.teamOverheadShare + member.companyOverheadShare) * (member.utilization / 100),
+      monthlyCost:
+        calculateEmployeeBaseCost(member) +
+        member.teamOverheadShare * (member.utilization / 100) +
+        member.companyOverheadShare * (member.utilization / 100),
     }))
-    const burnRate = membersWithCost.reduce((sum, member) => sum + member.monthlyCost, 0)
-    const totalRevenue = totals.laborCost > 0 ? (burnRate / totals.laborCost) * totals.revenue : 0
     const membersWithRevenue = membersWithCost.map((member) => ({
       ...member,
-      revenue: burnRate > 0 ? (member.monthlyCost / burnRate) * totalRevenue : 0,
+      revenue: metrics.teamLaborCost > 0 ? (calculateEmployeeBaseCost(member) / metrics.teamLaborCost) * totalRevenue : 0,
     }))
-    const utilization = members.length > 0
-      ? Math.round(members.reduce((sum, member) => sum + member.utilization, 0) / members.length)
-      : 0
     const now = new Date()
     const burnRateHistory = Array.from({ length: 6 }).map((_, index) => {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1)
       return {
         month: monthDate.toLocaleDateString("uk-UA", { month: "short" }),
-        burnRate,
+        burnRate: metrics.burnRate,
         revenue: totalRevenue,
       }
     })
@@ -178,11 +180,11 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       description: apiTeam.description,
       color: getTeamUiMeta(String(apiTeam.id)).color ?? "#2563eb",
       headcount: members.length,
-      burnRate,
-      utilization,
-      efficiencyScore: burnRate > 0 ? totalRevenue / burnRate : 0,
+      burnRate: metrics.burnRate,
+      utilization: metrics.utilization,
+      efficiencyScore: metrics.burnRate > 0 ? totalRevenue / metrics.burnRate : 0,
       members: membersWithRevenue,
-      overheads: getTeamOverheads(String(apiTeam.id)),
+      overheads,
       burnRateHistory,
     }
   }
