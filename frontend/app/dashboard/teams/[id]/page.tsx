@@ -57,19 +57,21 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { 
-  mockSkills, 
   type Team, 
   type TeamMember, 
   type TeamOverhead,
   type Skill,
   type TeamMembership
 } from "@/lib/types/teams"
+import { expenseCategories } from "@/lib/types/spendings"
 import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
 import {
   deleteMemberUiData,
   getMemberUiData,
   getTeamOverheads,
+  getTeamMemberJoinDate,
   getTeamUiMeta,
+  setTeamMemberJoinDate,
   setMemberUiData,
   setTeamOverheads,
 } from "@/lib/storage/team-ui"
@@ -83,10 +85,38 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
-const MONTHLY_HOURS = 160
+import { calculateEmployeeBaseCost, calculateTeamMetrics, MONTHLY_WORK_HOURS } from "@/lib/utils/team-metrics"
+
+const getTodayLocalDateString = () => {
+  const now = new Date()
+  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().split("T")[0]
+}
+
+const skillGroups: Array<{ title: string; skills: Skill[] }> = [
+  {
+    title: "Frontend",
+    skills: [
+      { id: "react", name: "React", color: "#61DAFB" },
+      { id: "vue", name: "Vue", color: "#42B883" },
+      { id: "angular", name: "Angular", color: "#DD0031" },
+      { id: "typescript", name: "TypeScript", color: "#3178C6" },
+      { id: "javascript", name: "JavaScript", color: "#F7DF1E" },
+    ],
+  },
+  {
+    title: "Backend",
+    skills: [
+      { id: "nodejs", name: "Node.js", color: "#339933" },
+      { id: "python", name: "Python", color: "#3776AB" },
+      { id: "java", name: "Java", color: "#F89820" },
+      { id: "go", name: "Go", color: "#00ADD8" },
+    ],
+  },
+]
 
 const toHourlyRatePayload = (baseRate: number, rateType: "monthly" | "hourly") => {
-  const rawHourly = rateType === "monthly" ? baseRate / MONTHLY_HOURS : baseRate
+  const rawHourly = rateType === "monthly" ? baseRate / MONTHLY_WORK_HOURS : baseRate
   return Math.round(rawHourly * 100) / 100
 }
 
@@ -106,8 +136,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     role: "",
     baseRate: "",
     rateType: "monthly" as "monthly" | "hourly",
-    teamOverheadShare: "0",
-    companyOverheadShare: "280",
+    currentTeamAllocation: "100",
     skills: [] as Skill[],
     teamMemberships: [] as TeamMembership[],
   })
@@ -121,6 +150,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     amount: "",
     frequency: "monthly" as "monthly" | "yearly" | "one-time",
     category: "",
+    source: "cash" as "cash" | "monobank" | "privat24",
+    paidDate: getTodayLocalDateString(),
   })
 
   const toUiTeam = (
@@ -130,10 +161,12 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
   ): Team => {
     const members = apiTeam.memberships.map((membership) => {
       const developer = developersById.get(membership.developer)
-      const baseRate = Number(developer?.hourly_rate ?? 0) * MONTHLY_HOURS
+      const baseRate = Number(developer?.hourly_rate ?? 0) * MONTHLY_WORK_HOURS
       const utilization = membership.allocation
 
       const savedMemberUi = getMemberUiData(String(membership.developer))
+      const storedJoinDate = getTeamMemberJoinDate(String(apiTeam.id), String(membership.developer))
+      const joinDate = storedJoinDate || developer?.created_at?.split("T")[0] || new Date().toISOString().split("T")[0]
       return {
         id: String(membership.developer),
         name: membership.developer_name ?? developer?.full_name ?? "Розробник",
@@ -141,34 +174,44 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         role: developer?.role ?? "",
         baseRate,
         rateType: "monthly" as const,
-        teamOverheadShare: savedMemberUi.teamOverheadShare ?? 0,
-        companyOverheadShare: savedMemberUi.companyOverheadShare ?? 280,
+        teamOverheadShare: 0,
+        companyOverheadShare: 0,
         skills: savedMemberUi.skills ?? [],
         utilization,
         revenue: 0,
         teamMemberships: [{ teamId: String(apiTeam.id), teamName: apiTeam.name, allocation: membership.allocation }],
+        joinDate,
       }
     })
+    const overheads = getTeamOverheads(String(apiTeam.id))
+    const nowDate = new Date()
+    const activeMembers = members.filter((member) => new Date(member.joinDate) <= nowDate)
+    const metrics = calculateTeamMetrics(activeMembers, overheads)
+    const teamContribution = totals.laborCost > 0 ? metrics.teamLaborCost / totals.laborCost : 0
+    const totalRevenue = totals.revenue * teamContribution
     const membersWithCost = members.map((member) => ({
       ...member,
-      monthlyCost: (member.baseRate + member.teamOverheadShare + member.companyOverheadShare) * (member.utilization / 100),
+      monthlyCost:
+        metrics.memberCostById.get(member.id)?.totalCost ?? 0,
+      teamOverheadShare: metrics.memberCostById.get(member.id)?.teamOverheadShare ?? 0,
+      companyOverheadShare: metrics.memberCostById.get(member.id)?.companyOverheadShare ?? 0,
     }))
-    const burnRate = membersWithCost.reduce((sum, member) => sum + member.monthlyCost, 0)
-    const totalRevenue = totals.laborCost > 0 ? (burnRate / totals.laborCost) * totals.revenue : 0
     const membersWithRevenue = membersWithCost.map((member) => ({
       ...member,
-      revenue: burnRate > 0 ? (member.monthlyCost / burnRate) * totalRevenue : 0,
+      revenue: metrics.teamLaborCost > 0 ? (calculateEmployeeBaseCost(member) / metrics.teamLaborCost) * totalRevenue : 0,
     }))
-    const utilization = members.length > 0
-      ? Math.round(members.reduce((sum, member) => sum + member.utilization, 0) / members.length)
-      : 0
     const now = new Date()
     const burnRateHistory = Array.from({ length: 6 }).map((_, index) => {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1)
+      const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0)
+      const historicalMembers = members.filter((member) => new Date(member.joinDate) <= monthEnd)
+      const historicalMetrics = calculateTeamMetrics(historicalMembers, overheads)
+      const historicalContribution = totals.laborCost > 0 ? historicalMetrics.teamLaborCost / totals.laborCost : 0
+      const historicalRevenue = totals.revenue * historicalContribution
       return {
         month: monthDate.toLocaleDateString("uk-UA", { month: "short" }),
-        burnRate,
-        revenue: totalRevenue,
+        burnRate: historicalMetrics.burnRate,
+        revenue: historicalRevenue,
       }
     })
 
@@ -178,11 +221,11 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       description: apiTeam.description,
       color: getTeamUiMeta(String(apiTeam.id)).color ?? "#2563eb",
       headcount: members.length,
-      burnRate,
-      utilization,
-      efficiencyScore: burnRate > 0 ? totalRevenue / burnRate : 0,
+      burnRate: metrics.burnRate,
+      utilization: metrics.utilization,
+      efficiencyScore: metrics.burnRate > 0 ? totalRevenue / metrics.burnRate : 0,
       members: membersWithRevenue,
-      overheads: getTeamOverheads(String(apiTeam.id)),
+      overheads,
       burnRateHistory,
     }
   }
@@ -194,6 +237,67 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         allocation: member.teamMemberships[0]?.allocation ?? 100,
       })),
     })
+  }
+
+  const syncDeveloperAcrossTeams = async (
+    developerId: number,
+    existingTeamIds: number[],
+    memberships: TeamMembership[]
+  ) => {
+    const allTeams = await workforceApi.listTeams()
+    const desiredMemberships = memberships.length > 0
+      ? memberships
+      : [{ teamId: String(id), teamName: "", allocation: 100 }]
+
+    const desiredByTeamId = new Map<number, number>()
+
+    desiredMemberships.forEach((membership) => {
+      const rawTeamId = Number(membership.teamId)
+      let resolvedTeamId = Number.isNaN(rawTeamId) || rawTeamId <= 0 ? null : rawTeamId
+
+      if (!resolvedTeamId && membership.teamName.trim()) {
+        const matchedTeam = allTeams.find(
+          (candidate) => candidate.name.trim().toLowerCase() === membership.teamName.trim().toLowerCase()
+        )
+        resolvedTeamId = matchedTeam?.id ?? null
+      }
+
+      if (!resolvedTeamId) return
+
+      desiredByTeamId.set(resolvedTeamId, Math.min(100, Math.max(0, membership.allocation || 0)))
+    })
+
+    if (!desiredByTeamId.has(Number(id))) {
+      desiredByTeamId.set(Number(id), 100)
+    }
+
+    const impactedTeamIds = new Set<number>([
+      ...existingTeamIds,
+      ...desiredByTeamId.keys(),
+    ])
+
+    await Promise.all(
+      Array.from(impactedTeamIds).map(async (teamId) => {
+        const targetTeam = allTeams.find((candidate) => candidate.id === teamId)
+        if (!targetTeam) return
+
+        const membershipsWithoutDeveloper = targetTeam.memberships.filter(
+          (membership) => membership.developer !== developerId
+        )
+        const nextAllocation = desiredByTeamId.get(teamId)
+        const nextMemberships =
+          nextAllocation === undefined
+            ? membershipsWithoutDeveloper
+            : [...membershipsWithoutDeveloper, { developer: developerId, allocation: nextAllocation }]
+
+        await workforceApi.updateTeam(teamId, {
+          memberships: nextMemberships.map((membership) => ({
+            developer: membership.developer,
+            allocation: membership.allocation,
+          })),
+        })
+      })
+    )
   }
 
   const loadTeam = async () => {
@@ -256,8 +360,10 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     try {
       const baseRate = parseFloat(memberForm.baseRate) || 0
       const hourlyRate = toHourlyRatePayload(baseRate, memberForm.rateType)
-      const teamOverheadShare = parseFloat(memberForm.teamOverheadShare) || 0
-      const companyOverheadShare = parseFloat(memberForm.companyOverheadShare) || 0
+      const currentTeamAllocation = Math.min(
+        100,
+        Math.max(0, parseInt(memberForm.currentTeamAllocation, 10) || 100)
+      )
       const apiDeveloper = selectedMember
         ? await workforceApi.updateDeveloper(selectedMember.id, {
             full_name: memberForm.name,
@@ -280,28 +386,31 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: memberForm.role,
       baseRate,
       rateType: memberForm.rateType,
-      teamOverheadShare,
-      companyOverheadShare,
+      teamOverheadShare: 0,
+      companyOverheadShare: 0,
       skills: memberForm.skills,
       utilization: 0,
       revenue: 0,
-      teamMemberships: memberForm.teamMemberships.length > 0 
-        ? memberForm.teamMemberships 
-        : [{ teamId: team.id, teamName: team.name, allocation: 100 }],
+      teamMemberships: (() => {
+        const nonCurrentTeamMemberships = memberForm.teamMemberships.filter(
+          (membership) => String(membership.teamId) !== String(team.id)
+        )
+        return [
+          { teamId: team.id, teamName: team.name, allocation: currentTeamAllocation },
+          ...nonCurrentTeamMemberships,
+        ]
+      })(),
     }
       setMemberUiData(newMember.id, {
-        teamOverheadShare,
-        companyOverheadShare,
         skills: newMember.skills,
       })
 
-      if (selectedMember) {
-        const updatedMembers = team.members.map(m => m.id === selectedMember.id ? newMember : m)
-        await syncTeamMemberships(updatedMembers)
-      } else {
-        const updatedMembers = [...team.members, newMember]
-        await syncTeamMemberships(updatedMembers)
-      }
+      await syncDeveloperAcrossTeams(
+        apiDeveloper.id,
+        apiDeveloper.teams.map((teamMembership) => teamMembership.id),
+        newMember.teamMemberships
+      )
+      setTeamMemberJoinDate(String(team.id), String(apiDeveloper.id), new Date().toISOString().split("T")[0])
       await loadTeam()
       closeMemberDialog()
     } catch (err) {
@@ -332,8 +441,9 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: member.role,
       baseRate: member.baseRate.toString(),
       rateType: member.rateType,
-      teamOverheadShare: member.teamOverheadShare.toString(),
-      companyOverheadShare: member.companyOverheadShare.toString(),
+      currentTeamAllocation:
+        member.teamMemberships.find((membership) => String(membership.teamId) === String(team?.id))?.allocation.toString()
+        ?? "100",
       skills: member.skills,
       teamMemberships: member.teamMemberships,
     })
@@ -349,8 +459,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       role: "",
       baseRate: "",
       rateType: "monthly",
-      teamOverheadShare: "0",
-      companyOverheadShare: "280",
+      currentTeamAllocation: "100",
       skills: [],
       teamMemberships: [],
     })
@@ -372,7 +481,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   // Overhead CRUD handlers
-  const handleSaveOverhead = () => {
+  const handleSaveOverhead = async () => {
     if (!team) return
     
     const newOverhead: TeamOverhead = {
@@ -391,6 +500,45 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       overheads: updatedOverheads,
     })
     setTeamOverheads(team.id, updatedOverheads)
+    const amount = parseFloat(overheadForm.amount) || 0
+    const paidDate = overheadForm.paidDate || getTodayLocalDateString()
+
+    try {
+      if (overheadForm.frequency === "one-time") {
+        await workforceApi.createVariableExpense({
+          name: overheadForm.name,
+          amount: amount.toString(),
+          currency: "USD",
+          category: overheadForm.category || "Team overhead",
+          source: overheadForm.source,
+          expense_date: paidDate,
+          description: `Team overhead: ${team.name}`,
+          allocation_type: "team",
+          team: Number(team.id),
+        })
+      } else {
+        const nextDate = new Date(paidDate)
+        if (overheadForm.frequency === "monthly") nextDate.setMonth(nextDate.getMonth() + 1)
+        if (overheadForm.frequency === "yearly") nextDate.setFullYear(nextDate.getFullYear() + 1)
+
+        await workforceApi.createRecurringExpense({
+          name: overheadForm.name,
+          amount: amount.toString(),
+          currency: "USD",
+          cycle: overheadForm.frequency === "monthly" ? "monthly" : "yearly",
+          category: overheadForm.category || "Team overhead",
+          source: overheadForm.source,
+          allocation_type: "team",
+          team: Number(team.id),
+          status: "pending",
+          next_payment_date: nextDate.toISOString().split("T")[0],
+          last_paid_date: paidDate,
+          description: `Team overhead: ${team.name}`,
+        })
+      }
+    } catch (syncError) {
+      setError(syncError instanceof Error ? syncError.message : "Не вдалося синхронізувати витрату")
+    }
 
     closeOverheadDialog()
   }
@@ -414,6 +562,21 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       amount: overhead.amount.toString(),
       frequency: overhead.frequency,
       category: overhead.category,
+      source: "cash",
+      paidDate: getTodayLocalDateString(),
+    })
+    setIsOverheadDialogOpen(true)
+  }
+
+  const openCreateOverhead = () => {
+    setSelectedOverhead(null)
+    setOverheadForm({
+      name: "",
+      amount: "",
+      frequency: "monthly",
+      category: "",
+      source: "cash",
+      paidDate: getTodayLocalDateString(),
     })
     setIsOverheadDialogOpen(true)
   }
@@ -426,6 +589,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       amount: "",
       frequency: "monthly",
       category: "",
+      source: "cash",
+      paidDate: getTodayLocalDateString(),
     })
   }
 
@@ -668,7 +833,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
 
           <div className="space-y-3">
             {team.members.map((member) => {
-              const totalCost = member.baseRate + member.teamOverheadShare + member.companyOverheadShare
+              const employeeBaseCost = calculateEmployeeBaseCost(member)
+              const totalCost = employeeBaseCost + member.teamOverheadShare + member.companyOverheadShare
               const isMultiTeam = member.teamMemberships.length > 1
 
               return (
@@ -741,15 +907,15 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                         {/* Cost Breakdown */}
                         <div className="grid grid-cols-4 gap-4 rounded-lg bg-muted/50 p-3 text-sm">
                           <div>
-                            <p className="text-muted-foreground text-xs">Базова ставка</p>
-                            <p className="font-medium">{formatCurrency(member.baseRate)}</p>
+                            <p className="text-muted-foreground text-xs">Базова вартість</p>
+                            <p className="font-medium">{formatCurrency(employeeBaseCost)}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground text-xs">Командні витрати</p>
                             <p className="font-medium">{formatCurrency(member.teamOverheadShare)}</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground text-xs">Загальнокомпанійні витрати</p>
+                            <p className="text-muted-foreground text-xs">Витрати компанії</p>
                             <p className="font-medium">{formatCurrency(member.companyOverheadShare)}</p>
                           </div>
                           <div>
@@ -816,7 +982,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 Витрати, що стосуються тільки цієї команди — {formatCurrency(totalOverheadsCost)}/міс
               </p>
             </div>
-            <Button onClick={() => setIsOverheadDialogOpen(true)}>
+            <Button onClick={openCreateOverhead}>
               <Plus className="mr-2 size-4" />
               Додати витрату
             </Button>
@@ -886,7 +1052,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                   <DollarSign className="size-12 text-muted-foreground/50" />
                   <h3 className="mt-4 font-semibold">Немає командних витрат</h3>
                   <p className="text-sm text-muted-foreground">Додайте витрати, специфічні для цієї команди</p>
-                  <Button className="mt-4" onClick={() => setIsOverheadDialogOpen(true)}>
+                  <Button className="mt-4" onClick={openCreateOverhead}>
                     <Plus className="mr-2 size-4" />
                     Додати витрату
                   </Button>
@@ -966,53 +1132,52 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="member-team-overhead">Командні витрати ($/міс)</Label>
-                <Input
-                  id="member-team-overhead"
-                  type="number"
-                  value={memberForm.teamOverheadShare}
-                  onChange={(e) => setMemberForm({ ...memberForm, teamOverheadShare: e.target.value })}
-                  placeholder="0"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="member-company-overhead">Загальнокомпанійні витрати ($/міс)</Label>
-                <Input
-                  id="member-company-overhead"
-                  type="number"
-                  value={memberForm.companyOverheadShare}
-                  onChange={(e) => setMemberForm({ ...memberForm, companyOverheadShare: e.target.value })}
-                  placeholder="280"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="member-current-allocation">Залученість у цій команді (%)</Label>
+              <Input
+                id="member-current-allocation"
+                type="number"
+                min={0}
+                max={100}
+                value={memberForm.currentTeamAllocation === "100" ? "" : memberForm.currentTeamAllocation}
+                onChange={(e) => setMemberForm({ ...memberForm, currentTeamAllocation: e.target.value })}
+                placeholder="100"
+              />
             </div>
             <div className="space-y-2">
               <Label>Навички</Label>
-              <div className="flex flex-wrap gap-2">
-                {mockSkills.map((skill) => {
-                  const isSelected = memberForm.skills.some(s => s.id === skill.id)
-                  return (
-                    <button
-                      key={skill.id}
-                      type="button"
-                      onClick={() => toggleSkill(skill)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                        isSelected 
-                          ? "ring-2 ring-offset-1" 
-                          : "opacity-60 hover:opacity-100"
-                      }`}
-                      style={{ 
-                        backgroundColor: `${skill.color}20`, 
-                        color: skill.color,
-                        borderColor: skill.color,
-                      }}
-                    >
-                      {isSelected && "✓ "}{skill.name}
-                    </button>
-                  )
-                })}
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-muted-foreground">Tech Stack</p>
+                {skillGroups.map((group) => (
+                  <div key={group.title} className="space-y-2">
+                    <p className="text-xs font-semibold text-foreground/80">{group.title}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {group.skills.map((skill) => {
+                        const isSelected = memberForm.skills.some((s) => s.id === skill.id)
+                        return (
+                          <button
+                            key={skill.id}
+                            type="button"
+                            onClick={() => toggleSkill(skill)}
+                            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                              isSelected
+                                ? "ring-2 ring-offset-1"
+                                : "opacity-60 hover:opacity-100"
+                            }`}
+                            style={{
+                              backgroundColor: `${skill.color}20`,
+                              color: skill.color,
+                              borderColor: skill.color,
+                            }}
+                          >
+                            {isSelected && "✓ "}
+                            {skill.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
             <div className="space-y-2">
@@ -1035,10 +1200,15 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                     />
                     <Input 
                       type="number"
-                      value={tm.allocation}
+                      value={tm.allocation === 0 ? "" : tm.allocation}
+                      placeholder="0"
                       onChange={(e) => {
                         const updated = [...memberForm.teamMemberships]
-                        updated[idx] = { ...tm, allocation: parseInt(e.target.value) || 0 }
+                        const allocationValue = e.target.value
+                        updated[idx] = {
+                          ...tm,
+                          allocation: allocationValue === "" ? 0 : parseInt(allocationValue) || 0,
+                        }
                         setMemberForm({ ...memberForm, teamMemberships: updated })
                       }}
                       className="w-20"
@@ -1166,19 +1336,72 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
             </div>
             <div className="space-y-2">
               <Label htmlFor="overhead-category">Категорія</Label>
-              <Input
-                id="overhead-category"
-                value={overheadForm.category}
-                onChange={(e) => setOverheadForm({ ...overheadForm, category: e.target.value })}
-                placeholder="Софт, інфраструктура тощо"
-              />
+              <Select
+                value={overheadForm.category || "__placeholder__"}
+                onValueChange={(value) =>
+                  setOverheadForm({ ...overheadForm, category: value === "__placeholder__" ? "" : value })
+                }
+              >
+                <SelectTrigger id="overhead-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__placeholder__" disabled>
+                    Оберіть категорію
+                  </SelectItem>
+                  {expenseCategories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Тип оплати</Label>
+                <Select
+                  value={overheadForm.source}
+                  onValueChange={(v: "cash" | "monobank" | "privat24") => setOverheadForm({ ...overheadForm, source: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Готівка</SelectItem>
+                    <SelectItem value="monobank">Monobank</SelectItem>
+                    <SelectItem value="privat24">Privat24</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="overhead-paid-date">Дата оплати</Label>
+                <Input
+                  id="overhead-paid-date"
+                  type="date"
+                  value={overheadForm.paidDate}
+                  onChange={(e) => setOverheadForm({ ...overheadForm, paidDate: e.target.value })}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {overheadForm.frequency === "one-time"
+                ? "Одноразова витрата буде додана у розділ “Змінні”."
+                : `Наступна оплата буде ${overheadForm.frequency === "monthly" ? "наступного місяця" : "наступного року"} у дату ${
+                    (() => {
+                      const baseDate = new Date(overheadForm.paidDate || new Date().toISOString().split("T")[0])
+                      if (overheadForm.frequency === "monthly") baseDate.setMonth(baseDate.getMonth() + 1)
+                      if (overheadForm.frequency === "yearly") baseDate.setFullYear(baseDate.getFullYear() + 1)
+                      return baseDate.toLocaleDateString("uk-UA")
+                    })()
+                  }.`}
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeOverheadDialog}>
               Скасувати
             </Button>
-            <Button onClick={handleSaveOverhead} disabled={!overheadForm.name.trim()}>
+            <Button onClick={handleSaveOverhead} disabled={!overheadForm.name.trim() || !overheadForm.category}>
               {selectedOverhead ? "Зберегти" : "Додати"}
             </Button>
           </DialogFooter>
