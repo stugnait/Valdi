@@ -47,7 +47,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { type Team } from "@/lib/types/teams"
 import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
-import { deleteTeamUiMeta, getTeamOverheads, getTeamUiMeta, setTeamUiMeta } from "@/lib/storage/team-ui"
+import { deleteTeamUiMeta, getMemberUiData, getTeamOverheads, getTeamUiMeta, setTeamUiMeta } from "@/lib/storage/team-ui"
 import { calculateTeamMetrics, MONTHLY_WORK_HOURS } from "@/lib/utils/team-metrics"
 
 const colorOptions = [
@@ -94,9 +94,9 @@ export default function TeamsHubPage() {
         role: developer?.role ?? "",
         baseRate,
         rateType: "monthly" as const,
-        teamOverheadShare: savedMemberUi.teamOverheadShare ?? 0,
-        companyOverheadShare: savedMemberUi.companyOverheadShare ?? 280,
-        skills: [],
+        teamOverheadShare: 0,
+        companyOverheadShare: 0,
+        skills: savedMemberUi.skills ?? [],
         utilization,
         revenue: 0,
         teamMemberships: [{ teamId: normalizedId, teamName: team.name, allocation: membership.allocation }],
