@@ -63,7 +63,7 @@ import {
   type Skill,
   type TeamMembership
 } from "@/lib/types/teams"
-import { expenseCategories } from "@/lib/types/spendings"
+import { expenseCategories, type Currency } from "@/lib/types/spendings"
 import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
 import {
   deleteMemberUiData,
@@ -150,6 +150,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
   const [overheadForm, setOverheadForm] = useState({
     name: "",
     amount: "",
+    currency: "USD" as Currency,
     frequency: "monthly" as "monthly" | "yearly" | "one-time",
     category: "",
     source: "cash" as "cash" | "monobank" | "privat24",
@@ -519,7 +520,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         await workforceApi.createVariableExpense({
           name: overheadForm.name,
           amount: amount.toString(),
-          currency: "USD",
+          currency: overheadForm.currency,
           category: overheadForm.category || "Team overhead",
           source: overheadForm.source,
           expense_date: paidDate,
@@ -535,7 +536,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         await workforceApi.createRecurringExpense({
           name: overheadForm.name,
           amount: amount.toString(),
-          currency: "USD",
+          currency: overheadForm.currency,
           cycle: overheadForm.frequency === "monthly" ? "monthly" : "yearly",
           category: overheadForm.category || "Team overhead",
           source: overheadForm.source,
@@ -571,6 +572,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     setOverheadForm({
       name: overhead.name,
       amount: overhead.amount.toString(),
+      currency: "USD",
       frequency: overhead.frequency,
       category: overhead.category,
       source: "cash",
@@ -584,6 +586,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     setOverheadForm({
       name: "",
       amount: "",
+      currency: "USD",
       frequency: "monthly",
       category: "",
       source: "cash",
@@ -598,6 +601,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     setOverheadForm({
       name: "",
       amount: "",
+      currency: "USD",
       frequency: "monthly",
       category: "",
       source: "cash",
@@ -1327,23 +1331,39 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 />
               </div>
               <div className="space-y-2">
-                <Label>Частота</Label>
-                <Select 
-                  value={overheadForm.frequency} 
-                  onValueChange={(v: "monthly" | "yearly" | "one-time") => 
-                    setOverheadForm({ ...overheadForm, frequency: v })
-                  }
+                <Label>Валюта</Label>
+                <Select
+                  value={overheadForm.currency}
+                  onValueChange={(v: Currency) => setOverheadForm({ ...overheadForm, currency: v })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="monthly">Щомісяця</SelectItem>
-                    <SelectItem value="yearly">Щороку</SelectItem>
-                    <SelectItem value="one-time">Одноразово</SelectItem>
+                    <SelectItem value="USD">USD ($)</SelectItem>
+                    <SelectItem value="EUR">EUR (€)</SelectItem>
+                    <SelectItem value="UAH">UAH (₴)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Частота</Label>
+              <Select 
+                value={overheadForm.frequency} 
+                onValueChange={(v: "monthly" | "yearly" | "one-time") => 
+                  setOverheadForm({ ...overheadForm, frequency: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Щомісяця</SelectItem>
+                  <SelectItem value="yearly">Щороку</SelectItem>
+                  <SelectItem value="one-time">Одноразово</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="overhead-category">Категорія</Label>
