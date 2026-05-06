@@ -79,14 +79,14 @@ import {
   calculateMonthlyTotal,
   getNextBigPayment,
 } from "@/lib/types/spendings"
-import { mockTeams } from "@/lib/types/teams"
-import { mockProjects } from "@/lib/types/projects"
-import { workforceApi, type ApiRecurringExpense } from "@/lib/api/workforce"
+import { workforceApi, type ApiRecurringExpense, type ApiTeam, type ApiProject } from "@/lib/api/workforce"
 
 export default function RecurringExpensesPage() {
   const [expenses, setExpenses] = useState<RecurringExpense[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [teams, setTeams] = useState<ApiTeam[]>([])
+  const [projects, setProjects] = useState<ApiProject[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -145,8 +145,21 @@ export default function RecurringExpensesPage() {
     }
   }
 
+  const loadAllocationEntities = async () => {
+    try {
+      const [teamsPayload, projectsPayload] = await Promise.all([
+        workforceApi.listTeams(),
+        workforceApi.listProjects(),
+      ])
+      setTeams(teamsPayload)
+      setProjects(projectsPayload)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити команди та проєкти")
+    }
+  }
+
   useEffect(() => {
-    void loadExpenses()
+    void Promise.all([loadExpenses(), loadAllocationEntities()])
   }, [])
 
   // Stats
@@ -705,9 +718,15 @@ export default function RecurringExpensesPage() {
                     <SelectValue placeholder="Оберіть команду" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockTeams.map(team => (
-                      <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                    ))}
+                    {teams.length > 0 ? (
+                      teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id.toString()}>
+                          {team.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">Наразі команд немає</div>
+                    )}
                   </SelectContent>
                 </Select>
               )}
@@ -721,11 +740,15 @@ export default function RecurringExpensesPage() {
                     <SelectValue placeholder="Оберіть проєкт" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockProjects.filter(p => p.status === "active").map(project => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name} — {project.client.name}
-                      </SelectItem>
-                    ))}
+                    {projects.length > 0 ? (
+                      projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id.toString()}>
+                          {project.name} — {project.client_name || "Без клієнта"}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">Наразі проєктів немає</div>
+                    )}
                   </SelectContent>
                 </Select>
               )}
