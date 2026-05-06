@@ -174,6 +174,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     developersById: Map<number, ApiDeveloper>,
     totals: { revenue: number; laborCost: number },
     overheads: TeamOverhead[],
+    teamOverheadsForMetrics: TeamOverhead[],
     sharedAllOverheadPerMember: number,
     ownedMemberIds: Set<number>
   ): Team => {
@@ -204,7 +205,11 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     const nowDate = new Date()
     const activeMembers = members.filter((member) => new Date(member.joinDate) <= nowDate)
     const activeOwnedMemberCount = activeMembers.filter((member) => ownedMemberIds.has(Number(member.id))).length
-    const metrics = calculateTeamMetrics(activeMembers, overheads, sharedAllOverheadPerMember * activeOwnedMemberCount)
+    const metrics = calculateTeamMetrics(
+      activeMembers,
+      teamOverheadsForMetrics,
+      sharedAllOverheadPerMember * activeOwnedMemberCount
+    )
     const teamContribution = totals.laborCost > 0 ? metrics.teamLaborCost / totals.laborCost : 0
     const totalRevenue = totals.revenue * teamContribution
     const membersWithCost = members.map((member) => ({
@@ -226,7 +231,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       const historicalOwnedMemberCount = historicalMembers.filter((member) => ownedMemberIds.has(Number(member.id))).length
       const historicalMetrics = calculateTeamMetrics(
         historicalMembers,
-        overheads,
+        teamOverheadsForMetrics,
         sharedAllOverheadPerMember * historicalOwnedMemberCount
       )
       const historicalContribution = totals.laborCost > 0 ? historicalMetrics.teamLaborCost / totals.laborCost : 0
@@ -376,9 +381,40 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           .filter((membership) => memberOwnerTeamId.get(membership.developer) === apiTeam.id)
           .map((membership) => membership.developer)
       )
-      const overheads = teamRecurringOverheads
+      const companyAllocatedOverheads = recurringExpenses
+        .filter((expense) => expense.allocation_type === "all")
+        .map((expense) => {
+          const amount = Number(expense.amount || 0)
+          const monthlyAmount =
+            expense.cycle === "yearly"
+              ? amount / 12
+              : expense.cycle === "quarterly"
+                ? amount / 3
+                : amount
+          const allocatedAmount =
+            uniqueMemberIds.size > 0 ? (monthlyAmount / uniqueMemberIds.size) * ownedMemberCountForTeam : 0
+          return {
+            id: `company-${expense.id}`,
+            name: `${expense.name} (витрата компанії)`,
+            amount: allocatedAmount,
+            frequency: "monthly" as const,
+            category: "Company overhead",
+          }
+        })
+        .filter((expense) => expense.amount > 0)
+      const overheads = [...teamRecurringOverheads, ...companyAllocatedOverheads]
 
-      setTeam(toUiTeam(apiTeam, developersById, totals, overheads, sharedAllOverheadPerMember, ownedMemberIdsForTeam))
+      setTeam(
+        toUiTeam(
+          apiTeam,
+          developersById,
+          totals,
+          overheads,
+          teamRecurringOverheads,
+          sharedAllOverheadPerMember,
+          ownedMemberIdsForTeam
+        )
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося завантажити команду")
     } finally {
@@ -1097,23 +1133,32 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                           <MoreHorizontal className="size-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditOverhead(overhead)}>
-                          <Pencil className="mr-2 size-4" />
-                          Редагувати
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            setSelectedOverhead(overhead)
-                            setIsDeleteOverheadOpen(true)
-                          }}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 size-4" />
-                          Видалити
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
+                        <DropdownMenuContent align="end">
+                        {overhead.id.startsWith("company-") ? (
+                          <DropdownMenuItem disabled>
+                            <Building2 className="mr-2 size-4" />
+                            Керується зі сторінки «Регулярні»
+                          </DropdownMenuItem>
+                        ) : (
+                          <>
+                            <DropdownMenuItem onClick={() => openEditOverhead(overhead)}>
+                              <Pencil className="mr-2 size-4" />
+                              Редагувати
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                setSelectedOverhead(overhead)
+                                setIsDeleteOverheadOpen(true)
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 size-4" />
+                              Видалити
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 </CardContent>
