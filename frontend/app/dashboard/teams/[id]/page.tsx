@@ -173,7 +173,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     apiTeam: ApiTeam,
     developersById: Map<number, ApiDeveloper>,
     totals: { revenue: number; laborCost: number },
-    overheads: TeamOverhead[]
+    overheads: TeamOverhead[],
+    sharedAllOverheadPerMember: number
   ): Team => {
     const members = apiTeam.memberships.map((membership) => {
       const developer = developersById.get(membership.developer)
@@ -201,7 +202,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     })
     const nowDate = new Date()
     const activeMembers = members.filter((member) => new Date(member.joinDate) <= nowDate)
-    const metrics = calculateTeamMetrics(activeMembers, overheads)
+    const metrics = calculateTeamMetrics(activeMembers, overheads, sharedAllOverheadPerMember * activeMembers.length)
     const teamContribution = totals.laborCost > 0 ? metrics.teamLaborCost / totals.laborCost : 0
     const totalRevenue = totals.revenue * teamContribution
     const membersWithCost = members.map((member) => ({
@@ -220,7 +221,11 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       const monthDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1)
       const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0)
       const historicalMembers = members.filter((member) => new Date(member.joinDate) <= monthEnd)
-      const historicalMetrics = calculateTeamMetrics(historicalMembers, overheads)
+      const historicalMetrics = calculateTeamMetrics(
+        historicalMembers,
+        overheads,
+        sharedAllOverheadPerMember * historicalMembers.length
+      )
       const historicalContribution = totals.laborCost > 0 ? historicalMetrics.teamLaborCost / totals.laborCost : 0
       const historicalRevenue = totals.revenue * historicalContribution
       return {
@@ -319,11 +324,12 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     setIsLoading(true)
     setError("")
     try {
-      const [apiTeam, developers, projects, recurringExpenses] = await Promise.all([
+      const [apiTeam, developers, projects, recurringExpenses, allTeams] = await Promise.all([
         workforceApi.getTeam(id),
         workforceApi.listDevelopers(),
         workforceApi.listProjects(),
         workforceApi.listRecurringExpenses(),
+        workforceApi.listTeams(),
       ])
       const totals = projects.reduce(
         (acc, project) => ({
@@ -336,7 +342,21 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       const overheads = recurringExpenses
         .filter((expense) => expense.allocation_type === "team" && expense.team?.toString() === id)
         .map(toTeamOverheadFromRecurring)
-      setTeam(toUiTeam(apiTeam, developersById, totals, overheads))
+      const allRecurringMonthlyTotal = recurringExpenses
+        .filter((expense) => expense.allocation_type === "all")
+        .reduce((sum, expense) => {
+          const amount = Number(expense.amount || 0)
+          if (expense.cycle === "yearly") return sum + amount / 12
+          if (expense.cycle === "quarterly") return sum + amount / 3
+          return sum + amount
+        }, 0)
+      const uniqueMemberIds = new Set(
+        allTeams.flatMap((teamItem) => teamItem.memberships.map((membership) => membership.developer))
+      )
+      const sharedAllOverheadPerMember =
+        uniqueMemberIds.size > 0 ? allRecurringMonthlyTotal / uniqueMemberIds.size : 0
+
+      setTeam(toUiTeam(apiTeam, developersById, totals, overheads, sharedAllOverheadPerMember))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося завантажити команду")
     } finally {
