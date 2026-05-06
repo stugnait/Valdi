@@ -64,7 +64,7 @@ import {
   type TeamMembership
 } from "@/lib/types/teams"
 import { expenseCategories, type Currency } from "@/lib/types/spendings"
-import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
+import { type ApiDeveloper, type ApiRecurringExpense, type ApiTeam, workforceApi } from "@/lib/api/workforce"
 import {
   deleteMemberUiData,
   getMemberUiData,
@@ -595,7 +595,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         if (overheadForm.frequency === "monthly") nextDate.setMonth(nextDate.getMonth() + 1)
         if (overheadForm.frequency === "yearly") nextDate.setFullYear(nextDate.getFullYear() + 1)
 
-        const recurringPayload = {
+        const recurringPayload: Partial<ApiRecurringExpense> = {
           name: overheadForm.name,
           amount: amount.toString(),
           currency: overheadForm.currency,
