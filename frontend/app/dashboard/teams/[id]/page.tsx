@@ -68,12 +68,10 @@ import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workfor
 import {
   deleteMemberUiData,
   getMemberUiData,
-  getTeamOverheads,
   getTeamMemberJoinDate,
   getTeamUiMeta,
   setTeamMemberJoinDate,
   setMemberUiData,
-  setTeamOverheads,
 } from "@/lib/storage/team-ui"
 import {
   Area,
@@ -122,6 +120,20 @@ const toHourlyRatePayload = (baseRate: number, rateType: "monthly" | "hourly") =
   return Math.round(rawHourly * 100) / 100
 }
 
+const toTeamOverheadFromRecurring = (expense: {
+  id: number
+  name: string
+  amount: string
+  cycle: "monthly" | "quarterly" | "yearly"
+  category: string
+}): TeamOverhead => ({
+  id: expense.id.toString(),
+  name: expense.name,
+  amount: Number(expense.amount || 0),
+  frequency: expense.cycle === "yearly" ? "yearly" : "monthly",
+  category: expense.category,
+})
+
 export default function TeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [team, setTeam] = useState<Team | null>(null)
@@ -160,7 +172,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
   const toUiTeam = (
     apiTeam: ApiTeam,
     developersById: Map<number, ApiDeveloper>,
-    totals: { revenue: number; laborCost: number }
+    totals: { revenue: number; laborCost: number },
+    overheads: TeamOverhead[]
   ): Team => {
     const members = apiTeam.memberships.map((membership) => {
       const developer = developersById.get(membership.developer)
@@ -186,7 +199,6 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         joinDate,
       }
     })
-    const overheads = getTeamOverheads(String(apiTeam.id))
     const nowDate = new Date()
     const activeMembers = members.filter((member) => new Date(member.joinDate) <= nowDate)
     const metrics = calculateTeamMetrics(activeMembers, overheads)
@@ -307,10 +319,11 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     setIsLoading(true)
     setError("")
     try {
-      const [apiTeam, developers, projects] = await Promise.all([
+      const [apiTeam, developers, projects, recurringExpenses] = await Promise.all([
         workforceApi.getTeam(id),
         workforceApi.listDevelopers(),
         workforceApi.listProjects(),
+        workforceApi.listRecurringExpenses(),
       ])
       const totals = projects.reduce(
         (acc, project) => ({
@@ -320,7 +333,10 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         { revenue: 0, laborCost: 0 }
       )
       const developersById = new Map(developers.map((developer) => [developer.id, developer]))
-      setTeam(toUiTeam(apiTeam, developersById, totals))
+      const overheads = recurringExpenses
+        .filter((expense) => expense.allocation_type === "team" && expense.team?.toString() === id)
+        .map(toTeamOverheadFromRecurring)
+      setTeam(toUiTeam(apiTeam, developersById, totals, overheads))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося завантажити команду")
     } finally {
@@ -495,23 +511,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
   // Overhead CRUD handlers
   const handleSaveOverhead = async () => {
     if (!team) return
-    
-    const newOverhead: TeamOverhead = {
-      id: selectedOverhead?.id || `o-${Date.now()}`,
-      name: overheadForm.name,
-      amount: parseFloat(overheadForm.amount) || 0,
-      frequency: overheadForm.frequency,
-      category: overheadForm.category,
-    }
 
-    const updatedOverheads = selectedOverhead
-      ? team.overheads.map(o => o.id === selectedOverhead.id ? newOverhead : o)
-      : [...team.overheads, newOverhead]
-    setTeam({
-      ...team,
-      overheads: updatedOverheads,
-    })
-    setTeamOverheads(team.id, updatedOverheads)
     const amount = parseFloat(overheadForm.amount) || 0
     const paidDate = overheadForm.paidDate || getTodayLocalDateString()
 
@@ -533,21 +533,34 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         if (overheadForm.frequency === "monthly") nextDate.setMonth(nextDate.getMonth() + 1)
         if (overheadForm.frequency === "yearly") nextDate.setFullYear(nextDate.getFullYear() + 1)
 
-        await workforceApi.createRecurringExpense({
+        const recurringPayload = {
           name: overheadForm.name,
           amount: amount.toString(),
           currency: overheadForm.currency,
-          cycle: overheadForm.frequency === "monthly" ? "monthly" : "yearly",
+          cycle: overheadForm.frequency === "monthly" ? "monthly" : "yearly" as const,
           category: overheadForm.category || "Team overhead",
           source: overheadForm.source,
-          allocation_type: "team",
+          allocation_type: "team" as const,
           team: Number(team.id),
-          status: "pending",
+          status: "pending" as const,
           next_payment_date: nextDate.toISOString().split("T")[0],
           last_paid_date: paidDate,
           description: `Team overhead: ${team.name}`,
-        })
+        }
+        if (selectedOverhead) {
+          await workforceApi.updateRecurringExpense(selectedOverhead.id, recurringPayload)
+        } else {
+          await workforceApi.createRecurringExpense(recurringPayload)
+        }
       }
+      const recurringExpenses = await workforceApi.listRecurringExpenses()
+      const updatedOverheads = recurringExpenses
+        .filter((expense) => expense.allocation_type === "team" && expense.team?.toString() === team.id)
+        .map(toTeamOverheadFromRecurring)
+      setTeam({
+        ...team,
+        overheads: updatedOverheads,
+      })
     } catch (syncError) {
       setError(syncError instanceof Error ? syncError.message : "Не вдалося синхронізувати витрату")
     }
@@ -555,14 +568,18 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     closeOverheadDialog()
   }
 
-  const handleDeleteOverhead = () => {
+  const handleDeleteOverhead = async () => {
     if (!team || !selectedOverhead) return
-    const updatedOverheads = team.overheads.filter(o => o.id !== selectedOverhead.id)
-    setTeam({
-      ...team,
-      overheads: updatedOverheads,
-    })
-    setTeamOverheads(team.id, updatedOverheads)
+    try {
+      await workforceApi.deleteRecurringExpense(selectedOverhead.id)
+      const updatedOverheads = team.overheads.filter(o => o.id !== selectedOverhead.id)
+      setTeam({
+        ...team,
+        overheads: updatedOverheads,
+      })
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Не вдалося видалити витрату")
+    }
     setIsDeleteOverheadOpen(false)
     setSelectedOverhead(null)
   }
