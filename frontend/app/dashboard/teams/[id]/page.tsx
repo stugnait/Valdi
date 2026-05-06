@@ -126,11 +126,10 @@ const toTeamOverheadFromRecurring = (expense: {
   amount: string
   cycle: "monthly" | "quarterly" | "yearly"
   category: string
-  allocatedAmount?: number
 }): TeamOverhead => ({
   id: expense.id.toString(),
   name: expense.name,
-  amount: expense.allocatedAmount ?? Number(expense.amount || 0),
+  amount: Number(expense.amount || 0),
   frequency: expense.cycle === "yearly" ? "yearly" : "monthly",
   category: expense.category,
 })
@@ -377,26 +376,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           .filter((membership) => memberOwnerTeamId.get(membership.developer) === apiTeam.id)
           .map((membership) => membership.developer)
       )
-      const allocatedAllOverheads = recurringExpenses
-        .filter((expense) => expense.allocation_type === "all")
-        .map((expense) => {
-          const amount = Number(expense.amount || 0)
-          const monthlyAmount =
-            expense.cycle === "yearly"
-              ? amount / 12
-              : expense.cycle === "quarterly"
-                ? amount / 3
-                : amount
-          const allocatedAmount =
-            uniqueMemberIds.size > 0 ? (monthlyAmount / uniqueMemberIds.size) * ownedMemberCountForTeam : 0
-          return toTeamOverheadFromRecurring({
-            ...expense,
-            amount: monthlyAmount.toString(),
-            cycle: "monthly",
-            allocatedAmount,
-          })
-        })
-      const overheads = [...teamRecurringOverheads, ...allocatedAllOverheads]
+      const overheads = teamRecurringOverheads
 
       setTeam(toUiTeam(apiTeam, developersById, totals, overheads, sharedAllOverheadPerMember, ownedMemberIdsForTeam))
     } catch (err) {
