@@ -126,10 +126,11 @@ const toTeamOverheadFromRecurring = (expense: {
   amount: string
   cycle: "monthly" | "quarterly" | "yearly"
   category: string
+  allocatedAmount?: number
 }): TeamOverhead => ({
   id: expense.id.toString(),
   name: expense.name,
-  amount: Number(expense.amount || 0),
+  amount: expense.allocatedAmount ?? Number(expense.amount || 0),
   frequency: expense.cycle === "yearly" ? "yearly" : "monthly",
   category: expense.category,
 })
@@ -174,7 +175,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     developersById: Map<number, ApiDeveloper>,
     totals: { revenue: number; laborCost: number },
     overheads: TeamOverhead[],
-    sharedAllOverheadPerMember: number
+    sharedAllOverheadPerMember: number,
+    ownedMemberIds: Set<number>
   ): Team => {
     const members = apiTeam.memberships.map((membership) => {
       const developer = developersById.get(membership.developer)
@@ -202,7 +204,8 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     })
     const nowDate = new Date()
     const activeMembers = members.filter((member) => new Date(member.joinDate) <= nowDate)
-    const metrics = calculateTeamMetrics(activeMembers, overheads, sharedAllOverheadPerMember * activeMembers.length)
+    const activeOwnedMemberCount = activeMembers.filter((member) => ownedMemberIds.has(Number(member.id))).length
+    const metrics = calculateTeamMetrics(activeMembers, overheads, sharedAllOverheadPerMember * activeOwnedMemberCount)
     const teamContribution = totals.laborCost > 0 ? metrics.teamLaborCost / totals.laborCost : 0
     const totalRevenue = totals.revenue * teamContribution
     const membersWithCost = members.map((member) => ({
@@ -221,10 +224,11 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       const monthDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1)
       const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0)
       const historicalMembers = members.filter((member) => new Date(member.joinDate) <= monthEnd)
+      const historicalOwnedMemberCount = historicalMembers.filter((member) => ownedMemberIds.has(Number(member.id))).length
       const historicalMetrics = calculateTeamMetrics(
         historicalMembers,
         overheads,
-        sharedAllOverheadPerMember * historicalMembers.length
+        sharedAllOverheadPerMember * historicalOwnedMemberCount
       )
       const historicalContribution = totals.laborCost > 0 ? historicalMetrics.teamLaborCost / totals.laborCost : 0
       const historicalRevenue = totals.revenue * historicalContribution
@@ -339,7 +343,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         { revenue: 0, laborCost: 0 }
       )
       const developersById = new Map(developers.map((developer) => [developer.id, developer]))
-      const overheads = recurringExpenses
+      const teamRecurringOverheads = recurringExpenses
         .filter((expense) => expense.allocation_type === "team" && expense.team?.toString() === id)
         .map(toTeamOverheadFromRecurring)
       const allRecurringMonthlyTotal = recurringExpenses
@@ -353,10 +357,48 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       const uniqueMemberIds = new Set(
         allTeams.flatMap((teamItem) => teamItem.memberships.map((membership) => membership.developer))
       )
+      const memberOwnerTeamId = new Map<number, number>()
+      ;[...allTeams]
+        .sort((a, b) => a.id - b.id)
+        .forEach((teamItem) => {
+          teamItem.memberships.forEach((membership) => {
+            if (!memberOwnerTeamId.has(membership.developer)) {
+              memberOwnerTeamId.set(membership.developer, teamItem.id)
+            }
+          })
+        })
       const sharedAllOverheadPerMember =
         uniqueMemberIds.size > 0 ? allRecurringMonthlyTotal / uniqueMemberIds.size : 0
+      const ownedMemberCountForTeam = apiTeam.memberships.filter(
+        (membership) => memberOwnerTeamId.get(membership.developer) === apiTeam.id
+      ).length
+      const ownedMemberIdsForTeam = new Set(
+        apiTeam.memberships
+          .filter((membership) => memberOwnerTeamId.get(membership.developer) === apiTeam.id)
+          .map((membership) => membership.developer)
+      )
+      const allocatedAllOverheads = recurringExpenses
+        .filter((expense) => expense.allocation_type === "all")
+        .map((expense) => {
+          const amount = Number(expense.amount || 0)
+          const monthlyAmount =
+            expense.cycle === "yearly"
+              ? amount / 12
+              : expense.cycle === "quarterly"
+                ? amount / 3
+                : amount
+          const allocatedAmount =
+            uniqueMemberIds.size > 0 ? (monthlyAmount / uniqueMemberIds.size) * ownedMemberCountForTeam : 0
+          return toTeamOverheadFromRecurring({
+            ...expense,
+            amount: monthlyAmount.toString(),
+            cycle: "monthly",
+            allocatedAmount,
+          })
+        })
+      const overheads = [...teamRecurringOverheads, ...allocatedAllOverheads]
 
-      setTeam(toUiTeam(apiTeam, developersById, totals, overheads, sharedAllOverheadPerMember))
+      setTeam(toUiTeam(apiTeam, developersById, totals, overheads, sharedAllOverheadPerMember, ownedMemberIdsForTeam))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося завантажити команду")
     } finally {
