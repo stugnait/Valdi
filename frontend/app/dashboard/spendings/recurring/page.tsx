@@ -611,7 +611,7 @@ export default function RecurringExpensesPage() {
       {/* Add/Edit Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-0">
-          <DialogHeader>
+          <DialogHeader className="px-6 pt-8">
             <DialogTitle>
               {editingExpense ? "Редагувати регулярну витрату" : "Додати регулярну витрату"}
             </DialogTitle>
@@ -624,7 +624,7 @@ export default function RecurringExpensesPage() {
 
           <div className="space-y-6 p-6">
             {/* Basic Info */}
-            <section className="space-y-4">
+            <section className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground">Basic info</h3>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="col-span-2">
@@ -785,39 +785,39 @@ export default function RecurringExpensesPage() {
             )}
 
             {/* Allocation Logic */}
-            <section className="space-y-4">
+            <section className="space-y-3">
               <Label>Фінансова прив’язка витрати</Label>
               <RadioGroup 
                 value={formData.allocationType}
                 onValueChange={(v) => setFormData({ ...formData, allocationType: v as AllocationTarget })}
-                className="grid grid-cols-1 gap-3 md:grid-cols-2"
+                className="grid grid-cols-1 gap-2 md:grid-cols-2"
               >
-                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
+                <div className="flex min-h-[76px] items-center gap-2 rounded-lg border p-3 hover:bg-muted/50">
                   <RadioGroupItem value="all" id="all" />
                   <Label htmlFor="all" className="cursor-pointer flex-1">
                     <div className="font-medium">Company Overhead</div>
-                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Загальна витрата компанії, розподіляється між усіма учасниками</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">Для всієї компанії</div>
                   </Label>
                 </div>
-                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
+                <div className="flex min-h-[76px] items-center gap-2 rounded-lg border p-3 hover:bg-muted/50">
                   <RadioGroupItem value="team" id="team" />
                   <Label htmlFor="team" className="cursor-pointer flex-1">
                     <div className="font-medium">Team Expense</div>
-                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Витрата конкретної команди</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">Для конкретної команди</div>
                   </Label>
                 </div>
-                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
+                <div className="flex min-h-[76px] items-center gap-2 rounded-lg border p-3 hover:bg-muted/50">
                   <RadioGroupItem value="project" id="project" />
                   <Label htmlFor="project" className="cursor-pointer flex-1">
                     <div className="font-medium">Project Expense</div>
-                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Пряма витрата конкретного проєкту</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">Для конкретного проєкту</div>
                   </Label>
                 </div>
-                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
+                <div className="flex min-h-[76px] items-center gap-2 rounded-lg border p-3 hover:bg-muted/50">
                   <RadioGroupItem value="none" id="none" />
                   <Label htmlFor="none" className="cursor-pointer flex-1">
                     <div className="font-medium">Unallocated</div>
-                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Окрема витрата без прив’язки</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">Без прив’язки</div>
                   </Label>
                 </div>
               </RadioGroup>
