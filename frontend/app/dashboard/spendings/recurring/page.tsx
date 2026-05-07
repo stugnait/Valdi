@@ -238,9 +238,16 @@ export default function RecurringExpensesPage() {
     const amount = parseFloat(formData.amount)
     if (isNaN(amount) || amount <= 0) return
     
+    const monthlyActuals: Record<string, string> = {}
+    if (formData.amountType === "variable" && formData.actualAmountForMonth) {
+      monthlyActuals[formData.actualAmountMonth] = formData.actualAmountForMonth
+    }
     const payload = {
       name: formData.name.trim(),
       amount,
+      amount_type: formData.amountType,
+      estimated_amount: formData.amountType === "variable" ? (formData.estimatedAmount || formData.amount) : null,
+      monthly_actual_amounts: monthlyActuals,
       currency: formData.currency,
       cycle: formData.cycle,
       category: formData.category,
