@@ -96,6 +96,14 @@ export default function VariableExpensesPage() {
     teamId: "",
     projectId: "",
     receiptUrl: "",
+    impactFlags: {
+      actualMonthlySpend: true,
+      cashFlow: true,
+      projectProfitability: false,
+      budgetDeviation: false,
+      teamCost: false,
+      companyBurnRate: false,
+    },
   })
 
   const mapApiExpense = (expense: ApiVariableExpense): VariableExpense => ({
@@ -119,6 +127,7 @@ export default function VariableExpensesPage() {
       projectName: expense.project_name || undefined,
     },
     createdAt: expense.created_at,
+    impactFlags: expense.impact_flags || undefined,
   })
 
   const loadExpenses = async () => {
@@ -179,6 +188,14 @@ export default function VariableExpensesPage() {
       teamId: "",
       projectId: "",
       receiptUrl: "",
+      impactFlags: {
+        actualMonthlySpend: true,
+        cashFlow: true,
+        projectProfitability: false,
+        budgetDeviation: false,
+        teamCost: false,
+        companyBurnRate: false,
+      },
     })
     setEditingExpense(null)
   }
@@ -202,6 +219,14 @@ export default function VariableExpensesPage() {
       teamId: expense.allocation.teamId || "",
       projectId: expense.allocation.projectId || "",
       receiptUrl: expense.receiptUrl || "",
+      impactFlags: expense.impactFlags || {
+        actualMonthlySpend: true,
+        cashFlow: true,
+        projectProfitability: false,
+        budgetDeviation: false,
+        teamCost: false,
+        companyBurnRate: false,
+      },
     })
     setEditingExpense(expense)
     setIsAddDialogOpen(true)
@@ -275,9 +300,9 @@ export default function VariableExpensesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Змінні витрати</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Нерегулярні витрати</h1>
           <p className="text-sm text-muted-foreground">
-            Фіксуйте разові покупки та непередбачувані витрати
+            Тут фіксуються разові, непередбачувані або нерегулярні витрати: обладнання, ремонти, разові покупки, emergency costs, тимчасові підрядники, team events.
           </p>
         </div>
         <Button onClick={handleOpenAdd} className="gap-2">
@@ -675,6 +700,34 @@ export default function VariableExpensesPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Впливає на показники</Label>
+              {[
+                ["actualMonthlySpend", "Actual Monthly Spend"],
+                ["cashFlow", "Cash Flow"],
+                ["projectProfitability", "Project Profitability"],
+                ["budgetDeviation", "Budget Deviation"],
+                ["teamCost", "Team Cost"],
+                ["companyBurnRate", "Company Burn Rate"],
+              ].map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={Boolean((formData.impactFlags as Record<string, boolean>)?.[key])}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        impactFlags: {
+                          ...(formData.impactFlags as Record<string, boolean>),
+                          [key]: e.target.checked,
+                        },
+                      })
+                    }
+                  />
+                  {label}
+                </label>
+              ))}
             </div>
           </div>
 
