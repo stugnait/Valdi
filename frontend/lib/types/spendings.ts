@@ -29,6 +29,9 @@ export interface RecurringExpense {
   nextPaymentDate: string
   lastPaidDate?: string
   description?: string
+  amountType?: "fixed" | "variable"
+  estimatedAmount?: number
+  monthlyActualAmounts?: Record<string, number | string>
   createdAt: string
 }
 
@@ -45,6 +48,7 @@ export interface VariableExpense {
   assigneeName?: string
   receiptUrl?: string
   description?: string
+  impactFlags?: Record<string, boolean>
   allocation: AllocationLogic
   createdAt: string
 }
@@ -104,6 +108,9 @@ export const expenseCategories = [
   { id: "food", name: "Food", color: "#F97316" },
   { id: "travel", name: "Travel", color: "#06B6D4" },
   { id: "education", name: "Education", color: "#6366F1" },
+  { id: "training", name: "Training", color: "#4F46E5" },
+  { id: "team-event", name: "Team Event", color: "#0EA5E9" },
+  { id: "emergency", name: "Emergency", color: "#DC2626" },
   { id: "other", name: "Other", color: "#64748B" },
 ]
 
