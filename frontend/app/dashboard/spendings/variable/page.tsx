@@ -258,6 +258,7 @@ export default function VariableExpensesPage() {
       allocation_type: formData.allocationType,
       team: formData.allocationType === "team" && formData.teamId ? Number(formData.teamId) : null,
       project: formData.allocationType === "project" && formData.projectId ? Number(formData.projectId) : null,
+      impact_flags: formData.impactFlags,
     }
     try {
       if (editingExpense) {
