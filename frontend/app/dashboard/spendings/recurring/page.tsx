@@ -92,13 +92,15 @@ export default function RecurringExpensesPage() {
   const [deleteExpense, setDeleteExpense] = useState<RecurringExpense | null>(null)
   
   // Form state
+  const currentMonthKey = new Date().toISOString().slice(0, 7)
+
   const [formData, setFormData] = useState({
     name: "",
     amount: "",
     amountType: "fixed" as "fixed" | "variable",
     estimatedAmount: "",
     actualAmountForMonth: "",
-    actualAmountMonth: new Date().toISOString().slice(0, 7),
+    actualAmountMonth: currentMonthKey,
     currency: "USD" as Currency,
     cycle: "monthly" as PaymentCycle,
     category: "",
@@ -191,7 +193,7 @@ export default function RecurringExpensesPage() {
       amountType: "fixed",
       estimatedAmount: "",
       actualAmountForMonth: "",
-      actualAmountMonth: new Date().toISOString().slice(0, 7),
+      actualAmountMonth: currentMonthKey,
       currency: "USD",
       cycle: "monthly",
       category: "",
@@ -211,13 +213,15 @@ export default function RecurringExpensesPage() {
   }
 
   const handleOpenEdit = (expense: RecurringExpense) => {
+    const monthlyActualAmounts = ((expense as RecurringExpense & { monthlyActualAmounts?: Record<string, number | string> }).monthlyActualAmounts || {})
+    const actualForCurrentMonth = monthlyActualAmounts[currentMonthKey]
     setFormData({
       name: expense.name,
       amount: expense.amount.toString(),
       amountType: ((expense as RecurringExpense & { amountType?: "fixed" | "variable" }).amountType || "fixed"),
       estimatedAmount: ((expense as RecurringExpense & { estimatedAmount?: number }).estimatedAmount?.toString() || ""),
-      actualAmountForMonth: "",
-      actualAmountMonth: new Date().toISOString().slice(0, 7),
+      actualAmountForMonth: actualForCurrentMonth !== undefined ? String(actualForCurrentMonth) : "",
+      actualAmountMonth: currentMonthKey,
       currency: expense.currency,
       cycle: expense.cycle,
       category: expense.category,
@@ -241,16 +245,20 @@ export default function RecurringExpensesPage() {
     const amount = parseFloat(effectiveAmountValue)
     if (isNaN(amount) || amount <= 0) return
     
-    const monthlyActuals: Record<string, string> = {}
-    if (formData.amountType === "variable" && formData.actualAmountForMonth) {
-      monthlyActuals[formData.actualAmountMonth] = formData.actualAmountForMonth
+    const existingMonthlyActuals = editingExpense?.monthlyActualAmounts || {}
+    const monthlyActualAmounts = { ...existingMonthlyActuals }
+    const hasActualInput = formData.amountType === "variable" && formData.actualAmountForMonth.trim() !== ""
+
+    if (formData.amountType === "variable" && hasActualInput) {
+      monthlyActualAmounts[formData.actualAmountMonth] = Number(formData.actualAmountForMonth)
     }
+
     const payload = {
       name: formData.name.trim(),
       amount,
       amount_type: formData.amountType,
-      estimated_amount: formData.amountType === "variable" ? (formData.estimatedAmount || formData.amount) : null,
-      monthly_actual_amounts: monthlyActuals,
+      estimated_amount: formData.amountType === "variable" ? Number(formData.estimatedAmount || formData.amount || 0) : null,
+      monthly_actual_amounts: formData.amountType === "variable" ? monthlyActualAmounts : {},
       currency: formData.currency,
       cycle: formData.cycle,
       category: formData.category,
@@ -783,7 +791,15 @@ export default function RecurringExpensesPage() {
                       id="actualAmountMonth"
                       type="month"
                       value={formData.actualAmountMonth}
-                      onChange={(e) => setFormData({ ...formData, actualAmountMonth: e.target.value })}
+                      onChange={(e) => {
+                        const month = e.target.value
+                        const monthlyActualAmounts = editingExpense?.monthlyActualAmounts || {}
+                        setFormData({
+                          ...formData,
+                          actualAmountMonth: month,
+                          actualAmountForMonth: monthlyActualAmounts[month] !== undefined ? String(monthlyActualAmounts[month]) : "",
+                        })
+                      }}
                     />
                   </div>
                   <div className="md:col-span-2">
