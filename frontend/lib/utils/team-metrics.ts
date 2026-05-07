@@ -37,8 +37,9 @@ export const calculateTeamMetrics = (
   members.forEach((member, index) => {
     const baseCost = baseCosts[index] ?? 0
     const share = teamLaborCost > 0 ? baseCost / teamLaborCost : 0
-    const teamOverheadShare = teamOverheadCost * share
-    const companyOverheadShare = companyOverheadCost * share
+    const equalShare = members.length > 0 ? 1 / members.length : 0
+    const teamOverheadShare = teamOverheadCost * equalShare
+    const companyOverheadShare = companyOverheadCost * equalShare
     const totalCost = baseCost + teamOverheadShare + companyOverheadShare
 
     memberCostById.set(member.id, {
