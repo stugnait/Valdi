@@ -29,6 +29,9 @@ export interface RecurringExpense {
   nextPaymentDate: string
   lastPaidDate?: string
   description?: string
+  amountType?: "fixed" | "variable"
+  estimatedAmount?: number
+  monthlyActualAmounts?: Record<string, number | string>
   createdAt: string
 }
 
@@ -45,6 +48,7 @@ export interface VariableExpense {
   assigneeName?: string
   receiptUrl?: string
   description?: string
+  impactFlags?: Record<string, boolean>
   allocation: AllocationLogic
   createdAt: string
 }

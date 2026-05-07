@@ -95,6 +95,10 @@ export default function RecurringExpensesPage() {
   const [formData, setFormData] = useState({
     name: "",
     amount: "",
+    amountType: "fixed" as "fixed" | "variable",
+    estimatedAmount: "",
+    actualAmountForMonth: "",
+    actualAmountMonth: new Date().toISOString().slice(0, 7),
     currency: "USD" as Currency,
     cycle: "monthly" as PaymentCycle,
     category: "",
@@ -127,6 +131,9 @@ export default function RecurringExpensesPage() {
     lastPaidDate: expense.last_paid_date || undefined,
     description: expense.description || undefined,
     createdAt: expense.created_at,
+    amountType: expense.amount_type || "fixed",
+    estimatedAmount: expense.estimated_amount ? Number(expense.estimated_amount) : undefined,
+    monthlyActualAmounts: expense.monthly_actual_amounts || {},
   })
 
   const loadExpenses = async () => {
@@ -160,7 +167,12 @@ export default function RecurringExpensesPage() {
   }, [])
 
   // Stats
-  const monthlyTotal = calculateMonthlyTotal(expenses)
+  const monthlyTotal = expenses.reduce((sum, expense) => {
+    const amount = getMonthlyAmount(expense)
+    if (expense.cycle === "yearly") return sum + amount / 12
+    if (expense.cycle === "quarterly") return sum + amount / 3
+    return sum + amount
+  }, 0)
   const activeCount = expenses.filter(e => e.status !== "overdue").length
   const nextBigPayment = getNextBigPayment(expenses)
 
@@ -176,6 +188,10 @@ export default function RecurringExpensesPage() {
     setFormData({
       name: "",
       amount: "",
+      amountType: "fixed",
+      estimatedAmount: "",
+      actualAmountForMonth: "",
+      actualAmountMonth: new Date().toISOString().slice(0, 7),
       currency: "USD",
       cycle: "monthly",
       category: "",
@@ -198,6 +214,10 @@ export default function RecurringExpensesPage() {
     setFormData({
       name: expense.name,
       amount: expense.amount.toString(),
+      amountType: ((expense as RecurringExpense & { amountType?: "fixed" | "variable" }).amountType || "fixed"),
+      estimatedAmount: ((expense as RecurringExpense & { estimatedAmount?: number }).estimatedAmount?.toString() || ""),
+      actualAmountForMonth: "",
+      actualAmountMonth: new Date().toISOString().slice(0, 7),
       currency: expense.currency,
       cycle: expense.cycle,
       category: expense.category,
@@ -218,9 +238,16 @@ export default function RecurringExpensesPage() {
     const amount = parseFloat(formData.amount)
     if (isNaN(amount) || amount <= 0) return
     
+    const monthlyActuals: Record<string, string> = {}
+    if (formData.amountType === "variable" && formData.actualAmountForMonth) {
+      monthlyActuals[formData.actualAmountMonth] = formData.actualAmountForMonth
+    }
     const payload = {
       name: formData.name.trim(),
       amount,
+      amount_type: formData.amountType,
+      estimated_amount: formData.amountType === "variable" ? (formData.estimatedAmount || formData.amount) : null,
+      monthly_actual_amounts: monthlyActuals,
       currency: formData.currency,
       cycle: formData.cycle,
       category: formData.category,
@@ -337,6 +364,19 @@ export default function RecurringExpensesPage() {
       default:
         return null
     }
+  }
+
+  const getMonthlyAmount = (expense: RecurringExpense) => {
+    const extended = expense as RecurringExpense & {
+      amountType?: "fixed" | "variable"
+      estimatedAmount?: number
+      monthlyActualAmounts?: Record<string, number | string>
+    }
+    if (extended.amountType !== "variable") return expense.amount
+    const monthKey = new Date().toISOString().slice(0, 7)
+    const actual = Number(extended.monthlyActualAmounts?.[monthKey] ?? 0)
+    if (actual > 0) return actual
+    return Number(extended.estimatedAmount ?? expense.amount)
   }
 
   return (
@@ -471,6 +511,11 @@ export default function RecurringExpensesPage() {
                     <TableCell>
                       <div>
                         <div className="font-medium">{expense.name}</div>
+                        <div className="mt-1">
+                          <Badge variant="outline">
+                            {expense.amountType === "variable" ? "Variable" : "Fixed"}
+                          </Badge>
+                        </div>
                         {expense.description && !expense.description.startsWith("Team overhead:") && (
                           <div className="text-xs text-muted-foreground">{expense.description}</div>
                         )}
@@ -601,6 +646,56 @@ export default function RecurringExpensesPage() {
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 />
               </div>
+              <div>
+                <Label htmlFor="amountType">Тип суми</Label>
+                <Select
+                  value={formData.amountType}
+                  onValueChange={(v) => setFormData({ ...formData, amountType: v as "fixed" | "variable" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">Фіксована сума</SelectItem>
+                    <SelectItem value="variable">Змінна сума</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {formData.amountType === "variable" && (
+                <>
+                  <div>
+                    <Label htmlFor="estimatedAmount">Estimated monthly amount</Label>
+                    <Input
+                      id="estimatedAmount"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={formData.estimatedAmount}
+                      onChange={(e) => setFormData({ ...formData, estimatedAmount: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="actualAmountMonth">Місяць actual суми</Label>
+                    <Input
+                      id="actualAmountMonth"
+                      type="month"
+                      value={formData.actualAmountMonth}
+                      onChange={(e) => setFormData({ ...formData, actualAmountMonth: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="actualAmountForMonth">Actual amount for selected month</Label>
+                    <Input
+                      id="actualAmountForMonth"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={formData.actualAmountForMonth}
+                      onChange={(e) => setFormData({ ...formData, actualAmountForMonth: e.target.value })}
+                    />
+                  </div>
+                </>
+              )}
               
               <div>
                 <Label htmlFor="currency">Валюта</Label>
