@@ -167,6 +167,9 @@ export interface ApiRecurringExpense {
   id: number
   name: string
   amount: string
+  amount_type?: "fixed" | "variable"
+  estimated_amount?: string | null
+  monthly_actual_amounts?: Record<string, number | string>
   currency: "USD" | "EUR" | "UAH"
   cycle: "monthly" | "quarterly" | "yearly"
   category: string
@@ -194,6 +197,7 @@ export interface ApiVariableExpense {
   expense_date: string
   receipt_url: string
   description: string
+  impact_flags?: Record<string, boolean>
   allocation_type: "all" | "team" | "project" | "none"
   assignee: number | null
   assignee_name?: string

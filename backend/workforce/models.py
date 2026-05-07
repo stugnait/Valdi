@@ -487,6 +487,10 @@ class AutomationRule(models.Model):
 
 
 class RecurringExpense(models.Model):
+    class AmountType(models.TextChoices):
+        FIXED = 'fixed', 'Fixed'
+        VARIABLE = 'variable', 'Variable'
+
     class Currency(models.TextChoices):
         USD = 'USD', 'USD'
         EUR = 'EUR', 'EUR'
@@ -517,6 +521,9 @@ class RecurringExpense(models.Model):
 
     name = models.CharField(max_length=180)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+    amount_type = models.CharField(max_length=16, choices=AmountType.choices, default=AmountType.FIXED)
+    estimated_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    monthly_actual_amounts = models.JSONField(default=dict, blank=True)
     currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.USD)
     cycle = models.CharField(max_length=16, choices=Cycle.choices, default=Cycle.MONTHLY)
     category = models.CharField(max_length=64, default='other')
@@ -571,6 +578,7 @@ class VariableExpense(models.Model):
     receipt_url = models.CharField(max_length=300, blank=True)
     external_tx_id = models.CharField(max_length=128, blank=True, db_index=True)
     description = models.TextField(blank=True)
+    impact_flags = models.JSONField(default=dict, blank=True)
     allocation_type = models.CharField(max_length=16, choices=AllocationType.choices, default=AllocationType.ALL)
     assignee = models.ForeignKey(
         Developer,
