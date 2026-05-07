@@ -109,7 +109,7 @@ export default function RecurringExpensesPage() {
     teamId: "",
     projectId: "",
     description: "",
-    nextPaymentDate: "",
+    paymentDate: "",
   })
 
   const mapApiExpense = (expense: ApiRecurringExpense): RecurringExpense => ({
@@ -186,6 +186,25 @@ export default function RecurringExpensesPage() {
     return matchesSearch && matchesCategory && matchesStatus
   })
 
+  const calculateNextPaymentDate = (paymentDate: string, cycle: PaymentCycle) => {
+    const nextDate = new Date(paymentDate)
+    if (Number.isNaN(nextDate.getTime())) return ""
+    if (cycle === "monthly") nextDate.setMonth(nextDate.getMonth() + 1)
+    if (cycle === "quarterly") nextDate.setMonth(nextDate.getMonth() + 3)
+    if (cycle === "yearly") nextDate.setFullYear(nextDate.getFullYear() + 1)
+    return nextDate.toISOString().split("T")[0]
+  }
+
+  const derivePaymentDateFromExpense = (expense: RecurringExpense) => {
+    if (expense.lastPaidDate) return expense.lastPaidDate
+    const nextDate = new Date(expense.nextPaymentDate)
+    if (Number.isNaN(nextDate.getTime())) return ""
+    if (expense.cycle === "monthly") nextDate.setMonth(nextDate.getMonth() - 1)
+    if (expense.cycle === "quarterly") nextDate.setMonth(nextDate.getMonth() - 3)
+    if (expense.cycle === "yearly") nextDate.setFullYear(nextDate.getFullYear() - 1)
+    return nextDate.toISOString().split("T")[0]
+  }
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -202,7 +221,7 @@ export default function RecurringExpensesPage() {
       teamId: "",
       projectId: "",
       description: "",
-      nextPaymentDate: "",
+      paymentDate: "",
     })
     setEditingExpense(null)
   }
@@ -230,7 +249,7 @@ export default function RecurringExpensesPage() {
       teamId: expense.allocation.teamId || "",
       projectId: expense.allocation.projectId || "",
       description: expense.description || "",
-      nextPaymentDate: expense.nextPaymentDate,
+      paymentDate: derivePaymentDateFromExpense(expense),
     })
     setEditingExpense(expense)
     setIsAddDialogOpen(true)
@@ -240,7 +259,7 @@ export default function RecurringExpensesPage() {
     const effectiveAmountValue = formData.amountType === "variable"
       ? formData.estimatedAmount
       : formData.amount
-    if (!formData.name.trim() || !effectiveAmountValue || !formData.category || !formData.nextPaymentDate) return
+    if (!formData.name.trim() || !effectiveAmountValue || !formData.category || !formData.paymentDate) return
 
     const amount = parseFloat(effectiveAmountValue)
     if (isNaN(amount) || amount <= 0) return
@@ -267,7 +286,8 @@ export default function RecurringExpensesPage() {
       team: formData.allocationType === "team" && formData.teamId ? Number(formData.teamId) : null,
       project: formData.allocationType === "project" && formData.projectId ? Number(formData.projectId) : null,
       status: editingExpense?.status || "pending",
-      next_payment_date: formData.nextPaymentDate,
+      last_paid_date: formData.paymentDate,
+      next_payment_date: calculateNextPaymentDate(formData.paymentDate, formData.cycle),
       description: formData.description?.trim() || "",
     }
     try {
@@ -510,6 +530,7 @@ export default function RecurringExpensesPage() {
                 <TableHead>Категорія</TableHead>
                 <TableHead>Розподіл</TableHead>
                 <TableHead>Джерело</TableHead>
+                <TableHead>Наступний платіж</TableHead>
                 <TableHead>Статус</TableHead>
                 <TableHead className="text-right">Дії</TableHead>
               </TableRow>
@@ -576,6 +597,9 @@ export default function RecurringExpensesPage() {
                       </span>
                     </TableCell>
                     <TableCell>
+                      {new Date(expense.nextPaymentDate).toLocaleDateString("uk-UA")}
+                    </TableCell>
+                    <TableCell>
                       <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(expense.status)}`}>
                         {getStatusIcon(expense.status)}
                         <span>
@@ -621,7 +645,7 @@ export default function RecurringExpensesPage() {
               })}
               {filteredExpenses.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Регулярні витрати не знайдено
                   </TableCell>
                 </TableRow>
@@ -759,13 +783,18 @@ export default function RecurringExpensesPage() {
               </div>
 
               <div>
-                <Label htmlFor="nextPaymentDate">Дата наступного платежу</Label>
+                <Label htmlFor="paymentDate">Дата останньої оплати</Label>
                 <Input
-                  id="nextPaymentDate"
+                  id="paymentDate"
                   type="date"
-                  value={formData.nextPaymentDate}
-                  onChange={(e) => setFormData({ ...formData, nextPaymentDate: e.target.value })}
+                  value={formData.paymentDate}
+                  onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
                 />
+                {formData.paymentDate && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Наступний платіж: {new Date(calculateNextPaymentDate(formData.paymentDate, formData.cycle)).toLocaleDateString("uk-UA")}
+                  </p>
+                )}
               </div>
               </div>
             </section>
@@ -924,7 +953,7 @@ export default function RecurringExpensesPage() {
                 !(formData.amountType === "variable" ? formData.estimatedAmount : formData.amount) || 
                 parseFloat(formData.amountType === "variable" ? formData.estimatedAmount : formData.amount) <= 0 ||
                 !formData.category ||
-                !formData.nextPaymentDate ||
+                !formData.paymentDate ||
                 (formData.allocationType === "team" && !formData.teamId) ||
                 (formData.allocationType === "project" && !formData.projectId)
               }
