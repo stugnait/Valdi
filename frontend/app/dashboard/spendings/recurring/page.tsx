@@ -233,9 +233,12 @@ export default function RecurringExpensesPage() {
   }
 
   const handleSave = async () => {
-    if (!formData.name.trim() || !formData.amount || !formData.category || !formData.nextPaymentDate) return
-    
-    const amount = parseFloat(formData.amount)
+    const effectiveAmountValue = formData.amountType === "variable"
+      ? formData.estimatedAmount
+      : formData.amount
+    if (!formData.name.trim() || !effectiveAmountValue || !formData.category || !formData.nextPaymentDate) return
+
+    const amount = parseFloat(effectiveAmountValue)
     if (isNaN(amount) || amount <= 0) return
     
     const monthlyActuals: Record<string, string> = {}
@@ -637,17 +640,19 @@ export default function RecurringExpensesPage() {
                 />
               </div>
               
-              <div>
-                <Label htmlFor="amount">{formData.amountType === "variable" ? "Базова / прогнозна сума" : "Сума"}</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                />
-              </div>
+              {formData.amountType === "fixed" && (
+                <div>
+                  <Label htmlFor="amount">Сума</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  />
+                </div>
+              )}
               <div>
                 <Label htmlFor="amountType">Тип суми</Label>
                 <Select
@@ -746,8 +751,8 @@ export default function RecurringExpensesPage() {
             </section>
 
             {formData.amountType === "variable" && (
-              <section className="space-y-4 rounded-lg border p-4">
-                <h3 className="text-sm font-semibold text-muted-foreground">Amount behavior</h3>
+              <section className="space-y-4 rounded-lg border bg-muted/30 p-4">
+                <h3 className="text-sm font-semibold text-muted-foreground">Налаштування змінної суми</h3>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <Label htmlFor="estimatedAmount">Прогнозна сума за місяць</Label>
@@ -756,8 +761,8 @@ export default function RecurringExpensesPage() {
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      value={formData.estimatedAmount}
+                      onChange={(e) => setFormData({ ...formData, estimatedAmount: e.target.value })}
                     />
                   </div>
                   <div>
@@ -779,6 +784,7 @@ export default function RecurringExpensesPage() {
                       value={formData.actualAmountForMonth}
                       onChange={(e) => setFormData({ ...formData, actualAmountForMonth: e.target.value })}
                     />
+                    <p className="mt-1 text-xs text-muted-foreground">Якщо не вказано — використовується прогнозна сума</p>
                   </div>
                 </div>
               </section>
@@ -887,8 +893,8 @@ export default function RecurringExpensesPage() {
               onClick={handleSave}
               disabled={
                 !formData.name.trim() || 
-                !formData.amount || 
-                parseFloat(formData.amount) <= 0 ||
+                !(formData.amountType === "variable" ? formData.estimatedAmount : formData.amount) || 
+                parseFloat(formData.amountType === "variable" ? formData.estimatedAmount : formData.amount) <= 0 ||
                 !formData.category ||
                 !formData.nextPaymentDate ||
                 (formData.allocationType === "team" && !formData.teamId) ||
