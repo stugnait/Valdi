@@ -610,7 +610,7 @@ export default function RecurringExpensesPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-0">
           <DialogHeader>
             <DialogTitle>
               {editingExpense ? "Редагувати регулярну витрату" : "Додати регулярну витрату"}
@@ -622,10 +622,11 @@ export default function RecurringExpensesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 py-4">
+          <div className="space-y-6 p-6">
             {/* Basic Info */}
-            <div className="col-span-2 text-sm font-medium text-muted-foreground">Basic info</div>
-            <div className="grid grid-cols-2 gap-4">
+            <section className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground">Basic info</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="col-span-2">
                 <Label htmlFor="name">Назва</Label>
                 <Input
@@ -662,32 +663,6 @@ export default function RecurringExpensesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {formData.amountType === "variable" && (
-                <>
-                  <div className="col-span-2 text-sm font-medium text-muted-foreground">Фактична сума за місяць</div>
-                  <div>
-                    <Label htmlFor="actualAmountMonth">Місяць фактичної суми</Label>
-                    <Input
-                      id="actualAmountMonth"
-                      type="month"
-                      value={formData.actualAmountMonth}
-                      onChange={(e) => setFormData({ ...formData, actualAmountMonth: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="actualAmountForMonth">Фактична сума за вибраний місяць</Label>
-                    <Input
-                      id="actualAmountForMonth"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={formData.actualAmountForMonth}
-                      onChange={(e) => setFormData({ ...formData, actualAmountForMonth: e.target.value })}
-                    />
-                  </div>
-                </>
-              )}
-              
               <div>
                 <Label htmlFor="currency">Валюта</Label>
                 <Select 
@@ -767,42 +742,82 @@ export default function RecurringExpensesPage() {
                   onChange={(e) => setFormData({ ...formData, nextPaymentDate: e.target.value })}
                 />
               </div>
-            </div>
+              </div>
+            </section>
+
+            {formData.amountType === "variable" && (
+              <section className="space-y-4 rounded-lg border p-4">
+                <h3 className="text-sm font-semibold text-muted-foreground">Amount behavior</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="estimatedAmount">Прогнозна сума за місяць</Label>
+                    <Input
+                      id="estimatedAmount"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="actualAmountMonth">Місяць фактичної суми</Label>
+                    <Input
+                      id="actualAmountMonth"
+                      type="month"
+                      value={formData.actualAmountMonth}
+                      onChange={(e) => setFormData({ ...formData, actualAmountMonth: e.target.value })}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="actualAmountForMonth">Фактична сума за вибраний місяць</Label>
+                    <Input
+                      id="actualAmountForMonth"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={formData.actualAmountForMonth}
+                      onChange={(e) => setFormData({ ...formData, actualAmountForMonth: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </section>
+            )}
 
             {/* Allocation Logic */}
-            <div className="space-y-4">
+            <section className="space-y-4">
               <Label>Фінансова прив’язка витрати</Label>
               <RadioGroup 
                 value={formData.allocationType}
                 onValueChange={(v) => setFormData({ ...formData, allocationType: v as AllocationTarget })}
-                className="grid grid-cols-2 gap-4"
+                className="grid grid-cols-1 gap-3 md:grid-cols-2"
               >
-                <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
+                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
                   <RadioGroupItem value="all" id="all" />
                   <Label htmlFor="all" className="cursor-pointer flex-1">
                     <div className="font-medium">Company Overhead</div>
-                    <div className="text-xs text-muted-foreground">Загальна витрата компанії, розподіляється між усіма учасниками</div>
+                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Загальна витрата компанії, розподіляється між усіма учасниками</div>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
+                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
                   <RadioGroupItem value="team" id="team" />
                   <Label htmlFor="team" className="cursor-pointer flex-1">
                     <div className="font-medium">Team Expense</div>
-                    <div className="text-xs text-muted-foreground">Витрата конкретної команди</div>
+                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Витрата конкретної команди</div>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
+                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
                   <RadioGroupItem value="project" id="project" />
                   <Label htmlFor="project" className="cursor-pointer flex-1">
                     <div className="font-medium">Project Expense</div>
-                    <div className="text-xs text-muted-foreground">Пряма витрата конкретного проєкту</div>
+                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Пряма витрата конкретного проєкту</div>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
+                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
                   <RadioGroupItem value="none" id="none" />
                   <Label htmlFor="none" className="cursor-pointer flex-1">
                     <div className="font-medium">Unallocated</div>
-                    <div className="text-xs text-muted-foreground">Окрема витрата без прив’язки</div>
+                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Окрема витрата без прив’язки</div>
                   </Label>
                 </div>
               </RadioGroup>
@@ -850,10 +865,10 @@ export default function RecurringExpensesPage() {
                   </SelectContent>
                 </Select>
               )}
-            </div>
+            </section>
 
             {/* Description */}
-            <div>
+            <section>
               <Label htmlFor="description">Опис (за бажанням)</Label>
               <Textarea
                 id="description"
@@ -861,7 +876,7 @@ export default function RecurringExpensesPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
-            </div>
+            </section>
           </div>
 
           <DialogFooter>
