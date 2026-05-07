@@ -9,9 +9,6 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  Paperclip,
-  Upload,
-  Receipt,
   Filter,
   DollarSign
 } from "lucide-react"
@@ -65,9 +62,7 @@ import {
   convertToUSD,
   getSourceIcon,
 } from "@/lib/types/spendings"
-import { mockTeams } from "@/lib/types/teams"
-import { mockProjects } from "@/lib/types/projects"
-import { workforceApi, type ApiVariableExpense } from "@/lib/api/workforce"
+import { workforceApi, type ApiProject, type ApiTeam, type ApiVariableExpense } from "@/lib/api/workforce"
 
 export default function VariableExpensesPage() {
   const [expenses, setExpenses] = useState<VariableExpense[]>([])
@@ -79,8 +74,14 @@ export default function VariableExpensesPage() {
   const [editingExpense, setEditingExpense] = useState<VariableExpense | null>(null)
   const [deleteExpense, setDeleteExpense] = useState<VariableExpense | null>(null)
   
-  // Get all members from all teams
-  const allMembers = mockTeams.flatMap(team => team.members)
+  const [teams, setTeams] = useState<ApiTeam[]>([])
+  const [projects, setProjects] = useState<ApiProject[]>([])
+  const allMembers = teams.flatMap((team) =>
+    team.memberships.map((membership) => ({
+      id: membership.developer.toString(),
+      name: membership.developer_name || "Розробник",
+    }))
+  )
   
   // Form state
   const [formData, setFormData] = useState({
@@ -96,6 +97,14 @@ export default function VariableExpensesPage() {
     teamId: "",
     projectId: "",
     receiptUrl: "",
+    impactFlags: {
+      actualMonthlySpend: true,
+      cashFlow: true,
+      projectProfitability: false,
+      budgetDeviation: false,
+      teamCost: false,
+      companyBurnRate: false,
+    },
   })
 
   const mapApiExpense = (expense: ApiVariableExpense): VariableExpense => ({
@@ -119,13 +128,20 @@ export default function VariableExpensesPage() {
       projectName: expense.project_name || undefined,
     },
     createdAt: expense.created_at,
+    impactFlags: expense.impact_flags || undefined,
   })
 
   const loadExpenses = async () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await workforceApi.listVariableExpenses()
+      const [data, teamsPayload, projectsPayload] = await Promise.all([
+        workforceApi.listVariableExpenses(),
+        workforceApi.listTeams(),
+        workforceApi.listProjects(),
+      ])
+      setTeams(teamsPayload)
+      setProjects(projectsPayload)
       setExpenses(data.map(mapApiExpense))
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити змінні витрати")
@@ -179,6 +195,14 @@ export default function VariableExpensesPage() {
       teamId: "",
       projectId: "",
       receiptUrl: "",
+      impactFlags: {
+        actualMonthlySpend: true,
+        cashFlow: true,
+        projectProfitability: false,
+        budgetDeviation: false,
+        teamCost: false,
+        companyBurnRate: false,
+      },
     })
     setEditingExpense(null)
   }
@@ -202,6 +226,14 @@ export default function VariableExpensesPage() {
       teamId: expense.allocation.teamId || "",
       projectId: expense.allocation.projectId || "",
       receiptUrl: expense.receiptUrl || "",
+      impactFlags: expense.impactFlags || {
+        actualMonthlySpend: true,
+        cashFlow: true,
+        projectProfitability: false,
+        budgetDeviation: false,
+        teamCost: false,
+        companyBurnRate: false,
+      },
     })
     setEditingExpense(expense)
     setIsAddDialogOpen(true)
@@ -275,9 +307,9 @@ export default function VariableExpensesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Змінні витрати</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Нерегулярні витрати</h1>
           <p className="text-sm text-muted-foreground">
-            Фіксуйте разові покупки та непередбачувані витрати
+            Тут фіксуються разові, непередбачувані або нерегулярні витрати: обладнання, ремонти, разові покупки, emergency costs, тимчасові підрядники, team events.
           </p>
         </div>
         <Button onClick={handleOpenAdd} className="gap-2">
@@ -581,7 +613,7 @@ export default function VariableExpensesPage() {
 
             {/* Allocation Logic */}
             <div className="space-y-4">
-              <Label>Логіка розподілу</Label>
+              <Label>Фінансова прив’язка витрати</Label>
               <RadioGroup 
                 value={formData.allocationType}
                 onValueChange={(v) => setFormData({ ...formData, allocationType: v as AllocationTarget })}
@@ -590,28 +622,28 @@ export default function VariableExpensesPage() {
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="all" id="all" />
                   <Label htmlFor="all" className="cursor-pointer flex-1">
-                    <div className="font-medium">Розподілити на всіх</div>
+                    <div className="font-medium">Company Overhead</div>
                     <div className="text-xs text-muted-foreground">Загальна витрата компанії</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="team" id="team" />
                   <Label htmlFor="team" className="cursor-pointer flex-1">
-                    <div className="font-medium">Витрата команди</div>
-                    <div className="text-xs text-muted-foreground">Розподілити на конкретну команду</div>
+                    <div className="font-medium">Team Expense</div>
+                    <div className="text-xs text-muted-foreground">Витрата конкретної команди</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="project" id="project" />
                   <Label htmlFor="project" className="cursor-pointer flex-1">
-                    <div className="font-medium">Витрата проєкту</div>
-                    <div className="text-xs text-muted-foreground">Пряма витрата на проєкт</div>
+                    <div className="font-medium">Project Expense</div>
+                    <div className="text-xs text-muted-foreground">Пряма витрата на проект</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="none" id="none" />
                   <Label htmlFor="none" className="cursor-pointer flex-1">
-                    <div className="font-medium">Без розподілу</div>
+                    <div className="font-medium">Unallocated</div>
                     <div className="text-xs text-muted-foreground">Окрема витрата без прив’язки</div>
                   </Label>
                 </div>
@@ -626,8 +658,8 @@ export default function VariableExpensesPage() {
                     <SelectValue placeholder="Оберіть команду" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockTeams.map(team => (
-                      <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                    {teams.map(team => (
+                      <SelectItem key={team.id} value={team.id.toString()}>{team.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -642,28 +674,14 @@ export default function VariableExpensesPage() {
                     <SelectValue placeholder="Оберіть проєкт" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockProjects.filter(p => p.status === "active").map(project => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name} — {project.client.name}
+                    {projects.map(project => (
+                      <SelectItem key={project.id} value={project.id.toString()}>
+                        {project.name} — {project.client_name || "Без клієнта"}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
-            </div>
-
-            {/* Receipt Upload */}
-            <div>
-              <Label>Чек (за бажанням)</Label>
-              <div className="mt-2 border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 cursor-pointer">
-                <Upload className="size-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Натисніть, щоб завантажити, або перетягніть файл
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG або PDF до 10 МБ
-                </p>
-              </div>
             </div>
 
             {/* Description */}
@@ -676,6 +694,40 @@ export default function VariableExpensesPage() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
             </div>
+            <details className="rounded-lg border p-3">
+              <summary className="cursor-pointer text-sm font-medium">Додаткові налаштування аналітики</summary>
+              <div className="mt-3 space-y-2">
+              <Label>Вплив на аналітику</Label>
+              {[
+                ["actualMonthlySpend", "Actual Monthly Spend", "Враховувати у фактичних витратах за місяць"],
+                ["cashFlow", "Cash Flow", "Враховувати у русі коштів"],
+                ["projectProfitability", "Project Profitability", "Враховувати у рентабельності проекту"],
+                ["budgetDeviation", "Budget Deviation", "Враховувати у відхиленні від планового бюджету"],
+                ["teamCost", "Team Cost", "Додавати до вартості конкретної команди"],
+                ["companyBurnRate", "Company Burn Rate", "Включати у стабільні витрати компанії"],
+              ].map(([key, label, helper]) => (
+                <label key={key} className="block text-sm">
+                  <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={Boolean((formData.impactFlags as Record<string, boolean>)?.[key])}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        impactFlags: {
+                          ...(formData.impactFlags as Record<string, boolean>),
+                          [key]: e.target.checked,
+                        },
+                      })
+                    }
+                  />
+                  {label}
+                  </span>
+                  <span className="ml-6 text-xs text-muted-foreground">{helper}</span>
+                </label>
+              ))}
+              </div>
+            </details>
           </div>
 
           <DialogFooter>

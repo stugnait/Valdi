@@ -10,9 +10,6 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
-  Building2,
-  Users,
-  FolderKanban,
   AlertCircle,
   CheckCircle2,
   Clock,
@@ -79,14 +76,14 @@ import {
   calculateMonthlyTotal,
   getNextBigPayment,
 } from "@/lib/types/spendings"
-import { mockTeams } from "@/lib/types/teams"
-import { mockProjects } from "@/lib/types/projects"
-import { workforceApi, type ApiRecurringExpense } from "@/lib/api/workforce"
+import { workforceApi, type ApiRecurringExpense, type ApiTeam, type ApiProject } from "@/lib/api/workforce"
 
 export default function RecurringExpensesPage() {
   const [expenses, setExpenses] = useState<RecurringExpense[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [teams, setTeams] = useState<ApiTeam[]>([])
+  const [projects, setProjects] = useState<ApiProject[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -98,6 +95,10 @@ export default function RecurringExpensesPage() {
   const [formData, setFormData] = useState({
     name: "",
     amount: "",
+    amountType: "fixed" as "fixed" | "variable",
+    estimatedAmount: "",
+    actualAmountForMonth: "",
+    actualAmountMonth: new Date().toISOString().slice(0, 7),
     currency: "USD" as Currency,
     cycle: "monthly" as PaymentCycle,
     category: "",
@@ -130,6 +131,9 @@ export default function RecurringExpensesPage() {
     lastPaidDate: expense.last_paid_date || undefined,
     description: expense.description || undefined,
     createdAt: expense.created_at,
+    amountType: expense.amount_type || "fixed",
+    estimatedAmount: expense.estimated_amount ? Number(expense.estimated_amount) : undefined,
+    monthlyActualAmounts: expense.monthly_actual_amounts || {},
   })
 
   const loadExpenses = async () => {
@@ -145,12 +149,30 @@ export default function RecurringExpensesPage() {
     }
   }
 
+  const loadAllocationEntities = async () => {
+    try {
+      const [teamsPayload, projectsPayload] = await Promise.all([
+        workforceApi.listTeams(),
+        workforceApi.listProjects(),
+      ])
+      setTeams(teamsPayload)
+      setProjects(projectsPayload)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити команди та проєкти")
+    }
+  }
+
   useEffect(() => {
-    void loadExpenses()
+    void Promise.all([loadExpenses(), loadAllocationEntities()])
   }, [])
 
   // Stats
-  const monthlyTotal = calculateMonthlyTotal(expenses)
+  const monthlyTotal = expenses.reduce((sum, expense) => {
+    const amount = getMonthlyAmount(expense)
+    if (expense.cycle === "yearly") return sum + amount / 12
+    if (expense.cycle === "quarterly") return sum + amount / 3
+    return sum + amount
+  }, 0)
   const activeCount = expenses.filter(e => e.status !== "overdue").length
   const nextBigPayment = getNextBigPayment(expenses)
 
@@ -166,6 +188,10 @@ export default function RecurringExpensesPage() {
     setFormData({
       name: "",
       amount: "",
+      amountType: "fixed",
+      estimatedAmount: "",
+      actualAmountForMonth: "",
+      actualAmountMonth: new Date().toISOString().slice(0, 7),
       currency: "USD",
       cycle: "monthly",
       category: "",
@@ -188,6 +214,10 @@ export default function RecurringExpensesPage() {
     setFormData({
       name: expense.name,
       amount: expense.amount.toString(),
+      amountType: ((expense as RecurringExpense & { amountType?: "fixed" | "variable" }).amountType || "fixed"),
+      estimatedAmount: ((expense as RecurringExpense & { estimatedAmount?: number }).estimatedAmount?.toString() || ""),
+      actualAmountForMonth: "",
+      actualAmountMonth: new Date().toISOString().slice(0, 7),
       currency: expense.currency,
       cycle: expense.cycle,
       category: expense.category,
@@ -300,18 +330,46 @@ export default function RecurringExpensesPage() {
   }
 
   const getAllocationBadge = (expense: RecurringExpense) => {
+    const resolvedTeamName =
+      expense.allocation.teamName ||
+      teams.find((team) => team.id.toString() === expense.allocation.teamId)?.name
+    const resolvedProjectName =
+      expense.allocation.projectName ||
+      projects.find((project) => project.id.toString() === expense.allocation.projectId)?.name
+
     switch (expense.allocation.type) {
       case "all":
-        return <Badge variant="outline" className="gap-1"><Users className="size-3" /> Усі учасники</Badge>
+        return <Badge variant="outline">Усі учасники</Badge>
       case "team":
-        return <Badge variant="secondary" className="gap-1"><Building2 className="size-3" /> {expense.allocation.teamName}</Badge>
+        return (
+          <Badge variant="secondary">
+            між командою {resolvedTeamName || "—"}
+          </Badge>
+        )
       case "project":
-        return <Badge className="gap-1"><FolderKanban className="size-3" /> {expense.allocation.projectName}</Badge>
+        return (
+          <Badge>
+            на проєкт {resolvedProjectName || "—"}
+          </Badge>
+        )
       case "none":
         return <Badge variant="outline" className="text-muted-foreground">Без розподілу</Badge>
       default:
         return null
     }
+  }
+
+  function getMonthlyAmount(expense: RecurringExpense) {
+    const extended = expense as RecurringExpense & {
+      amountType?: "fixed" | "variable"
+      estimatedAmount?: number
+      monthlyActualAmounts?: Record<string, number | string>
+    }
+    if (extended.amountType !== "variable") return expense.amount
+    const monthKey = new Date().toISOString().slice(0, 7)
+    const actual = Number(extended.monthlyActualAmounts?.[monthKey] ?? 0)
+    if (actual > 0) return actual
+    return Number(extended.estimatedAmount ?? expense.amount)
   }
 
   return (
@@ -446,7 +504,12 @@ export default function RecurringExpensesPage() {
                     <TableCell>
                       <div>
                         <div className="font-medium">{expense.name}</div>
-                        {expense.description && (
+                        <div className="mt-1">
+                          <Badge variant="outline">
+                            {expense.amountType === "variable" ? "Variable" : "Fixed"}
+                          </Badge>
+                        </div>
+                        {expense.description && !expense.description.startsWith("Team overhead:") && (
                           <div className="text-xs text-muted-foreground">{expense.description}</div>
                         )}
                       </div>
@@ -540,7 +603,7 @@ export default function RecurringExpensesPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-0">
           <DialogHeader>
             <DialogTitle>
               {editingExpense ? "Редагувати регулярну витрату" : "Додати регулярну витрату"}
@@ -552,9 +615,11 @@ export default function RecurringExpensesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 py-4">
+          <div className="space-y-6 p-6">
             {/* Basic Info */}
-            <div className="grid grid-cols-2 gap-4">
+            <section className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground">Basic info</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="col-span-2">
                 <Label htmlFor="name">Назва</Label>
                 <Input
@@ -566,7 +631,7 @@ export default function RecurringExpensesPage() {
               </div>
               
               <div>
-                <Label htmlFor="amount">Сума</Label>
+                <Label htmlFor="amount">{formData.amountType === "variable" ? "Базова / прогнозна сума" : "Сума"}</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -576,7 +641,21 @@ export default function RecurringExpensesPage() {
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 />
               </div>
-              
+              <div>
+                <Label htmlFor="amountType">Тип суми</Label>
+                <Select
+                  value={formData.amountType}
+                  onValueChange={(v) => setFormData({ ...formData, amountType: v as "fixed" | "variable" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">Фіксована сума</SelectItem>
+                    <SelectItem value="variable">Змінна сума</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label htmlFor="currency">Валюта</Label>
                 <Select 
@@ -656,42 +735,82 @@ export default function RecurringExpensesPage() {
                   onChange={(e) => setFormData({ ...formData, nextPaymentDate: e.target.value })}
                 />
               </div>
-            </div>
+              </div>
+            </section>
+
+            {formData.amountType === "variable" && (
+              <section className="space-y-4 rounded-lg border p-4">
+                <h3 className="text-sm font-semibold text-muted-foreground">Amount behavior</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="estimatedAmount">Прогнозна сума за місяць</Label>
+                    <Input
+                      id="estimatedAmount"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="actualAmountMonth">Місяць фактичної суми</Label>
+                    <Input
+                      id="actualAmountMonth"
+                      type="month"
+                      value={formData.actualAmountMonth}
+                      onChange={(e) => setFormData({ ...formData, actualAmountMonth: e.target.value })}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="actualAmountForMonth">Фактична сума за вибраний місяць</Label>
+                    <Input
+                      id="actualAmountForMonth"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={formData.actualAmountForMonth}
+                      onChange={(e) => setFormData({ ...formData, actualAmountForMonth: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </section>
+            )}
 
             {/* Allocation Logic */}
-            <div className="space-y-4">
-              <Label>Логіка розподілу</Label>
+            <section className="space-y-4">
+              <Label>Фінансова прив’язка витрати</Label>
               <RadioGroup 
                 value={formData.allocationType}
                 onValueChange={(v) => setFormData({ ...formData, allocationType: v as AllocationTarget })}
-                className="grid grid-cols-2 gap-4"
+                className="grid grid-cols-1 gap-3 md:grid-cols-2"
               >
-                <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
+                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
                   <RadioGroupItem value="all" id="all" />
                   <Label htmlFor="all" className="cursor-pointer flex-1">
-                    <div className="font-medium">Розподілити між усіма учасниками</div>
-                    <div className="text-xs text-muted-foreground">Рівномірно між усіма членами команди</div>
+                    <div className="font-medium">Company Overhead</div>
+                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Загальна витрата компанії, розподіляється між усіма учасниками</div>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
+                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
                   <RadioGroupItem value="team" id="team" />
                   <Label htmlFor="team" className="cursor-pointer flex-1">
-                    <div className="font-medium">Розподілити на команду</div>
-                    <div className="text-xs text-muted-foreground">Призначити витрату конкретній команді</div>
+                    <div className="font-medium">Team Expense</div>
+                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Витрата конкретної команди</div>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
+                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
                   <RadioGroupItem value="project" id="project" />
                   <Label htmlFor="project" className="cursor-pointer flex-1">
-                    <div className="font-medium">Віднести на проєкт</div>
-                    <div className="text-xs text-muted-foreground">Зарахувати як пряму витрату проєкту</div>
+                    <div className="font-medium">Project Expense</div>
+                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Пряма витрата конкретного проєкту</div>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
+                <div className="flex min-h-[96px] items-start gap-3 rounded-lg border p-4 hover:bg-muted/50">
                   <RadioGroupItem value="none" id="none" />
                   <Label htmlFor="none" className="cursor-pointer flex-1">
-                    <div className="font-medium">Без розподілу</div>
-                    <div className="text-xs text-muted-foreground">Загальна витрата компанії</div>
+                    <div className="font-medium">Unallocated</div>
+                    <div className="mt-1 text-xs text-muted-foreground leading-relaxed">Окрема витрата без прив’язки</div>
                   </Label>
                 </div>
               </RadioGroup>
@@ -705,9 +824,15 @@ export default function RecurringExpensesPage() {
                     <SelectValue placeholder="Оберіть команду" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockTeams.map(team => (
-                      <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                    ))}
+                    {teams.length > 0 ? (
+                      teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id.toString()}>
+                          {team.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">Наразі команд немає</div>
+                    )}
                   </SelectContent>
                 </Select>
               )}
@@ -721,18 +846,22 @@ export default function RecurringExpensesPage() {
                     <SelectValue placeholder="Оберіть проєкт" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockProjects.filter(p => p.status === "active").map(project => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name} — {project.client.name}
-                      </SelectItem>
-                    ))}
+                    {projects.length > 0 ? (
+                      projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id.toString()}>
+                          {project.name} — {project.client_name || "Без клієнта"}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">Наразі проєктів немає</div>
+                    )}
                   </SelectContent>
                 </Select>
               )}
-            </div>
+            </section>
 
             {/* Description */}
-            <div>
+            <section>
               <Label htmlFor="description">Опис (за бажанням)</Label>
               <Textarea
                 id="description"
@@ -740,7 +869,7 @@ export default function RecurringExpensesPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
-            </div>
+            </section>
           </div>
 
           <DialogFooter>
