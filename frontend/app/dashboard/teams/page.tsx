@@ -59,6 +59,17 @@ const colorOptions = [
   { name: "Cyan", value: "#06b6d4" },
 ]
 export default function TeamsHubPage() {
+  const toRecurringMonthlyAmount = (expense: ApiRecurringExpense) => {
+    const monthKey = new Date().toISOString().slice(0, 7)
+    const baseAmount =
+      expense.amount_type === "variable"
+        ? Number(expense.monthly_actual_amounts?.[monthKey] ?? expense.estimated_amount ?? expense.amount ?? 0)
+        : Number(expense.amount ?? 0)
+    if (expense.cycle === "yearly") return baseAmount / 12
+    if (expense.cycle === "quarterly") return baseAmount / 3
+    return baseAmount
+  }
+
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -177,12 +188,7 @@ export default function TeamsHubPage() {
       const uniqueMemberIds = new Set(teamsData.flatMap((team) => team.memberships.map((m) => m.developer)))
       const allRecurringMonthlyTotal = recurringExpenses
         .filter((expense) => expense.allocation_type === "all")
-        .reduce((sum, expense) => {
-          const amount = Number(expense.amount || 0)
-          if (expense.cycle === "yearly") return sum + amount / 12
-          if (expense.cycle === "quarterly") return sum + amount / 3
-          return sum + amount
-        }, 0)
+        .reduce((sum, expense) => sum + toRecurringMonthlyAmount(expense), 0)
       const sharedAllOverheadPerMember =
         uniqueMemberIds.size > 0 ? allRecurringMonthlyTotal / uniqueMemberIds.size : 0
 
@@ -200,8 +206,7 @@ export default function TeamsHubPage() {
         const companyAllocatedOverheads = recurringExpenses
           .filter((expense) => expense.allocation_type === "all")
           .map((expense: ApiRecurringExpense) => {
-            const amount = Number(expense.amount || 0)
-            const monthlyAmount = expense.cycle === "yearly" ? amount / 12 : expense.cycle === "quarterly" ? amount / 3 : amount
+            const monthlyAmount = toRecurringMonthlyAmount(expense)
             const allocatedAmount =
               uniqueMemberIds.size > 0 ? (monthlyAmount / uniqueMemberIds.size) * ownedMemberCountForTeam : 0
             return {

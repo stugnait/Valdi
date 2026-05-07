@@ -121,6 +121,17 @@ const toHourlyRatePayload = (baseRate: number, rateType: "monthly" | "hourly") =
   return Math.round(rawHourly * 100) / 100
 }
 
+const toRecurringMonthlyAmount = (expense: ApiRecurringExpense) => {
+  const monthKey = new Date().toISOString().slice(0, 7)
+  const baseAmount =
+    expense.amount_type === "variable"
+      ? Number(expense.monthly_actual_amounts?.[monthKey] ?? expense.estimated_amount ?? expense.amount ?? 0)
+      : Number(expense.amount ?? 0)
+  if (expense.cycle === "yearly") return baseAmount / 12
+  if (expense.cycle === "quarterly") return baseAmount / 3
+  return baseAmount
+}
+
 const toTeamOverheadFromRecurring = (expense: {
   id: number
   name: string
@@ -353,12 +364,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         .map(toTeamOverheadFromRecurring)
       const allRecurringMonthlyTotal = recurringExpenses
         .filter((expense) => expense.allocation_type === "all")
-        .reduce((sum, expense) => {
-          const amount = Number(expense.amount || 0)
-          if (expense.cycle === "yearly") return sum + amount / 12
-          if (expense.cycle === "quarterly") return sum + amount / 3
-          return sum + amount
-        }, 0)
+        .reduce((sum, expense) => sum + toRecurringMonthlyAmount(expense), 0)
       const uniqueMemberIds = new Set(
         allTeams.flatMap((teamItem) => teamItem.memberships.map((membership) => membership.developer))
       )
@@ -386,12 +392,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         .filter((expense) => expense.allocation_type === "all")
         .map((expense) => {
           const amount = Number(expense.amount || 0)
-          const monthlyAmount =
-            expense.cycle === "yearly"
-              ? amount / 12
-              : expense.cycle === "quarterly"
-                ? amount / 3
-                : amount
+          const monthlyAmount = toRecurringMonthlyAmount(expense)
           const allocatedAmount =
             uniqueMemberIds.size > 0 ? (monthlyAmount / uniqueMemberIds.size) * ownedMemberCountForTeam : 0
           return {
