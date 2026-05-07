@@ -603,7 +603,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           category: overheadForm.category || "Team overhead",
           source: overheadForm.source,
           expense_date: paidDate,
-          description: `Team overhead: ${team.name}`,
+          description: "",
           allocation_type: "team",
           team: Number(team.id),
         })
@@ -624,7 +624,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           status: "pending" as const,
           next_payment_date: nextDate.toISOString().split("T")[0],
           last_paid_date: paidDate,
-          description: `Team overhead: ${team.name}`,
+          description: "",
         }
         if (selectedOverhead) {
           await workforceApi.updateRecurringExpense(selectedOverhead.id, recurringPayload)

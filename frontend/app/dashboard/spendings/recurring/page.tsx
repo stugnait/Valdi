@@ -10,9 +10,6 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
-  Building2,
-  Users,
-  FolderKanban,
   AlertCircle,
   CheckCircle2,
   Clock,
@@ -322,17 +319,17 @@ export default function RecurringExpensesPage() {
 
     switch (expense.allocation.type) {
       case "all":
-        return <Badge variant="outline" className="gap-1"><Users className="size-3" /> Усі учасники</Badge>
+        return <Badge variant="outline">Усі учасники</Badge>
       case "team":
         return (
-          <Badge variant="secondary" className="gap-1">
-            <Building2 className="size-3" /> між командою {resolvedTeamName || "—"}
+          <Badge variant="secondary">
+            між командою {resolvedTeamName || "—"}
           </Badge>
         )
       case "project":
         return (
-          <Badge className="gap-1">
-            <FolderKanban className="size-3" /> на проєкт {resolvedProjectName || "—"}
+          <Badge>
+            на проєкт {resolvedProjectName || "—"}
           </Badge>
         )
       case "none":
@@ -474,7 +471,7 @@ export default function RecurringExpensesPage() {
                     <TableCell>
                       <div>
                         <div className="font-medium">{expense.name}</div>
-                        {expense.description && (
+                        {expense.description && !expense.description.startsWith("Team overhead:") && (
                           <div className="text-xs text-muted-foreground">{expense.description}</div>
                         )}
                       </div>
