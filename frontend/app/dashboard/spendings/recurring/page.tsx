@@ -366,7 +366,7 @@ export default function RecurringExpensesPage() {
     }
   }
 
-  const getMonthlyAmount = (expense: RecurringExpense) => {
+  function getMonthlyAmount(expense: RecurringExpense) {
     const extended = expense as RecurringExpense & {
       amountType?: "fixed" | "variable"
       estimatedAmount?: number
