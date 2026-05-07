@@ -46,8 +46,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { type Team } from "@/lib/types/teams"
-import { type ApiDeveloper, type ApiTeam, workforceApi } from "@/lib/api/workforce"
-import { deleteTeamUiMeta, getMemberUiData, getTeamOverheads, getTeamUiMeta, setTeamUiMeta } from "@/lib/storage/team-ui"
+import { type ApiDeveloper, type ApiRecurringExpense, type ApiTeam, workforceApi } from "@/lib/api/workforce"
+import { deleteTeamUiMeta, getMemberUiData, getTeamUiMeta, setTeamUiMeta } from "@/lib/storage/team-ui"
 import { calculateTeamMetrics, MONTHLY_WORK_HOURS } from "@/lib/utils/team-metrics"
 
 const colorOptions = [
@@ -59,6 +59,17 @@ const colorOptions = [
   { name: "Cyan", value: "#06b6d4" },
 ]
 export default function TeamsHubPage() {
+  const toRecurringMonthlyAmount = (expense: ApiRecurringExpense) => {
+    const monthKey = new Date().toISOString().slice(0, 7)
+    const baseAmount =
+      expense.amount_type === "variable"
+        ? Number(expense.monthly_actual_amounts?.[monthKey] ?? expense.estimated_amount ?? expense.amount ?? 0)
+        : Number(expense.amount ?? 0)
+    if (expense.cycle === "yearly") return baseAmount / 12
+    if (expense.cycle === "quarterly") return baseAmount / 3
+    return baseAmount
+  }
+
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -73,10 +84,28 @@ export default function TeamsHubPage() {
     color: "#2563eb",
   })
 
+  const toTeamOverheadFromRecurring = (expense: {
+    id: number
+    name: string
+    amount: string
+    cycle: "monthly" | "quarterly" | "yearly"
+    category: string
+  }) => ({
+    id: expense.id.toString(),
+    name: expense.name,
+    amount: Number(expense.amount || 0),
+    frequency: expense.cycle === "yearly" ? "yearly" : "monthly" as const,
+    category: expense.category,
+  })
+
   const toUiTeam = (
     team: ApiTeam,
     developersById: Map<number, ApiDeveloper>,
-    totals: { revenue: number; laborCost: number }
+    totals: { revenue: number; laborCost: number },
+    overheads: Team["overheads"],
+    teamOverheadsForMetrics: Team["overheads"],
+    sharedAllOverheadPerMember: number,
+    ownedMemberIds: Set<number>
   ): Team => {
     const normalizedId = String(team.id)
     const defaultColor = colorOptions[team.id % colorOptions.length]?.value ?? "#2563eb"
@@ -102,8 +131,12 @@ export default function TeamsHubPage() {
         teamMemberships: [{ teamId: normalizedId, teamName: team.name, allocation: membership.allocation }],
       }
     })
-    const overheads = getTeamOverheads(normalizedId)
-    const metrics = calculateTeamMetrics(members, overheads)
+    const ownedMemberCount = members.filter((member) => ownedMemberIds.has(Number(member.id))).length
+    const metrics = calculateTeamMetrics(
+      members,
+      teamOverheadsForMetrics,
+      sharedAllOverheadPerMember * ownedMemberCount
+    )
     const teamContribution = totals.laborCost > 0 ? metrics.teamLaborCost / totals.laborCost : 0
     const teamRevenue = totals.revenue * teamContribution
     const membersWithShares = members.map((member) => ({
@@ -131,10 +164,11 @@ export default function TeamsHubPage() {
     setIsLoading(true)
     setError("")
     try {
-      const [teamsData, developersData, projectsData] = await Promise.all([
+      const [teamsData, developersData, projectsData, recurringExpenses] = await Promise.all([
         workforceApi.listTeams(),
         workforceApi.listDevelopers(),
         workforceApi.listProjects(),
+        workforceApi.listRecurringExpenses(),
       ])
       const totals = projectsData.reduce(
         (acc, project) => ({
@@ -145,7 +179,56 @@ export default function TeamsHubPage() {
       )
       setCompanyRevenue(totals.revenue)
       const developersById = new Map(developersData.map((developer) => [developer.id, developer]))
-      setTeams(teamsData.map((team) => toUiTeam(team, developersById, totals)))
+      const memberOwnerTeamId = new Map<number, number>()
+      ;[...teamsData].sort((a, b) => a.id - b.id).forEach((team) => {
+        team.memberships.forEach((membership) => {
+          if (!memberOwnerTeamId.has(membership.developer)) memberOwnerTeamId.set(membership.developer, team.id)
+        })
+      })
+      const uniqueMemberIds = new Set(teamsData.flatMap((team) => team.memberships.map((m) => m.developer)))
+      const allRecurringMonthlyTotal = recurringExpenses
+        .filter((expense) => expense.allocation_type === "all")
+        .reduce((sum, expense) => sum + toRecurringMonthlyAmount(expense), 0)
+      const sharedAllOverheadPerMember =
+        uniqueMemberIds.size > 0 ? allRecurringMonthlyTotal / uniqueMemberIds.size : 0
+
+      setTeams(teamsData.map((team) => {
+        const normalizedId = String(team.id)
+        const teamRecurringOverheads = recurringExpenses
+          .filter((expense) => expense.allocation_type === "team" && expense.team?.toString() === normalizedId)
+          .map(toTeamOverheadFromRecurring)
+        const ownedMemberIdsForTeam = new Set(
+          team.memberships
+            .filter((membership) => memberOwnerTeamId.get(membership.developer) === team.id)
+            .map((membership) => membership.developer)
+        )
+        const ownedMemberCountForTeam = ownedMemberIdsForTeam.size
+        const companyAllocatedOverheads = recurringExpenses
+          .filter((expense) => expense.allocation_type === "all")
+          .map((expense: ApiRecurringExpense) => {
+            const monthlyAmount = toRecurringMonthlyAmount(expense)
+            const allocatedAmount =
+              uniqueMemberIds.size > 0 ? (monthlyAmount / uniqueMemberIds.size) * ownedMemberCountForTeam : 0
+            return {
+              id: `company-${expense.id}`,
+              name: `${expense.name} (витрата компанії)`,
+              amount: allocatedAmount,
+              frequency: "monthly" as const,
+              category: "Company overhead",
+            }
+          })
+          .filter((expense) => expense.amount > 0)
+
+        return toUiTeam(
+          team,
+          developersById,
+          totals,
+          [...teamRecurringOverheads, ...companyAllocatedOverheads],
+          teamRecurringOverheads,
+          sharedAllOverheadPerMember,
+          ownedMemberIdsForTeam
+        )
+      }))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося завантажити команди")
     } finally {
