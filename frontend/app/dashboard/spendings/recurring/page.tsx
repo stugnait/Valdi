@@ -624,6 +624,7 @@ export default function RecurringExpensesPage() {
 
           <div className="grid gap-6 py-4">
             {/* Basic Info */}
+            <div className="col-span-2 text-sm font-medium text-muted-foreground">Basic info</div>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label htmlFor="name">Назва</Label>
@@ -636,7 +637,7 @@ export default function RecurringExpensesPage() {
               </div>
               
               <div>
-                <Label htmlFor="amount">Сума</Label>
+                <Label htmlFor="amount">{formData.amountType === "variable" ? "Базова / прогнозна сума" : "Сума"}</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -663,19 +664,9 @@ export default function RecurringExpensesPage() {
               </div>
               {formData.amountType === "variable" && (
                 <>
+                  <div className="col-span-2 text-sm font-medium text-muted-foreground">Фактична сума за місяць</div>
                   <div>
-                    <Label htmlFor="estimatedAmount">Estimated monthly amount</Label>
-                    <Input
-                      id="estimatedAmount"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={formData.estimatedAmount}
-                      onChange={(e) => setFormData({ ...formData, estimatedAmount: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="actualAmountMonth">Місяць actual суми</Label>
+                    <Label htmlFor="actualAmountMonth">Місяць фактичної суми</Label>
                     <Input
                       id="actualAmountMonth"
                       type="month"
@@ -684,7 +675,7 @@ export default function RecurringExpensesPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="actualAmountForMonth">Actual amount for selected month</Label>
+                    <Label htmlFor="actualAmountForMonth">Фактична сума за вибраний місяць</Label>
                     <Input
                       id="actualAmountForMonth"
                       type="number"
@@ -780,7 +771,7 @@ export default function RecurringExpensesPage() {
 
             {/* Allocation Logic */}
             <div className="space-y-4">
-              <Label>Логіка розподілу</Label>
+              <Label>Фінансова прив’язка витрати</Label>
               <RadioGroup 
                 value={formData.allocationType}
                 onValueChange={(v) => setFormData({ ...formData, allocationType: v as AllocationTarget })}
@@ -789,29 +780,29 @@ export default function RecurringExpensesPage() {
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="all" id="all" />
                   <Label htmlFor="all" className="cursor-pointer flex-1">
-                    <div className="font-medium">Розподілити між усіма учасниками</div>
-                    <div className="text-xs text-muted-foreground">Рівномірно між усіма членами команди</div>
+                    <div className="font-medium">Company Overhead</div>
+                    <div className="text-xs text-muted-foreground">Загальна витрата компанії, розподіляється між усіма учасниками</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="team" id="team" />
                   <Label htmlFor="team" className="cursor-pointer flex-1">
-                    <div className="font-medium">Розподілити на команду</div>
-                    <div className="text-xs text-muted-foreground">Призначити витрату конкретній команді</div>
+                    <div className="font-medium">Team Expense</div>
+                    <div className="text-xs text-muted-foreground">Витрата конкретної команди</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="project" id="project" />
                   <Label htmlFor="project" className="cursor-pointer flex-1">
-                    <div className="font-medium">Віднести на проєкт</div>
-                    <div className="text-xs text-muted-foreground">Зарахувати як пряму витрату проєкту</div>
+                    <div className="font-medium">Project Expense</div>
+                    <div className="text-xs text-muted-foreground">Пряма витрата конкретного проєкту</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
                   <RadioGroupItem value="none" id="none" />
                   <Label htmlFor="none" className="cursor-pointer flex-1">
-                    <div className="font-medium">Без розподілу</div>
-                    <div className="text-xs text-muted-foreground">Загальна витрата компанії</div>
+                    <div className="font-medium">Unallocated</div>
+                    <div className="text-xs text-muted-foreground">Окрема витрата без прив’язки</div>
                   </Label>
                 </div>
               </RadioGroup>
