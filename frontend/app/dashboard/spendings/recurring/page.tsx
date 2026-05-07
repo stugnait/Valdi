@@ -509,6 +509,10 @@ export default function RecurringExpensesPage() {
             <TableBody>
               {filteredExpenses.map((expense) => {
                 const category = expenseCategories.find(c => c.id === expense.category)
+                const displayedAmount = getMonthlyAmount(expense)
+                const isVariable = expense.amountType === "variable"
+                const forecastAmount = Number(expense.estimatedAmount ?? expense.amount)
+                const showForecast = isVariable && forecastAmount !== displayedAmount
                 return (
                   <TableRow key={expense.id}>
                     <TableCell>
@@ -516,9 +520,12 @@ export default function RecurringExpensesPage() {
                         <div className="font-medium">{expense.name}</div>
                         <div className="mt-1">
                           <Badge variant="outline">
-                            {expense.amountType === "variable" ? "Variable" : "Fixed"}
+                            {isVariable ? "Variable" : "Fixed"}
                           </Badge>
                         </div>
+                        {isVariable && (
+                          <div className="text-xs text-muted-foreground mt-1">Actual amount for current month</div>
+                        )}
                         {expense.description && !expense.description.startsWith("Team overhead:") && (
                           <div className="text-xs text-muted-foreground">{expense.description}</div>
                         )}
@@ -526,9 +533,14 @@ export default function RecurringExpensesPage() {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{formatCurrency(expense.amount, expense.currency)}</div>
+                        <div className="font-medium">{formatCurrency(displayedAmount, expense.currency)}</div>
+                        {showForecast && (
+                          <div className="text-xs text-muted-foreground">
+                            Прогноз: {formatCurrency(forecastAmount, expense.currency)}
+                          </div>
+                        )}
                         {expense.currency !== "USD" && (
-                          <div className="text-xs text-muted-foreground">${expense.amountUSD}</div>
+                          <div className="text-xs text-muted-foreground">${convertToUSD(displayedAmount, expense.currency)}</div>
                         )}
                       </div>
                     </TableCell>
