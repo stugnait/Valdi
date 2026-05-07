@@ -139,7 +139,11 @@ export default function DashboardPage() {
   const expensesAmount = useMemo(
     () =>
       variableExpenses
-        .filter((expense) => isDateInSelectedRange(expense.expense_date))
+        .filter(
+          (expense) =>
+            isDateInSelectedRange(expense.expense_date) &&
+            (expense.impact_flags?.actualMonthlySpend ?? true)
+        )
         .reduce((sum, expense) => sum + Number.parseFloat(expense.amount ?? "0"), 0),
     [variableExpenses, periodMode, selectedRange]
   )

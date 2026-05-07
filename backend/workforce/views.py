@@ -75,6 +75,10 @@ class SafeModelViewSet(ModelViewSet):
         )
 
         if isinstance(exc, (OperationalError, ProgrammingError)):
+            if self.request.method == 'GET':
+                if getattr(self, 'action', None) == 'list':
+                    return Response([], status=status.HTTP_200_OK)
+                return Response({}, status=status.HTTP_200_OK)
             return Response(
                 {'detail': self.migration_error_message},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
