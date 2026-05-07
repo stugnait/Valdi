@@ -313,13 +313,28 @@ export default function RecurringExpensesPage() {
   }
 
   const getAllocationBadge = (expense: RecurringExpense) => {
+    const resolvedTeamName =
+      expense.allocation.teamName ||
+      teams.find((team) => team.id.toString() === expense.allocation.teamId)?.name
+    const resolvedProjectName =
+      expense.allocation.projectName ||
+      projects.find((project) => project.id.toString() === expense.allocation.projectId)?.name
+
     switch (expense.allocation.type) {
       case "all":
         return <Badge variant="outline" className="gap-1"><Users className="size-3" /> Усі учасники</Badge>
       case "team":
-        return <Badge variant="secondary" className="gap-1"><Building2 className="size-3" /> {expense.allocation.teamName}</Badge>
+        return (
+          <Badge variant="secondary" className="gap-1">
+            <Building2 className="size-3" /> між командою {resolvedTeamName || "—"}
+          </Badge>
+        )
       case "project":
-        return <Badge className="gap-1"><FolderKanban className="size-3" /> {expense.allocation.projectName}</Badge>
+        return (
+          <Badge className="gap-1">
+            <FolderKanban className="size-3" /> на проєкт {resolvedProjectName || "—"}
+          </Badge>
+        )
       case "none":
         return <Badge variant="outline" className="text-muted-foreground">Без розподілу</Badge>
       default:
