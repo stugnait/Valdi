@@ -547,11 +547,12 @@ export default function RecurringExpensesPage() {
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
+          <div className="w-full overflow-x-auto">
+            <Table className="min-w-[980px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Назва</TableHead>
-                <TableHead>Сума</TableHead>
+                <TableHead className="min-w-[180px]">Щомісячний еквівалент</TableHead>
                 <TableHead>Цикл</TableHead>
                 <TableHead>Категорія</TableHead>
                 <TableHead>Розподіл</TableHead>
@@ -568,18 +569,20 @@ export default function RecurringExpensesPage() {
                 const isVariable = expense.amountType === "variable"
                 const forecastAmount = Number(expense.estimatedAmount ?? expense.amount)
                 const showForecast = isVariable && forecastAmount !== displayedAmount
+                const fixedCycleBaseAmount = !isVariable && expense.cycle !== "monthly" ? Number(expense.amount) : null
+                const cycleUnitLabel = expense.cycle === "yearly" ? "рік" : expense.cycle === "quarterly" ? "квартал" : null
                 return (
                   <TableRow key={expense.id}>
                     <TableCell>
-                      <div>
+                      <div className="space-y-1">
                         <div className="font-medium">{expense.name}</div>
-                        <div className="mt-1">
+                        <div>
                           <Badge variant="outline">
                             {isVariable ? "Variable" : "Fixed"}
                           </Badge>
                         </div>
                         {isVariable && (
-                          <div className="text-xs text-muted-foreground mt-1">Actual amount for current month</div>
+                          <div className="text-xs text-muted-foreground">Фактична сума за місяць</div>
                         )}
                         {expense.description && !expense.description.startsWith("Team overhead:") && (
                           <div className="text-xs text-muted-foreground">{expense.description}</div>
@@ -587,15 +590,20 @@ export default function RecurringExpensesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <div className="font-medium">{formatCurrency(displayedAmount, expense.currency)}</div>
+                      <div className="space-y-1">
+                        <div className="font-medium leading-tight">{formatCurrency(displayedAmount, expense.currency)}/місяць</div>
+                        {fixedCycleBaseAmount !== null && cycleUnitLabel && (
+                          <div className="text-xs text-muted-foreground">
+                            {formatCurrency(fixedCycleBaseAmount, expense.currency)}/{cycleUnitLabel}
+                          </div>
+                        )}
                         {showForecast && (
                           <div className="text-xs text-muted-foreground">
                             Прогноз: {formatCurrency(forecastAmount, expense.currency)}
                           </div>
                         )}
                         {expense.currency !== "USD" && (
-                          <div className="text-xs text-muted-foreground">${convertToUSD(displayedAmount, expense.currency)}</div>
+                          <div className="text-xs text-muted-foreground">${convertToUSD(displayedAmount, expense.currency)}/month</div>
                         )}
                       </div>
                     </TableCell>
@@ -677,7 +685,8 @@ export default function RecurringExpensesPage() {
                 </TableRow>
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
