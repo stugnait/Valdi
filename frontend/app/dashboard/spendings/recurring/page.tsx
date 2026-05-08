@@ -528,9 +528,13 @@ export default function RecurringExpensesPage() {
             {nextThirtyDaysTotal > 0 ? (
               <>
                 <div className="text-2xl font-bold">{formatMoney(nextThirtyDaysTotal, "USD")}</div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  у наступні 30 днів
-                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">у наступні 30 днів</p>
+                {nearestUpcomingPayment ? (
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Найближча витрата: <span className="font-medium text-foreground">{nearestUpcomingPayment.name}</span> •{" "}
+                    {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
+                  </p>
+                ) : null}
               </>
             ) : nearestUpcomingPayment ? (
               <>
@@ -538,6 +542,9 @@ export default function RecurringExpensesPage() {
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   {formatMoney(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0, "USD")} •{" "}
                   {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
+                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Наступна оплата: {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
                 </p>
               </>
             ) : (
