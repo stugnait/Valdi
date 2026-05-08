@@ -29,6 +29,7 @@ import {
   type ApiSubscriptionPayment,
   type ApiVariableExpense,
 } from "@/lib/api/workforce"
+import { convertToBaseCurrency, getNbuRates, type NbuRates } from "@/lib/utils/currency"
 
 const formatMoney = (value: number) =>
   new Intl.NumberFormat("uk-UA", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value)
@@ -47,6 +48,7 @@ export default function DashboardPage() {
   const [variableExpenses, setVariableExpenses] = useState<ApiVariableExpense[]>([])
   const [periodMode, setPeriodMode] = useState<"realtime" | "range">("realtime")
   const [selectedRange, setSelectedRange] = useState<DateRange | undefined>()
+  const [rates, setRates] = useState<NbuRates | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -82,6 +84,10 @@ export default function DashboardPage() {
     return () => {
       mounted = false
     }
+  }, [])
+
+  useEffect(() => {
+    void getNbuRates().then(({ rates: loadedRates }) => setRates(loadedRates)).catch(() => undefined)
   }, [])
 
   const activeProjects = useMemo(
@@ -144,8 +150,14 @@ export default function DashboardPage() {
             isDateInSelectedRange(expense.expense_date) &&
             (expense.impact_flags?.actualMonthlySpend ?? true)
         )
-        .reduce((sum, expense) => sum + Number.parseFloat(expense.amount ?? "0"), 0),
-    [variableExpenses, periodMode, selectedRange]
+        .reduce(
+          (sum, expense) =>
+            sum + (rates
+              ? convertToBaseCurrency(Number.parseFloat(expense.amount ?? "0"), expense.currency, rates)
+              : 0),
+          0
+        ),
+    [variableExpenses, periodMode, selectedRange, rates]
   )
 
   const profitMargin = totalRevenue > 0 ? ((totalRevenue - expensesAmount) / totalRevenue) * 100 : 0

@@ -444,9 +444,9 @@ export default function VariableExpensesPage() {
 
                   {/* Amount */}
                   <div className="text-right">
-                    <div className="font-semibold">{formatCurrency(expense.amount, expense.currency)}</div>
+                    <div className="font-semibold">{formatCurrency(expense.amount, expense.currency, "uk-UA")}</div>
                     {expense.currency !== "USD" && (
-                      <div className="text-xs text-muted-foreground">${expense.amountUSD}</div>
+                      <div className="text-xs text-muted-foreground">≈ {formatCurrency(expense.amountUSD, "USD", "uk-UA")}</div>
                     )}
                   </div>
 
@@ -540,9 +540,9 @@ export default function VariableExpensesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="UAH">UAH (₴)</SelectItem>
+                    <SelectItem value="USD">$</SelectItem>
+                    <SelectItem value="EUR">€</SelectItem>
+                    <SelectItem value="UAH">₴</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
