@@ -46,7 +46,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { type Team } from "@/lib/types/teams"
-import { type ApiDeveloper, type ApiRecurringExpense, type ApiTeam, workforceApi } from "@/lib/api/workforce"
+import { type ApiDeveloper, type ApiRecurringExpense, type ApiTeam, type ApiVariableExpense, workforceApi } from "@/lib/api/workforce"
 import { deleteTeamUiMeta, getMemberUiData, getTeamUiMeta, setTeamUiMeta } from "@/lib/storage/team-ui"
 import { calculateTeamMetrics, MONTHLY_WORK_HOURS } from "@/lib/utils/team-metrics"
 import { convertToBaseCurrency, getNbuRates, toMonthlyRecurringAmount, type NbuRates } from "@/lib/utils/currency"
@@ -68,6 +68,8 @@ export default function TeamsHubPage() {
     const monthlyOriginalAmount = toMonthlyRecurringAmount(baseAmount, expense.cycle)
     return convertToBaseCurrency(monthlyOriginalAmount, expense.currency, rates)
   }
+  const toTeamVariableMonthlyAmount = (expense: ApiVariableExpense, rates: NbuRates) =>
+    convertToBaseCurrency(Number(expense.amount ?? 0), expense.currency, rates)
 
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -163,11 +165,12 @@ export default function TeamsHubPage() {
     setIsLoading(true)
     setError("")
     try {
-      const [teamsData, developersData, projectsData, recurringExpenses, { rates }] = await Promise.all([
+      const [teamsData, developersData, projectsData, recurringExpenses, variableExpenses, { rates }] = await Promise.all([
         workforceApi.listTeams(),
         workforceApi.listDevelopers(),
         workforceApi.listProjects(),
         workforceApi.listRecurringExpenses(),
+        workforceApi.listVariableExpenses(),
         getNbuRates(),
       ])
       const totals = projectsData.reduce(
@@ -197,6 +200,19 @@ export default function TeamsHubPage() {
         const teamRecurringOverheads = recurringExpenses
           .filter((expense) => expense.allocation_type === "team" && expense.team?.toString() === normalizedId)
           .map(toTeamOverheadFromRecurring)
+        const teamVariableExpensesForMetrics = variableExpenses
+          .filter((expense) =>
+            expense.allocation_type === "team"
+            && expense.team?.toString() === normalizedId
+            && (expense.impact_flags?.teamCost ?? false)
+          )
+          .map((expense) => ({
+            id: `variable-${expense.id}`,
+            name: expense.name,
+            amount: toTeamVariableMonthlyAmount(expense, rates),
+            frequency: "monthly" as const,
+            category: expense.category,
+          }))
         const ownedMemberIdsForTeam = new Set(
           team.memberships
             .filter((membership) => memberOwnerTeamId.get(membership.developer) === team.id)
@@ -223,8 +239,8 @@ export default function TeamsHubPage() {
           team,
           developersById,
           totals,
-          [...teamRecurringOverheads, ...companyAllocatedOverheads],
-          teamRecurringOverheads,
+          [...teamRecurringOverheads, ...teamVariableExpensesForMetrics, ...companyAllocatedOverheads],
+          [...teamRecurringOverheads, ...teamVariableExpensesForMetrics],
           sharedAllOverheadPerMember,
           ownedMemberIdsForTeam
         )
