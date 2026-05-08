@@ -159,6 +159,14 @@ interface TeamIrregularExpenseItem {
 const toTeamVariableMonthlyAmount = (expense: ApiVariableExpense, rates: NbuRates) =>
   convertToBaseCurrency(Number(expense.amount ?? 0), expense.currency, rates)
 
+const formatOriginalExpenseAmount = (amount: number, currency: Currency) =>
+  new Intl.NumberFormat("uk-UA", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount)
+
 export default function TeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [team, setTeam] = useState<Team | null>(null)
@@ -443,7 +451,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           }))
           .sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime())
       )
-      const overheads = [...teamRecurringOverheads, ...teamVariableExpensesForMetrics, ...companyAllocatedOverheads]
+      const overheads = [...teamRecurringOverheads, ...companyAllocatedOverheads]
 
       setTeam(
         toUiTeam(
@@ -1153,8 +1161,10 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                       <p className="text-xs text-muted-foreground">{expense.expenseDate} • {expense.category}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">{expense.amount.toLocaleString("uk-UA")} {expense.currency}</p>
-                      <p className="text-xs text-muted-foreground">{formatCurrency(expense.amountUsd)} USD</p>
+                      <p className="font-semibold">{formatOriginalExpenseAmount(expense.amount, expense.currency)}</p>
+                      {expense.currency !== "USD" && (
+                        <p className="text-xs text-muted-foreground">≈ {formatCurrency(expense.amountUsd)}</p>
+                      )}
                     </div>
                   </div>
                 ))}
