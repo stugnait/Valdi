@@ -524,23 +524,14 @@ export default function RecurringExpensesPage() {
             <CardTitle className="text-sm font-medium">Найближчі платежі</CardTitle>
             <Calendar className="size-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="space-y-1">
-            {nextThirtyDaysTotal > 0 ? (
+          <CardContent className="space-y-2">
+            {nearestUpcomingPayment ? (
               <>
-                <div className="text-2xl font-bold">{formatMoney(nextThirtyDaysTotal, "USD")}</div>
-                <p className="text-xs leading-relaxed text-muted-foreground">у наступні 30 днів</p>
-                {nearestUpcomingPayment ? (
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    Найближча витрата: <span className="font-medium text-foreground">{nearestUpcomingPayment.name}</span> •{" "}
-                    {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
-                  </p>
-                ) : null}
-              </>
-            ) : nearestUpcomingPayment ? (
-              <>
-                <div className="text-lg font-semibold leading-snug">{nearestUpcomingPayment.name}</div>
+                <div className="text-base font-medium leading-snug">{nearestUpcomingPayment.name}</div>
+                <div className="text-2xl font-bold leading-tight">
+                  {formatMoney(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0, "USD")}
+                </div>
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  {formatMoney(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0, "USD")} •{" "}
                   {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
                 </p>
                 <p className="text-xs leading-relaxed text-muted-foreground">
@@ -548,7 +539,7 @@ export default function RecurringExpensesPage() {
                 </p>
               </>
             ) : (
-              <div className="text-sm text-muted-foreground">Немає запланованих платежів</div>
+              <div className="py-2 text-sm text-muted-foreground">Немає запланованих платежів</div>
             )}
           </CardContent>
         </Card>
