@@ -79,9 +79,12 @@ export interface ProjectExpense {
   id: string
   name: string
   amount: number
+  currency?: "USD" | "EUR" | "UAH"
+  amountUsd?: number
   category: string
   date: string
   description?: string
+  impactProjectProfitability?: boolean
 }
 
 export interface Project {
