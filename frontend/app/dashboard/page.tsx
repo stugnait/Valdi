@@ -30,6 +30,7 @@ import {
   type ApiVariableExpense,
 } from "@/lib/api/workforce"
 import { convertToBaseCurrency, getNbuRates, type NbuRates } from "@/lib/utils/currency"
+import { hasImpactFlag, sumIrregularExpensesByFlagInUsd } from "@/lib/utils/irregular-expense-metrics"
 
 const formatMoney = (value: number) =>
   new Intl.NumberFormat("uk-UA", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value)
@@ -154,19 +155,49 @@ export default function DashboardPage() {
 
   const expensesAmount = useMemo(
     () =>
-      variableExpenses
-        .filter(
-          (expense) =>
-            isDateInSelectedRange(expense.expense_date) &&
-            (expense.impact_flags?.actualMonthlySpend ?? true)
+      rates
+        ? sumIrregularExpensesByFlagInUsd(
+          variableExpenses.filter((expense) => isDateInSelectedRange(expense.expense_date)),
+          "actualMonthlySpend",
+          rates
         )
-        .reduce(
-          (sum, expense) =>
-            sum + (rates
-              ? convertToBaseCurrency(Number.parseFloat(expense.amount ?? "0"), expense.currency, rates)
-              : 0),
-          0
-        ),
+        : 0,
+    [variableExpenses, periodMode, selectedRange, rates]
+  )
+
+  const cashOutflowAmount = useMemo(
+    () =>
+      rates
+        ? sumIrregularExpensesByFlagInUsd(
+          variableExpenses.filter((expense) => isDateInSelectedRange(expense.expense_date)),
+          "cashFlow",
+          rates
+        )
+        : 0,
+    [variableExpenses, periodMode, selectedRange, rates]
+  )
+
+  const budgetDeviationSpendAmount = useMemo(
+    () =>
+      rates
+        ? sumIrregularExpensesByFlagInUsd(
+          variableExpenses.filter((expense) => isDateInSelectedRange(expense.expense_date)),
+          "budgetDeviation",
+          rates
+        )
+        : 0,
+    [variableExpenses, periodMode, selectedRange, rates]
+  )
+
+  const companyBurnRateIrregularAmount = useMemo(
+    () =>
+      rates
+        ? sumIrregularExpensesByFlagInUsd(
+          variableExpenses.filter((expense) => isDateInSelectedRange(expense.expense_date)),
+          "companyBurnRate",
+          rates
+        )
+        : 0,
     [variableExpenses, periodMode, selectedRange, rates]
   )
 
@@ -270,6 +301,10 @@ export default function DashboardPage() {
     }))
     .sort((a, b) => b.utilization - a.utilization)
     .slice(0, 4)
+
+  void cashOutflowAmount
+  void budgetDeviationSpendAmount
+  void companyBurnRateIrregularAmount
 
   return (
     <div className="space-y-6">

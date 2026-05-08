@@ -65,6 +65,14 @@ import {
 import { workforceApi, type ApiProject, type ApiTeam, type ApiVariableExpense } from "@/lib/api/workforce"
 
 export default function VariableExpensesPage() {
+  const getDefaultImpactFlags = (allocationType: AllocationTarget) => ({
+    actualMonthlySpend: true,
+    cashFlow: true,
+    projectProfitability: allocationType === "project",
+    budgetDeviation: true,
+    teamCost: allocationType === "team",
+    companyBurnRate: false,
+  })
   const [expenses, setExpenses] = useState<VariableExpense[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -97,14 +105,7 @@ export default function VariableExpensesPage() {
     teamId: "",
     projectId: "",
     receiptUrl: "",
-    impactFlags: {
-      actualMonthlySpend: true,
-      cashFlow: true,
-      projectProfitability: false,
-      budgetDeviation: false,
-      teamCost: false,
-      companyBurnRate: false,
-    },
+    impactFlags: getDefaultImpactFlags("all"),
   })
 
   const mapApiExpense = (expense: ApiVariableExpense): VariableExpense => ({
@@ -199,14 +200,7 @@ export default function VariableExpensesPage() {
       teamId: "",
       projectId: "",
       receiptUrl: "",
-      impactFlags: {
-        actualMonthlySpend: true,
-        cashFlow: true,
-        projectProfitability: false,
-        budgetDeviation: false,
-        teamCost: false,
-        companyBurnRate: false,
-      },
+      impactFlags: getDefaultImpactFlags("all"),
     })
     setEditingExpense(null)
   }
@@ -230,14 +224,7 @@ export default function VariableExpensesPage() {
       teamId: expense.allocation.teamId || "",
       projectId: expense.allocation.projectId || "",
       receiptUrl: expense.receiptUrl || "",
-      impactFlags: expense.impactFlags || {
-        actualMonthlySpend: true,
-        cashFlow: true,
-        projectProfitability: false,
-        budgetDeviation: false,
-        teamCost: false,
-        companyBurnRate: false,
-      },
+      impactFlags: expense.impactFlags || getDefaultImpactFlags(expense.allocation.type),
     })
     setEditingExpense(expense)
     setIsAddDialogOpen(true)
@@ -621,7 +608,11 @@ export default function VariableExpensesPage() {
               <Label>Фінансова прив’язка витрати</Label>
               <RadioGroup 
                 value={formData.allocationType}
-                onValueChange={(v) => setFormData({ ...formData, allocationType: v as AllocationTarget })}
+                onValueChange={(v) => setFormData({
+                  ...formData,
+                  allocationType: v as AllocationTarget,
+                  impactFlags: getDefaultImpactFlags(v as AllocationTarget),
+                })}
                 className="grid grid-cols-2 gap-4"
               >
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
