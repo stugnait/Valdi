@@ -540,9 +540,9 @@ export default function VariableExpensesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="UAH">UAH (₴)</SelectItem>
+                    <SelectItem value="USD">$</SelectItem>
+                    <SelectItem value="EUR">€</SelectItem>
+                    <SelectItem value="UAH">₴</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

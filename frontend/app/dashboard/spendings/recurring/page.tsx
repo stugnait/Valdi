@@ -486,8 +486,8 @@ export default function RecurringExpensesPage() {
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
             <div className="mb-1 font-medium text-foreground/80">Офіційний курс НБУ</div>
             <div className="flex items-center gap-3 text-muted-foreground">
-              <span>USD: {getNbuRateLabel("USD")}</span>
-              <span>EUR: {getNbuRateLabel("EUR")}</span>
+              <span>$: {getNbuRateLabel("USD")}</span>
+              <span>€: {getNbuRateLabel("EUR")}</span>
             </div>
           </div>
           <Button onClick={handleOpenAdd} className="gap-2">
@@ -824,9 +824,9 @@ export default function RecurringExpensesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="UAH">UAH (₴)</SelectItem>
+                    <SelectItem value="USD">$</SelectItem>
+                    <SelectItem value="EUR">€</SelectItem>
+                    <SelectItem value="UAH">₴</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
