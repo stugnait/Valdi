@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { 
   Plus, 
   Search, 
@@ -70,11 +70,11 @@ import {
   AllocationTarget,
   expenseCategories,
   formatCurrency,
-  convertToUSD,
   getPaymentStatusColor,
   getSourceIcon,
 } from "@/lib/types/spendings"
 import { workforceApi, type ApiRecurringExpense, type ApiTeam, type ApiProject } from "@/lib/api/workforce"
+import { convertToBaseCurrency, getNbuRates, toMonthlyRecurringAmount, type NbuRates } from "@/lib/utils/currency"
 
 export default function RecurringExpensesPage() {
   const [expenses, setExpenses] = useState<RecurringExpense[]>([])
@@ -82,6 +82,8 @@ export default function RecurringExpensesPage() {
   const [error, setError] = useState<string | null>(null)
   const [teams, setTeams] = useState<ApiTeam[]>([])
   const [projects, setProjects] = useState<ApiProject[]>([])
+  const [rates, setRates] = useState<NbuRates | null>(null)
+  const [ratesWarning, setRatesWarning] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -115,7 +117,7 @@ export default function RecurringExpensesPage() {
     name: expense.name,
     amount: Number(expense.amount || 0),
     currency: expense.currency,
-    amountUSD: convertToUSD(Number(expense.amount || 0), expense.currency),
+    amountUSD: Number(expense.amount || 0),
     cycle: expense.cycle,
     category: expense.category,
     source: expense.source,
@@ -164,15 +166,24 @@ export default function RecurringExpensesPage() {
 
   useEffect(() => {
     void Promise.all([loadExpenses(), loadAllocationEntities()])
+    void (async () => {
+      const { rates: fetchedRates, warning } = await getNbuRates()
+      setRates(fetchedRates)
+      setRatesWarning(warning)
+    })()
   }, [])
 
   // Stats
-  const monthlyTotal = expenses.reduce((sum, expense) => {
-    const amount = getMonthlyAmount(expense)
-    if (expense.cycle === "yearly") return sum + amount / 12
-    if (expense.cycle === "quarterly") return sum + amount / 3
-    return sum + amount
-  }, 0)
+  const toMonthlyAmountInUsd = (expense: RecurringExpense) => {
+    if (!rates) return null
+    const monthlyOriginalAmount = getMonthlyEquivalentAmount(expense)
+    return convertToBaseCurrency(monthlyOriginalAmount, expense.currency, rates)
+  }
+
+  const monthlyTotal = useMemo(() => {
+    if (!rates) return 0
+    return expenses.reduce((sum, expense) => sum + (toMonthlyAmountInUsd(expense) ?? 0), 0)
+  }, [expenses, rates])
   const activeCount = expenses.filter(e => e.status !== "overdue").length
   const upcomingExpenses = expenses
     .filter((expense) => {
@@ -189,7 +200,7 @@ export default function RecurringExpensesPage() {
     const inThirtyDays = new Date()
     inThirtyDays.setDate(now.getDate() + 30)
     if (paymentDate >= now && paymentDate <= inThirtyDays) {
-      return sum + expense.amountUSD
+      return sum + (toMonthlyAmountInUsd(expense) ?? 0)
     }
     return sum
   }, 0)
@@ -415,10 +426,7 @@ export default function RecurringExpensesPage() {
 
   function getMonthlyEquivalentAmount(expense: RecurringExpense) {
     const baseAmount = getMonthlyAmount(expense)
-    if (expense.amountType === "variable") return baseAmount
-    if (expense.cycle === "yearly") return baseAmount / 12
-    if (expense.cycle === "quarterly") return baseAmount / 3
-    return baseAmount
+    return toMonthlyRecurringAmount(baseAmount, expense.cycle)
   }
 
   function getMonthlyAmount(expense: RecurringExpense) {
@@ -450,9 +458,9 @@ export default function RecurringExpensesPage() {
         </Button>
       </div>
 
-      {error && (
+      {(error || ratesWarning) && (
         <Card className="border-red-200">
-          <CardContent className="pt-6 text-sm text-red-600">{error}</CardContent>
+          <CardContent className="pt-6 text-sm text-red-600">{error || ratesWarning}</CardContent>
         </Card>
       )}
 
@@ -470,9 +478,9 @@ export default function RecurringExpensesPage() {
             <CreditCard className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="space-y-1">
-            <div className="text-2xl font-bold">${monthlyTotal.toLocaleString()}</div>
+            <div className="text-2xl font-bold">${rates ? monthlyTotal.toLocaleString() : "—"}</div>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Актуальна сума регулярних витрат за місяць
+              {rates ? "Актуальна сума регулярних витрат за місяць" : "Очікуємо курс НБУ для коректного USD-розрахунку"}
             </p>
           </CardContent>
         </Card>
@@ -505,7 +513,7 @@ export default function RecurringExpensesPage() {
               <>
                 <div className="text-lg font-semibold leading-snug">{nearestUpcomingPayment.name}</div>
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  ${convertToUSD(getMonthlyEquivalentAmount(nearestUpcomingPayment), nearestUpcomingPayment.currency).toLocaleString()} •{" "}
+                  ${(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0).toLocaleString()} •{" "}
                   {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
                 </p>
               </>
@@ -611,7 +619,7 @@ export default function RecurringExpensesPage() {
                           </div>
                         )}
                         {expense.currency !== "USD" && (
-                          <div className="text-xs text-muted-foreground">${convertToUSD(displayedAmount, expense.currency)}/month</div>
+                          <div className="text-xs text-muted-foreground">≈ ${(toMonthlyAmountInUsd(expense) ?? 0).toLocaleString()} $/month</div>
                         )}
                       </div>
                     </TableCell>
