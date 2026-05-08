@@ -159,7 +159,11 @@ export default function VariableExpensesPage() {
   const currentYear = new Date().getFullYear()
   const monthlyExpenses = expenses.filter(e => {
     const date = new Date(e.date)
-    return date.getMonth() === currentMonth && date.getFullYear() === currentYear
+    return (
+      date.getMonth() === currentMonth
+      && date.getFullYear() === currentYear
+      && (e.impactFlags?.actualMonthlySpend ?? true)
+    )
   })
   const monthlyTotal = monthlyExpenses.reduce((sum, e) => sum + e.amountUSD, 0)
   

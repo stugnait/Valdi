@@ -33,11 +33,21 @@ import { convertToBaseCurrency, getNbuRates, type NbuRates } from "@/lib/utils/c
 
 const formatMoney = (value: number) =>
   new Intl.NumberFormat("uk-UA", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value)
+const formatMoneyByCurrency = (value: number, currency: "USD" | "EUR" | "UAH") =>
+  new Intl.NumberFormat("uk-UA", { style: "currency", currency, maximumFractionDigits: 0 }).format(value)
 
 const formatRelativeDate = (value: string) => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ""
   return new Intl.DateTimeFormat("uk-UA", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date)
+}
+
+interface RecentTransactionItem {
+  description: string
+  amount: string
+  secondaryAmount?: string | null
+  type: "income" | "expense"
+  date: string
 }
 
 export default function DashboardPage() {
@@ -216,16 +226,18 @@ export default function DashboardPage() {
     }
   })
 
-  const recentTransactions = [
+  const recentTransactions: RecentTransactionItem[] = [
     ...paidInvoices.map((invoice) => ({
       description: `Інвойс №${invoice.number} — ${invoice.client_name}`,
       amount: `+${formatMoney(Number.parseFloat(invoice.amount ?? "0"))}`,
+      secondaryAmount: null,
       type: "income",
       date: invoice.paid_date ?? invoice.issue_date,
     })),
     ...completedPayments.map((payment) => ({
       description: `Підписка — ${payment.client_name}`,
       amount: `+${formatMoney(Number.parseFloat(String(payment.amount ?? 0)))}`,
+      secondaryAmount: null,
       type: "income",
       date: payment.payment_date ?? payment.due_date,
     })),
@@ -233,7 +245,11 @@ export default function DashboardPage() {
       .filter((expense) => isDateInSelectedRange(expense.expense_date))
       .map((expense) => ({
       description: `${expense.source.toUpperCase()} — ${expense.name}`,
-      amount: `-${formatMoney(Number.parseFloat(expense.amount ?? "0"))}`,
+      amount: `-${formatMoneyByCurrency(Number.parseFloat(expense.amount ?? "0"), expense.currency)}`,
+      secondaryAmount:
+        expense.currency !== "USD" && rates
+          ? `≈ -${formatMoney(convertToBaseCurrency(Number.parseFloat(expense.amount ?? "0"), expense.currency, rates))}`
+          : null,
       type: "expense",
       date: expense.expense_date,
       })),
@@ -411,11 +427,16 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-foreground leading-none">{tx.description}</p>
                     <p className="text-xs text-muted-foreground">{formatRelativeDate(tx.date)}</p>
                   </div>
-                  <span
-                    className={`text-sm font-semibold ${tx.type === "income" ? "text-emerald-600" : "text-foreground"}`}
-                  >
-                    {tx.amount}
-                  </span>
+                  <div className="text-right">
+                    <span
+                      className={`text-sm font-semibold ${tx.type === "income" ? "text-emerald-600" : "text-foreground"}`}
+                    >
+                      {tx.amount}
+                    </span>
+                    {tx.secondaryAmount && (
+                      <p className="text-xs text-muted-foreground">{tx.secondaryAmount}</p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
