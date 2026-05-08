@@ -417,7 +417,6 @@ export default function RecurringExpensesPage() {
         return (
           <div className="space-y-1">
             <Badge className="inline-flex items-center gap-1 bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700 hover:bg-violet-100">
-              <Building2 className="size-3 shrink-0" />
               <span>Company</span>
             </Badge>
             <div className="truncate text-[11px] text-muted-foreground">Вся компанія</div>
@@ -427,7 +426,6 @@ export default function RecurringExpensesPage() {
         return (
           <div className="space-y-1">
             <Badge className="inline-flex items-center gap-1 bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-100">
-              <Users className="size-3 shrink-0" />
               <span>Team</span>
             </Badge>
             <div className="truncate text-[11px] text-muted-foreground">{resolvedTeamName || "—"}</div>
@@ -437,7 +435,6 @@ export default function RecurringExpensesPage() {
         return (
           <div className="space-y-1">
             <Badge className="inline-flex items-center gap-1 bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100">
-              <FolderKanban className="size-3 shrink-0" />
               <span>Project</span>
             </Badge>
             <div className="truncate text-[11px] text-muted-foreground">{resolvedProjectName || "—"}</div>
@@ -447,7 +444,6 @@ export default function RecurringExpensesPage() {
         return (
           <div className="space-y-1">
             <Badge variant="outline" className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] text-muted-foreground">
-              <CircleSlash className="size-3 shrink-0" />
               <span>Unallocated</span>
             </Badge>
             <div className="truncate text-[11px] text-muted-foreground">Без розподілу</div>
