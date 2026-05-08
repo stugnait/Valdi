@@ -526,11 +526,11 @@ export default function RecurringExpensesPage() {
           </CardHeader>
           <CardContent>
             {nearestUpcomingPayment ? (
-              <div className="space-y-2">
-                <div className="text-base font-medium leading-snug">{nearestUpcomingPayment.name}</div>
+              <div className="space-y-1">
                 <div className="text-2xl font-bold leading-tight">
                   {formatMoney(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0, "USD")}
                 </div>
+                <div className="text-sm font-medium leading-snug">{nearestUpcomingPayment.name}</div>
                 <div className="text-xs leading-relaxed text-muted-foreground">
                   {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
                 </div>
