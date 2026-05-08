@@ -415,31 +415,43 @@ export default function RecurringExpensesPage() {
     switch (expense.allocation.type) {
       case "all":
         return (
-          <Badge className="inline-flex max-w-full items-center gap-1.5 bg-violet-100 text-violet-700 hover:bg-violet-100">
-            <Building2 className="size-3.5 shrink-0" />
-            <span className="truncate">Company Overhead · Усі учасники</span>
-          </Badge>
+          <div className="space-y-1">
+            <Badge className="inline-flex items-center gap-1 bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700 hover:bg-violet-100">
+              <Building2 className="size-3 shrink-0" />
+              <span>Company</span>
+            </Badge>
+            <div className="truncate text-[11px] text-muted-foreground">Вся компанія</div>
+          </div>
         )
       case "team":
         return (
-          <Badge className="inline-flex max-w-full items-center gap-1.5 bg-blue-100 text-blue-700 hover:bg-blue-100">
-            <Users className="size-3.5 shrink-0" />
-            <span className="truncate">Team Expense · {resolvedTeamName || "—"}</span>
-          </Badge>
+          <div className="space-y-1">
+            <Badge className="inline-flex items-center gap-1 bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-100">
+              <Users className="size-3 shrink-0" />
+              <span>Team</span>
+            </Badge>
+            <div className="truncate text-[11px] text-muted-foreground">{resolvedTeamName || "—"}</div>
+          </div>
         )
       case "project":
         return (
-          <Badge className="inline-flex max-w-full items-center gap-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-            <FolderKanban className="size-3.5 shrink-0" />
-            <span className="truncate">Project Expense · {resolvedProjectName || "—"}</span>
-          </Badge>
+          <div className="space-y-1">
+            <Badge className="inline-flex items-center gap-1 bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100">
+              <FolderKanban className="size-3 shrink-0" />
+              <span>Project</span>
+            </Badge>
+            <div className="truncate text-[11px] text-muted-foreground">{resolvedProjectName || "—"}</div>
+          </div>
         )
       case "none":
         return (
-          <Badge variant="outline" className="inline-flex max-w-full items-center gap-1.5 text-muted-foreground">
-            <CircleSlash className="size-3.5 shrink-0" />
-            <span className="truncate">Unallocated</span>
-          </Badge>
+          <div className="space-y-1">
+            <Badge variant="outline" className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] text-muted-foreground">
+              <CircleSlash className="size-3 shrink-0" />
+              <span>Unallocated</span>
+            </Badge>
+            <div className="truncate text-[11px] text-muted-foreground">Без розподілу</div>
+          </div>
         )
       default:
         return null
@@ -674,7 +686,7 @@ export default function RecurringExpensesPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="max-w-[220px]">{getAllocationBadge(expense)}</div>
+                      <div className="max-w-[180px] sm:max-w-[220px]">{getAllocationBadge(expense)}</div>
                     </TableCell>
                     <TableCell>
                       <span className="flex items-center gap-1.5">
