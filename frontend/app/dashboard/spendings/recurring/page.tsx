@@ -524,20 +524,17 @@ export default function RecurringExpensesPage() {
             <CardTitle className="text-sm font-medium">Найближчі платежі</CardTitle>
             <Calendar className="size-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent>
             {nearestUpcomingPayment ? (
-              <>
+              <div className="space-y-2">
                 <div className="text-base font-medium leading-snug">{nearestUpcomingPayment.name}</div>
                 <div className="text-2xl font-bold leading-tight">
                   {formatMoney(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0, "USD")}
                 </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
+                <div className="text-xs leading-relaxed text-muted-foreground">
                   {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
-                </p>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Наступна оплата: {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
-                </p>
-              </>
+                </div>
+              </div>
             ) : (
               <div className="py-2 text-sm text-muted-foreground">Немає запланованих платежів</div>
             )}
