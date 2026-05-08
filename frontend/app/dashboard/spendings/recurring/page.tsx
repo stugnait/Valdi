@@ -13,7 +13,11 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Filter
+  Filter,
+  Building2,
+  Users,
+  FolderKanban,
+  CircleSlash
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
