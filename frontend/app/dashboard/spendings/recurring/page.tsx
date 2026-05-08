@@ -473,7 +473,7 @@ export default function RecurringExpensesPage() {
         </div>
       </div>
 
-      {error && (
+      {(error || ratesWarning) && (
         <Card className="border-red-200">
           <CardContent className="pt-6 text-sm text-red-700">{error}</CardContent>
         </Card>
