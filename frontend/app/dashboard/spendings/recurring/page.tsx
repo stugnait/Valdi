@@ -73,8 +73,6 @@ import {
   convertToUSD,
   getPaymentStatusColor,
   getSourceIcon,
-  calculateMonthlyTotal,
-  getNextBigPayment,
 } from "@/lib/types/spendings"
 import { workforceApi, type ApiRecurringExpense, type ApiTeam, type ApiProject } from "@/lib/api/workforce"
 
@@ -176,7 +174,25 @@ export default function RecurringExpensesPage() {
     return sum + amount
   }, 0)
   const activeCount = expenses.filter(e => e.status !== "overdue").length
-  const nextBigPayment = getNextBigPayment(expenses)
+  const upcomingExpenses = expenses
+    .filter((expense) => {
+      const nextDate = new Date(expense.nextPaymentDate)
+      if (Number.isNaN(nextDate.getTime())) return false
+      return expense.status !== "overdue"
+    })
+    .sort((a, b) => new Date(a.nextPaymentDate).getTime() - new Date(b.nextPaymentDate).getTime())
+
+  const nearestUpcomingPayment = upcomingExpenses[0]
+  const nextThirtyDaysTotal = upcomingExpenses.reduce((sum, expense) => {
+    const paymentDate = new Date(expense.nextPaymentDate)
+    const now = new Date()
+    const inThirtyDays = new Date()
+    inThirtyDays.setDate(now.getDate() + 30)
+    if (paymentDate >= now && paymentDate <= inThirtyDays) {
+      return sum + expense.amountUSD
+    }
+    return sum
+  }, 0)
 
   // Filtered expenses
   const filteredExpenses = expenses.filter(expense => {
@@ -439,44 +455,57 @@ export default function RecurringExpensesPage() {
       )}
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Щомісячне навантаження</CardTitle>
             <CreditCard className="size-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-1">
             <div className="text-2xl font-bold">${monthlyTotal.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Загальна сума регулярних витрат за місяць</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Нормалізована сума регулярних витрат за місяць
+            </p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Актуальне щомісячне навантаження
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Активні підписки</CardTitle>
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Активні регулярні витрати</CardTitle>
             <RefreshCw className="size-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-1">
             <div className="text-2xl font-bold">{activeCount}</div>
-            <p className="text-xs text-muted-foreground">Усього підписок: {expenses.length}</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">Активні recurring subscriptions та платежі</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Найближчий великий платіж</CardTitle>
+        <Card className="sm:col-span-2 xl:col-span-1">
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Найближчі платежі</CardTitle>
             <Calendar className="size-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            {nextBigPayment ? (
+          <CardContent className="space-y-1">
+            {nextThirtyDaysTotal > 0 ? (
               <>
-                <div className="text-2xl font-bold">${nextBigPayment.amountUSD.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">
-                  {nextBigPayment.name} — {new Date(nextBigPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
+                <div className="text-2xl font-bold">${nextThirtyDaysTotal.toLocaleString()}</div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  у наступні 30 днів
+                </p>
+              </>
+            ) : nearestUpcomingPayment ? (
+              <>
+                <div className="text-lg font-semibold leading-snug">{nearestUpcomingPayment.name}</div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  ${nearestUpcomingPayment.amountUSD.toLocaleString()} •{" "}
+                  {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
                 </p>
               </>
             ) : (
-              <div className="text-muted-foreground">Немає запланованих платежів</div>
+              <div className="text-sm text-muted-foreground">Немає запланованих платежів</div>
             )}
           </CardContent>
         </Card>
