@@ -394,6 +394,12 @@ export default function RecurringExpensesPage() {
     }
   }
 
+  const getNbuRateLabel = (currency: "USD" | "EUR") => {
+    if (!rates) return "—"
+    const value = currency === "USD" ? rates.USD : rates.EUR
+    return `${value.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴`
+  }
+
   const getAllocationBadge = (expense: RecurringExpense) => {
     const resolvedTeamName =
       expense.allocation.teamName ||
@@ -408,13 +414,13 @@ export default function RecurringExpensesPage() {
       case "team":
         return (
           <Badge variant="secondary">
-            між командою {resolvedTeamName || "—"}
+            Для команди {resolvedTeamName || "—"}
           </Badge>
         )
       case "project":
         return (
           <Badge>
-            на проєкт {resolvedProjectName || "—"}
+            Проєкт {resolvedProjectName || "—"}
           </Badge>
         )
       case "none":
@@ -445,22 +451,39 @@ export default function RecurringExpensesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Регулярні витрати</h1>
           <p className="text-sm text-muted-foreground">
             Керуйте щомісячними підписками та повторюваними платежами
           </p>
         </div>
-        <Button onClick={handleOpenAdd} className="gap-2">
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
+            <div className="mb-1 font-medium text-foreground/80">Офіційний курс НБУ</div>
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <span>USD: {getNbuRateLabel("USD")}</span>
+              <span>EUR: {getNbuRateLabel("EUR")}</span>
+            </div>
+          </div>
+          <Button onClick={handleOpenAdd} className="gap-2">
           <Plus className="size-4" />
           Додати витрату
-        </Button>
+          </Button>
+        </div>
       </div>
 
       {(error || ratesWarning) && (
         <Card className="border-red-200">
-          <CardContent className="pt-6 text-sm text-amber-700">{error || ratesWarning}</CardContent>
+          <CardContent className="pt-6 text-sm text-red-700">{error}</CardContent>
+        </Card>
+      )}
+
+      {ratesWarning && (
+        <Card className="border-amber-200 bg-amber-50/40">
+          <CardContent className="pt-6 text-sm text-amber-800">
+            Курс НБУ тимчасово недоступний. Використовується кешований курс валют.
+          </CardContent>
         </Card>
       )}
 
@@ -574,7 +597,7 @@ export default function RecurringExpensesPage() {
                 <TableHead>Розподіл</TableHead>
                 <TableHead>Джерело</TableHead>
                 <TableHead>Наступний платіж</TableHead>
-                <TableHead>Статус</TableHead>
+                <TableHead>Статус оплати</TableHead>
                 <TableHead className="text-right">Дії</TableHead>
               </TableRow>
             </TableHeader>
@@ -598,7 +621,7 @@ export default function RecurringExpensesPage() {
                           </Badge>
                         </div>
                         {isVariable && (
-                          <div className="text-xs text-muted-foreground">Фактична сума за місяць</div>
+                          <div className="text-[11px] font-normal text-muted-foreground/70">Фактична сума за місяць</div>
                         )}
                         {expense.description && !expense.description.startsWith("Team overhead:") && (
                           <div className="text-xs text-muted-foreground">{expense.description}</div>
@@ -609,17 +632,17 @@ export default function RecurringExpensesPage() {
                       <div className="space-y-1">
                         <div className="font-medium leading-tight">{formatCurrency(displayedAmount, expense.currency)}/місяць</div>
                         {fixedCycleBaseAmount !== null && cycleUnitLabel && (
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-[11px] text-muted-foreground/80">
                             {formatCurrency(fixedCycleBaseAmount, expense.currency)}/{cycleUnitLabel}
                           </div>
                         )}
                         {showForecast && (
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-[11px] text-muted-foreground/80">
                             Прогноз: {formatCurrency(forecastAmount, expense.currency)}
                           </div>
                         )}
                         {expense.currency !== "USD" && (
-                          <div className="text-xs text-muted-foreground">≈ {formatMoney(toMonthlyAmountInUsd(expense) ?? 0, "USD")}/month</div>
+                          <div className="text-[11px] text-muted-foreground/80">≈ {formatMoney(toMonthlyAmountInUsd(expense) ?? 0, "USD")}/місяць</div>
                         )}
                       </div>
                     </TableCell>
