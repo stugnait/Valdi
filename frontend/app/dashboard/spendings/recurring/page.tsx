@@ -649,15 +649,15 @@ export default function RecurringExpensesPage() {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="font-medium leading-tight">{formatCurrency(displayedAmount, expense.currency)}/місяць</div>
+                        <div className="font-medium leading-tight">{formatCurrency(displayedAmount, expense.currency, "uk-UA")}/місяць</div>
                         {fixedCycleBaseAmount !== null && cycleUnitLabel && (
                           <div className="text-[11px] text-muted-foreground/80">
-                            {formatCurrency(fixedCycleBaseAmount, expense.currency)}/{cycleUnitLabel}
+                            {formatCurrency(fixedCycleBaseAmount, expense.currency, "uk-UA")}/{cycleUnitLabel}
                           </div>
                         )}
                         {showForecast && (
                           <div className="text-[11px] text-muted-foreground/80">
-                            Прогноз: {formatCurrency(forecastAmount, expense.currency)}
+                            Прогноз: {formatCurrency(forecastAmount, expense.currency, "uk-UA")}
                           </div>
                         )}
                         {expense.currency !== "USD" && (

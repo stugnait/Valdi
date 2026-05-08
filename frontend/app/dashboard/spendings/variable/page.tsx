@@ -444,9 +444,9 @@ export default function VariableExpensesPage() {
 
                   {/* Amount */}
                   <div className="text-right">
-                    <div className="font-semibold">{formatCurrency(expense.amount, expense.currency)}</div>
+                    <div className="font-semibold">{formatCurrency(expense.amount, expense.currency, "uk-UA")}</div>
                     {expense.currency !== "USD" && (
-                      <div className="text-xs text-muted-foreground">${expense.amountUSD}</div>
+                      <div className="text-xs text-muted-foreground">≈ {formatCurrency(expense.amountUSD, "USD", "uk-UA")}</div>
                     )}
                   </div>
 
