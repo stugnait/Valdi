@@ -58,14 +58,16 @@ export async function getNbuRates(): Promise<{ rates: NbuRates; warning: string 
   const cached = readCachedRates()
 
   try {
-    const response = await fetch("/api/exchange/nbu", { cache: "no-store" })
+    const response = await fetch("https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json", { cache: "no-store" })
     if (!response.ok) throw new Error(`NBU API ${response.status}`)
-    const payload = (await response.json()) as { USD: number; EUR: number }
-    if (!payload.USD || !payload.EUR) throw new Error("NBU rates are incomplete")
+    const payload = (await response.json()) as Array<{ cc: string; rate: number }>
+    const usd = payload.find((item) => item.cc === "USD")?.rate
+    const eur = payload.find((item) => item.cc === "EUR")?.rate
+    if (!usd || !eur) throw new Error("NBU rates are incomplete")
 
     const rates: NbuRates = {
-      USD: payload.USD,
-      EUR: payload.EUR,
+      USD: usd,
+      EUR: eur,
       UAH: 1,
       fetchedAt: new Date().toISOString(),
       source: "nbu",
