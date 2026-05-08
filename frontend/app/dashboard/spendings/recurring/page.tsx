@@ -534,6 +534,9 @@ export default function RecurringExpensesPage() {
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
                 </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Наступна оплата: {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
+                </p>
               </>
             ) : (
               <div className="py-2 text-sm text-muted-foreground">Немає запланованих платежів</div>
