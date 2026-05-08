@@ -74,7 +74,7 @@ import {
   getSourceIcon,
 } from "@/lib/types/spendings"
 import { workforceApi, type ApiRecurringExpense, type ApiTeam, type ApiProject } from "@/lib/api/workforce"
-import { convertToBaseCurrency, getNbuRates, toMonthlyRecurringAmount, type NbuRates } from "@/lib/utils/currency"
+import { convertToBaseCurrency, formatCurrency as formatMoney, getNbuRates, toMonthlyRecurringAmount, type NbuRates } from "@/lib/utils/currency"
 
 export default function RecurringExpensesPage() {
   const [expenses, setExpenses] = useState<RecurringExpense[]>([])
@@ -460,7 +460,7 @@ export default function RecurringExpensesPage() {
 
       {(error || ratesWarning) && (
         <Card className="border-red-200">
-          <CardContent className="pt-6 text-sm text-red-600">{error || ratesWarning}</CardContent>
+          <CardContent className="pt-6 text-sm text-amber-700">{error || ratesWarning}</CardContent>
         </Card>
       )}
 
@@ -478,7 +478,7 @@ export default function RecurringExpensesPage() {
             <CreditCard className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="space-y-1">
-            <div className="text-2xl font-bold">${rates ? monthlyTotal.toLocaleString() : "—"}</div>
+            <div className="text-2xl font-bold">{rates ? formatMoney(monthlyTotal, "USD") : "—"}</div>
             <p className="text-xs leading-relaxed text-muted-foreground">
               {rates ? "Актуальна сума регулярних витрат за місяць" : "Очікуємо курс НБУ для коректного USD-розрахунку"}
             </p>
@@ -504,7 +504,7 @@ export default function RecurringExpensesPage() {
           <CardContent className="space-y-1">
             {nextThirtyDaysTotal > 0 ? (
               <>
-                <div className="text-2xl font-bold">${nextThirtyDaysTotal.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{formatMoney(nextThirtyDaysTotal, "USD")}</div>
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   у наступні 30 днів
                 </p>
@@ -513,7 +513,7 @@ export default function RecurringExpensesPage() {
               <>
                 <div className="text-lg font-semibold leading-snug">{nearestUpcomingPayment.name}</div>
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  ${(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0).toLocaleString()} •{" "}
+                  {formatMoney(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0, "USD")} •{" "}
                   {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
                 </p>
               </>
@@ -619,7 +619,7 @@ export default function RecurringExpensesPage() {
                           </div>
                         )}
                         {expense.currency !== "USD" && (
-                          <div className="text-xs text-muted-foreground">≈ ${(toMonthlyAmountInUsd(expense) ?? 0).toLocaleString()} $/month</div>
+                          <div className="text-xs text-muted-foreground">≈ {formatMoney(toMonthlyAmountInUsd(expense) ?? 0, "USD")}/month</div>
                         )}
                       </div>
                     </TableCell>

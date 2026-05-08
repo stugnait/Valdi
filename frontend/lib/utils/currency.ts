@@ -11,7 +11,7 @@ export interface NbuRates {
 }
 
 const CACHE_KEY = "nbu_exchange_rates_v1"
-const CACHE_TTL_MS = 1000 * 60 * 60 * 6
+const CACHE_TTL_MS = 1000 * 60 * 60 * 12
 
 export const FALLBACK_NBU_RATES: NbuRates = {
   USD: 41.5,
@@ -25,6 +25,15 @@ function isValidRates(value: unknown): value is NbuRates {
   if (!value || typeof value !== "object") return false
   const rates = value as Partial<NbuRates>
   return Boolean(rates.USD && rates.EUR && rates.UAH === 1 && typeof rates.fetchedAt === "string")
+}
+
+export function formatCurrency(amount: number, currency: Currency, locale = "en-US"): string {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount)
 }
 
 export function convertToBaseCurrency(
@@ -49,16 +58,14 @@ export async function getNbuRates(): Promise<{ rates: NbuRates; warning: string 
   const cached = readCachedRates()
 
   try {
-    const response = await fetch("https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&valcode=EUR&json")
+    const response = await fetch("/api/exchange/nbu", { cache: "no-store" })
     if (!response.ok) throw new Error(`NBU API ${response.status}`)
-    const payload = (await response.json()) as Array<{ cc: string; rate: number }>
-    const usd = payload.find((item) => item.cc === "USD")?.rate
-    const eur = payload.find((item) => item.cc === "EUR")?.rate
-    if (!usd || !eur) throw new Error("NBU rates are incomplete")
+    const payload = (await response.json()) as { USD: number; EUR: number }
+    if (!payload.USD || !payload.EUR) throw new Error("NBU rates are incomplete")
 
     const rates: NbuRates = {
-      USD: usd,
-      EUR: eur,
+      USD: payload.USD,
+      EUR: payload.EUR,
       UAH: 1,
       fetchedAt: new Date().toISOString(),
       source: "nbu",
@@ -69,12 +76,12 @@ export async function getNbuRates(): Promise<{ rates: NbuRates; warning: string 
     if (cached) {
       return {
         rates: { ...cached, source: "cache" },
-        warning: "Не вдалося оновити курс НБУ. Використовується кешований курс.",
+        warning: "Курс НБУ тимчасово недоступний. Використовується кешований курс валют.",
       }
     }
     return {
       rates: FALLBACK_NBU_RATES,
-      warning: "Курс НБУ недоступний. Використовується fallback-курс, перевірте розрахунки.",
+      warning: "Курс НБУ тимчасово недоступний. Використовується кешований курс валют.",
     }
   }
 }
