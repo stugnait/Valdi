@@ -458,7 +458,7 @@ export default function RecurringExpensesPage() {
             Керуйте щомісячними підписками та повторюваними платежами
           </p>
         </div>
-        <div className="flex flex-col items-start gap-2 sm:items-end">
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
             <div className="mb-1 font-medium text-foreground/80">Офіційний курс НБУ</div>
             <div className="flex items-center gap-3 text-muted-foreground">
@@ -467,8 +467,8 @@ export default function RecurringExpensesPage() {
             </div>
           </div>
           <Button onClick={handleOpenAdd} className="gap-2">
-          <Plus className="size-4" />
-          Додати витрату
+            <Plus className="size-4" />
+            Додати витрату
           </Button>
         </div>
       </div>
@@ -524,24 +524,19 @@ export default function RecurringExpensesPage() {
             <CardTitle className="text-sm font-medium">Найближчі платежі</CardTitle>
             <Calendar className="size-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="space-y-1">
-            {nextThirtyDaysTotal > 0 ? (
-              <>
-                <div className="text-2xl font-bold">{formatMoney(nextThirtyDaysTotal, "USD")}</div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  у наступні 30 днів
-                </p>
-              </>
-            ) : nearestUpcomingPayment ? (
-              <>
-                <div className="text-lg font-semibold leading-snug">{nearestUpcomingPayment.name}</div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  {formatMoney(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0, "USD")} •{" "}
+          <CardContent>
+            {nearestUpcomingPayment ? (
+              <div className="space-y-2">
+                <div className="text-base font-medium leading-snug">{nearestUpcomingPayment.name}</div>
+                <div className="text-2xl font-bold leading-tight">
+                  {formatMoney(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0, "USD")}
+                </div>
+                <div className="text-xs leading-relaxed text-muted-foreground">
                   {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
-                </p>
-              </>
+                </div>
+              </div>
             ) : (
-              <div className="text-sm text-muted-foreground">Немає запланованих платежів</div>
+              <div className="py-2 text-sm text-muted-foreground">Немає запланованих платежів</div>
             )}
           </CardContent>
         </Card>
