@@ -65,7 +65,7 @@ import {
   type TeamMembership
 } from "@/lib/types/teams"
 import { expenseCategories, type Currency } from "@/lib/types/spendings"
-import { type ApiDeveloper, type ApiRecurringExpense, type ApiTeam, workforceApi } from "@/lib/api/workforce"
+import { type ApiDeveloper, type ApiRecurringExpense, type ApiTeam, type ApiVariableExpense, workforceApi } from "@/lib/api/workforce"
 import {
   deleteMemberUiData,
   getMemberUiData,
@@ -146,9 +146,31 @@ const toTeamOverheadFromRecurring = (expense: {
   category: expense.category,
 })
 
+interface TeamIrregularExpenseItem {
+  id: string
+  name: string
+  amount: number
+  currency: Currency
+  amountUsd: number
+  expenseDate: string
+  category: string
+}
+
+const toTeamVariableMonthlyAmount = (expense: ApiVariableExpense, rates: NbuRates) =>
+  convertToBaseCurrency(Number(expense.amount ?? 0), expense.currency, rates)
+
+const formatOriginalExpenseAmount = (amount: number, currency: Currency) =>
+  new Intl.NumberFormat("uk-UA", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount)
+
 export default function TeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [team, setTeam] = useState<Team | null>(null)
+  const [teamIrregularExpenses, setTeamIrregularExpenses] = useState<TeamIrregularExpenseItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   
@@ -344,11 +366,12 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     setIsLoading(true)
     setError("")
     try {
-      const [apiTeam, developers, projects, recurringExpenses, { rates }, allTeams] = await Promise.all([
+      const [apiTeam, developers, projects, recurringExpenses, variableExpenses, { rates }, allTeams] = await Promise.all([
         workforceApi.getTeam(id),
         workforceApi.listDevelopers(),
         workforceApi.listProjects(),
         workforceApi.listRecurringExpenses(),
+        workforceApi.listVariableExpenses(),
         getNbuRates(),
         workforceApi.listTeams(),
       ])
@@ -404,6 +427,30 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           }
         })
         .filter((expense) => expense.amount > 0)
+      const teamVariableExpenses = variableExpenses
+        .filter((expense) => expense.allocation_type === "team" && expense.team?.toString() === id)
+      const teamVariableExpensesForMetrics = teamVariableExpenses
+        .filter((expense) => expense.impact_flags?.teamCost ?? false)
+        .map((expense) => ({
+          id: `variable-${expense.id}`,
+          name: expense.name,
+          amount: toTeamVariableMonthlyAmount(expense, rates),
+          frequency: "monthly" as const,
+          category: expense.category,
+        }))
+      setTeamIrregularExpenses(
+        teamVariableExpenses
+          .map((expense) => ({
+            id: expense.id.toString(),
+            name: expense.name,
+            amount: Number(expense.amount ?? 0),
+            currency: expense.currency,
+            amountUsd: toTeamVariableMonthlyAmount(expense, rates),
+            expenseDate: expense.expense_date,
+            category: expense.category,
+          }))
+          .sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime())
+      )
       const overheads = [...teamRecurringOverheads, ...companyAllocatedOverheads]
 
       setTeam(
@@ -412,7 +459,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           developersById,
           totals,
           overheads,
-          teamRecurringOverheads,
+          [...teamRecurringOverheads, ...teamVariableExpensesForMetrics],
           sharedAllOverheadPerMember,
           ownedMemberIdsForTeam
         )
@@ -1101,6 +1148,31 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           </div>
 
           <div className="space-y-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Нерегулярні витрати команди</CardTitle>
+                <CardDescription>Одноразові team expenses для цієї команди</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {teamIrregularExpenses.map((expense) => (
+                  <div key={expense.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <p className="font-medium">{expense.name}</p>
+                      <p className="text-xs text-muted-foreground">{expense.expenseDate} • {expense.category}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">{formatOriginalExpenseAmount(expense.amount, expense.currency)}</p>
+                      {expense.currency !== "USD" && (
+                        <p className="text-xs text-muted-foreground">≈ {formatCurrency(expense.amountUsd)}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {teamIrregularExpenses.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Немає нерегулярних витрат для цієї команди.</p>
+                )}
+              </CardContent>
+            </Card>
             {team.overheads.map((overhead) => (
               <Card key={overhead.id}>
                 <CardContent className="flex items-center justify-between p-4">
@@ -1446,9 +1518,9 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="UAH">UAH (₴)</SelectItem>
+                    <SelectItem value="USD">$</SelectItem>
+                    <SelectItem value="EUR">€</SelectItem>
+                    <SelectItem value="UAH">₴</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -486,8 +486,8 @@ export default function RecurringExpensesPage() {
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
             <div className="mb-1 font-medium text-foreground/80">Офіційний курс НБУ</div>
             <div className="flex items-center gap-3 text-muted-foreground">
-              <span>USD: {getNbuRateLabel("USD")}</span>
-              <span>EUR: {getNbuRateLabel("EUR")}</span>
+              <span>$: {getNbuRateLabel("USD")}</span>
+              <span>€: {getNbuRateLabel("EUR")}</span>
             </div>
           </div>
           <Button onClick={handleOpenAdd} className="gap-2">
@@ -649,15 +649,15 @@ export default function RecurringExpensesPage() {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="font-medium leading-tight">{formatCurrency(displayedAmount, expense.currency)}/місяць</div>
+                        <div className="font-medium leading-tight">{formatCurrency(displayedAmount, expense.currency, "uk-UA")}/місяць</div>
                         {fixedCycleBaseAmount !== null && cycleUnitLabel && (
                           <div className="text-[11px] text-muted-foreground/80">
-                            {formatCurrency(fixedCycleBaseAmount, expense.currency)}/{cycleUnitLabel}
+                            {formatCurrency(fixedCycleBaseAmount, expense.currency, "uk-UA")}/{cycleUnitLabel}
                           </div>
                         )}
                         {showForecast && (
                           <div className="text-[11px] text-muted-foreground/80">
-                            Прогноз: {formatCurrency(forecastAmount, expense.currency)}
+                            Прогноз: {formatCurrency(forecastAmount, expense.currency, "uk-UA")}
                           </div>
                         )}
                         {expense.currency !== "USD" && (
@@ -824,9 +824,9 @@ export default function RecurringExpensesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="UAH">UAH (₴)</SelectItem>
+                    <SelectItem value="USD">$</SelectItem>
+                    <SelectItem value="EUR">€</SelectItem>
+                    <SelectItem value="UAH">₴</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
