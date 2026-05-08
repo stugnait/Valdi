@@ -413,6 +413,14 @@ export default function RecurringExpensesPage() {
     }
   }
 
+  function getMonthlyEquivalentAmount(expense: RecurringExpense) {
+    const baseAmount = getMonthlyAmount(expense)
+    if (expense.amountType === "variable") return baseAmount
+    if (expense.cycle === "yearly") return baseAmount / 12
+    if (expense.cycle === "quarterly") return baseAmount / 3
+    return baseAmount
+  }
+
   function getMonthlyAmount(expense: RecurringExpense) {
     const extended = expense as RecurringExpense & {
       amountType?: "fixed" | "variable"
@@ -497,7 +505,7 @@ export default function RecurringExpensesPage() {
               <>
                 <div className="text-lg font-semibold leading-snug">{nearestUpcomingPayment.name}</div>
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  ${convertToUSD(getMonthlyAmount(nearestUpcomingPayment), nearestUpcomingPayment.currency).toLocaleString()} •{" "}
+                  ${convertToUSD(getMonthlyEquivalentAmount(nearestUpcomingPayment), nearestUpcomingPayment.currency).toLocaleString()} •{" "}
                   {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
                 </p>
               </>
@@ -565,7 +573,7 @@ export default function RecurringExpensesPage() {
             <TableBody>
               {filteredExpenses.map((expense) => {
                 const category = expenseCategories.find(c => c.id === expense.category)
-                const displayedAmount = getMonthlyAmount(expense)
+                const displayedAmount = getMonthlyEquivalentAmount(expense)
                 const isVariable = expense.amountType === "variable"
                 const forecastAmount = Number(expense.estimatedAmount ?? expense.amount)
                 const showForecast = isVariable && forecastAmount !== displayedAmount
