@@ -88,13 +88,13 @@ export function convertToUSD(amount: number, currency: Currency): number {
   return Math.round(amount * exchangeRates[currency] * 100) / 100
 }
 
-export function formatCurrency(amount: number, currency: Currency): string {
-  const symbols: Record<Currency, string> = {
-    USD: "$",
-    EUR: "€",
-    UAH: "₴",
-  }
-  return `${symbols[currency]}${amount.toLocaleString()}`
+export function formatCurrency(amount: number, currency: Currency = "USD", locale = "en-US"): string {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount)
 }
 
 // Categories

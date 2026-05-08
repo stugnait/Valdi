@@ -49,6 +49,7 @@ import { type Team } from "@/lib/types/teams"
 import { type ApiDeveloper, type ApiRecurringExpense, type ApiTeam, workforceApi } from "@/lib/api/workforce"
 import { deleteTeamUiMeta, getMemberUiData, getTeamUiMeta, setTeamUiMeta } from "@/lib/storage/team-ui"
 import { calculateTeamMetrics, MONTHLY_WORK_HOURS } from "@/lib/utils/team-metrics"
+import { convertToBaseCurrency, getNbuRates, toMonthlyRecurringAmount, type NbuRates } from "@/lib/utils/currency"
 
 const colorOptions = [
   { name: "Blue", value: "#2563eb" },
@@ -59,15 +60,13 @@ const colorOptions = [
   { name: "Cyan", value: "#06b6d4" },
 ]
 export default function TeamsHubPage() {
-  const toRecurringMonthlyAmount = (expense: ApiRecurringExpense) => {
+  const toRecurringMonthlyAmount = (expense: ApiRecurringExpense, rates: NbuRates) => {
     const monthKey = new Date().toISOString().slice(0, 7)
-    const baseAmount =
-      expense.amount_type === "variable"
-        ? Number(expense.monthly_actual_amounts?.[monthKey] ?? expense.estimated_amount ?? expense.amount ?? 0)
-        : Number(expense.amount ?? 0)
-    if (expense.cycle === "yearly") return baseAmount / 12
-    if (expense.cycle === "quarterly") return baseAmount / 3
-    return baseAmount
+    const baseAmount = expense.amount_type === "variable"
+      ? Number(expense.monthly_actual_amounts?.[monthKey] ?? expense.estimated_amount ?? expense.amount ?? 0)
+      : Number(expense.amount ?? 0)
+    const monthlyOriginalAmount = toMonthlyRecurringAmount(baseAmount, expense.cycle)
+    return convertToBaseCurrency(monthlyOriginalAmount, expense.currency, rates)
   }
 
   const [teams, setTeams] = useState<Team[]>([])
@@ -164,11 +163,12 @@ export default function TeamsHubPage() {
     setIsLoading(true)
     setError("")
     try {
-      const [teamsData, developersData, projectsData, recurringExpenses] = await Promise.all([
+      const [teamsData, developersData, projectsData, recurringExpenses, { rates }] = await Promise.all([
         workforceApi.listTeams(),
         workforceApi.listDevelopers(),
         workforceApi.listProjects(),
         workforceApi.listRecurringExpenses(),
+        getNbuRates(),
       ])
       const totals = projectsData.reduce(
         (acc, project) => ({
@@ -188,7 +188,7 @@ export default function TeamsHubPage() {
       const uniqueMemberIds = new Set(teamsData.flatMap((team) => team.memberships.map((m) => m.developer)))
       const allRecurringMonthlyTotal = recurringExpenses
         .filter((expense) => expense.allocation_type === "all")
-        .reduce((sum, expense) => sum + toRecurringMonthlyAmount(expense), 0)
+        .reduce((sum, expense) => sum + toRecurringMonthlyAmount(expense, rates), 0)
       const sharedAllOverheadPerMember =
         uniqueMemberIds.size > 0 ? allRecurringMonthlyTotal / uniqueMemberIds.size : 0
 
@@ -206,7 +206,7 @@ export default function TeamsHubPage() {
         const companyAllocatedOverheads = recurringExpenses
           .filter((expense) => expense.allocation_type === "all")
           .map((expense: ApiRecurringExpense) => {
-            const monthlyAmount = toRecurringMonthlyAmount(expense)
+            const monthlyAmount = toRecurringMonthlyAmount(expense, rates)
             const allocatedAmount =
               uniqueMemberIds.size > 0 ? (monthlyAmount / uniqueMemberIds.size) * ownedMemberCountForTeam : 0
             return {
