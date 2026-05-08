@@ -85,6 +85,7 @@ import {
   Legend,
 } from "recharts"
 import { calculateEmployeeBaseCost, calculateTeamMetrics, MONTHLY_WORK_HOURS } from "@/lib/utils/team-metrics"
+import { convertToBaseCurrency, getNbuRates, toMonthlyRecurringAmount, type NbuRates } from "@/lib/utils/currency"
 
 const getTodayLocalDateString = () => {
   const now = new Date()
@@ -121,15 +122,14 @@ const toHourlyRatePayload = (baseRate: number, rateType: "monthly" | "hourly") =
   return Math.round(rawHourly * 100) / 100
 }
 
-const toRecurringMonthlyAmount = (expense: ApiRecurringExpense) => {
+const toRecurringMonthlyAmount = (expense: ApiRecurringExpense, rates: NbuRates) => {
   const monthKey = new Date().toISOString().slice(0, 7)
   const baseAmount =
     expense.amount_type === "variable"
       ? Number(expense.monthly_actual_amounts?.[monthKey] ?? expense.estimated_amount ?? expense.amount ?? 0)
       : Number(expense.amount ?? 0)
-  if (expense.cycle === "yearly") return baseAmount / 12
-  if (expense.cycle === "quarterly") return baseAmount / 3
-  return baseAmount
+  const monthlyOriginalAmount = toMonthlyRecurringAmount(baseAmount, expense.cycle)
+  return convertToBaseCurrency(monthlyOriginalAmount, expense.currency, rates)
 }
 
 const toTeamOverheadFromRecurring = (expense: {
@@ -344,11 +344,12 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
     setIsLoading(true)
     setError("")
     try {
-      const [apiTeam, developers, projects, recurringExpenses, allTeams] = await Promise.all([
+      const [apiTeam, developers, projects, recurringExpenses, { rates }, allTeams] = await Promise.all([
         workforceApi.getTeam(id),
         workforceApi.listDevelopers(),
         workforceApi.listProjects(),
         workforceApi.listRecurringExpenses(),
+        getNbuRates(),
         workforceApi.listTeams(),
       ])
       const totals = projects.reduce(
@@ -364,7 +365,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         .map(toTeamOverheadFromRecurring)
       const allRecurringMonthlyTotal = recurringExpenses
         .filter((expense) => expense.allocation_type === "all")
-        .reduce((sum, expense) => sum + toRecurringMonthlyAmount(expense), 0)
+        .reduce((sum, expense) => sum + toRecurringMonthlyAmount(expense, rates), 0)
       const uniqueMemberIds = new Set(
         allTeams.flatMap((teamItem) => teamItem.memberships.map((membership) => membership.developer))
       )
@@ -391,8 +392,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       const companyAllocatedOverheads = recurringExpenses
         .filter((expense) => expense.allocation_type === "all")
         .map((expense) => {
-          const amount = Number(expense.amount || 0)
-          const monthlyAmount = toRecurringMonthlyAmount(expense)
+          const monthlyAmount = toRecurringMonthlyAmount(expense, rates)
           const allocatedAmount =
             uniqueMemberIds.size > 0 ? (monthlyAmount / uniqueMemberIds.size) * ownedMemberCountForTeam : 0
           return {
