@@ -13,7 +13,11 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Filter
+  Filter,
+  Building2,
+  Users,
+  FolderKanban,
+  CircleSlash
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -410,21 +414,33 @@ export default function RecurringExpensesPage() {
 
     switch (expense.allocation.type) {
       case "all":
-        return <Badge variant="outline">Усі учасники</Badge>
+        return (
+          <Badge className="inline-flex max-w-full items-center gap-1.5 bg-violet-100 text-violet-700 hover:bg-violet-100">
+            <Building2 className="size-3.5 shrink-0" />
+            <span className="truncate">Company Overhead · Усі учасники</span>
+          </Badge>
+        )
       case "team":
         return (
-          <Badge variant="secondary">
-            Для команди {resolvedTeamName || "—"}
+          <Badge className="inline-flex max-w-full items-center gap-1.5 bg-blue-100 text-blue-700 hover:bg-blue-100">
+            <Users className="size-3.5 shrink-0" />
+            <span className="truncate">Team Expense · {resolvedTeamName || "—"}</span>
           </Badge>
         )
       case "project":
         return (
-          <Badge>
-            Проєкт {resolvedProjectName || "—"}
+          <Badge className="inline-flex max-w-full items-center gap-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+            <FolderKanban className="size-3.5 shrink-0" />
+            <span className="truncate">Project Expense · {resolvedProjectName || "—"}</span>
           </Badge>
         )
       case "none":
-        return <Badge variant="outline" className="text-muted-foreground">Без розподілу</Badge>
+        return (
+          <Badge variant="outline" className="inline-flex max-w-full items-center gap-1.5 text-muted-foreground">
+            <CircleSlash className="size-3.5 shrink-0" />
+            <span className="truncate">Unallocated</span>
+          </Badge>
+        )
       default:
         return null
     }
@@ -458,7 +474,7 @@ export default function RecurringExpensesPage() {
             Керуйте щомісячними підписками та повторюваними платежами
           </p>
         </div>
-        <div className="flex flex-col items-start gap-2 sm:items-end">
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
             <div className="mb-1 font-medium text-foreground/80">Офіційний курс НБУ</div>
             <div className="flex items-center gap-3 text-muted-foreground">
@@ -467,8 +483,8 @@ export default function RecurringExpensesPage() {
             </div>
           </div>
           <Button onClick={handleOpenAdd} className="gap-2">
-          <Plus className="size-4" />
-          Додати витрату
+            <Plus className="size-4" />
+            Додати витрату
           </Button>
         </div>
       </div>
@@ -524,24 +540,19 @@ export default function RecurringExpensesPage() {
             <CardTitle className="text-sm font-medium">Найближчі платежі</CardTitle>
             <Calendar className="size-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="space-y-1">
-            {nextThirtyDaysTotal > 0 ? (
-              <>
-                <div className="text-2xl font-bold">{formatMoney(nextThirtyDaysTotal, "USD")}</div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  у наступні 30 днів
-                </p>
-              </>
-            ) : nearestUpcomingPayment ? (
-              <>
-                <div className="text-lg font-semibold leading-snug">{nearestUpcomingPayment.name}</div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  {formatMoney(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0, "USD")} •{" "}
+          <CardContent>
+            {nearestUpcomingPayment ? (
+              <div className="space-y-1">
+                <div className="text-2xl font-bold leading-tight">
+                  {formatMoney(toMonthlyAmountInUsd(nearestUpcomingPayment) ?? 0, "USD")}
+                </div>
+                <div className="text-sm font-medium leading-snug">{nearestUpcomingPayment.name}</div>
+                <div className="text-xs leading-relaxed text-muted-foreground">
                   {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
-                </p>
-              </>
+                </div>
+              </div>
             ) : (
-              <div className="text-sm text-muted-foreground">Немає запланованих платежів</div>
+              <div className="py-2 text-sm text-muted-foreground">Немає запланованих платежів</div>
             )}
           </CardContent>
         </Card>
@@ -662,7 +673,9 @@ export default function RecurringExpensesPage() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>{getAllocationBadge(expense)}</TableCell>
+                    <TableCell>
+                      <div className="max-w-[220px]">{getAllocationBadge(expense)}</div>
+                    </TableCell>
                     <TableCell>
                       <span className="flex items-center gap-1.5">
                         <span>{getSourceIcon(expense.source)}</span>
@@ -670,7 +683,14 @@ export default function RecurringExpensesPage() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      {new Date(expense.nextPaymentDate).toLocaleDateString("uk-UA")}
+                      <div className="space-y-0.5">
+                        <div>{new Date(expense.nextPaymentDate).toLocaleDateString("uk-UA")}</div>
+                        {expense.lastPaidDate ? (
+                          <div className="text-[11px] text-muted-foreground">
+                            Остання оплата: {new Date(expense.lastPaidDate).toLocaleDateString("uk-UA")}
+                          </div>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(expense.status)}`}>
