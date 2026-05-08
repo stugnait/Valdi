@@ -466,6 +466,9 @@ export default function RecurringExpensesPage() {
             <p className="text-xs leading-relaxed text-muted-foreground">
               Нормалізована сума регулярних витрат за місяць
             </p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Актуальне щомісячне навантаження
+            </p>
           </CardContent>
         </Card>
 
@@ -476,7 +479,7 @@ export default function RecurringExpensesPage() {
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="text-2xl font-bold">{activeCount}</div>
-            <p className="text-xs leading-relaxed text-muted-foreground">Усього регулярних витрат: {expenses.length}</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">Активні recurring subscriptions та платежі</p>
           </CardContent>
         </Card>
 
@@ -497,6 +500,7 @@ export default function RecurringExpensesPage() {
               <>
                 <div className="text-lg font-semibold leading-snug">{nearestUpcomingPayment.name}</div>
                 <p className="text-xs leading-relaxed text-muted-foreground">
+                  ${nearestUpcomingPayment.amountUSD.toLocaleString()} •{" "}
                   {new Date(nearestUpcomingPayment.nextPaymentDate).toLocaleDateString("uk-UA")}
                 </p>
               </>
