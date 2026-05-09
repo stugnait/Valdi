@@ -479,8 +479,8 @@ export default function VariableExpensesPage() {
           })()
           return (
             <Card key={expense.id} className="overflow-hidden">
-              <CardContent className="p-2.5 sm:px-3.5 sm:py-3">
-                <div className="grid gap-x-4 gap-y-2 md:grid-cols-[72px_minmax(280px,1fr)_minmax(240px,320px)_160px] md:items-center">
+              <CardContent className="p-2 sm:px-3 sm:py-2.5">
+                <div className="grid gap-x-3 gap-y-1.5 md:grid-cols-[72px_minmax(280px,1fr)_minmax(240px,320px)_160px] md:items-center">
                   <div className="text-center md:w-[72px]">
                     <div className="text-base font-semibold">{new Date(expense.date).getDate()}</div>
                     <div className="text-xs text-muted-foreground uppercase">
@@ -493,7 +493,7 @@ export default function VariableExpensesPage() {
                       <span className="truncate text-sm font-semibold text-foreground">{expense.name}</span>
                       {expense.receiptUrl && <Paperclip className="size-3 text-muted-foreground shrink-0" />}
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1">
                       {category && (
                         <Badge
                           variant="secondary"
@@ -509,16 +509,16 @@ export default function VariableExpensesPage() {
                     </div>
                   </div>
 
-                  <div className="min-w-0 w-full md:min-w-[240px] md:max-w-[320px] md:pl-1 py-0.5">
+                  <div className="min-w-0 w-full md:min-w-[240px] md:max-w-[320px] md:pl-0.5 py-0">
                     <Badge
                       variant={allocationLabel.title === "Unallocated" ? "outline" : "secondary"}
                       className={`inline-flex px-2 py-0.5 text-[11px] font-medium ${allocationBadgeClass}`}
                     >
                       {allocationLabel.title}
                     </Badge>
-                    <p className="mt-1 truncate text-sm text-muted-foreground/90">{allocationLabel.subtitle}</p>
+                    <p className="mt-0.5 truncate text-sm text-muted-foreground/90">{allocationLabel.subtitle}</p>
                     {activeImpactBadges.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
+                      <div className="mt-0.5 flex flex-wrap gap-0.5">
                         {activeImpactBadges.map(([key, label]) => (
                           <Badge key={`${expense.id}-${key}`} variant="secondary" className="text-[11px] px-1.5 py-0.5 font-normal text-muted-foreground">
                             {label}
@@ -528,7 +528,7 @@ export default function VariableExpensesPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 md:w-[160px] md:justify-end md:justify-self-end">
+                  <div className="flex items-center justify-between gap-1.5 md:w-[160px] md:justify-end md:justify-self-end">
                     <div className="text-right">
                       <div className="text-sm font-semibold text-foreground">{formatAmountWithCode(expense.amount, expense.currency)}</div>
                       {expense.currency !== "USD" && (
