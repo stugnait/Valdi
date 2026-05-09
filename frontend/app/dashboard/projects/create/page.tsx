@@ -310,7 +310,7 @@ export default function CreateProjectPage() {
       if (isCreatingClient && formData.newClientName.trim()) {
         const createdClient = await workforceApi.createClient({
           name: formData.newClientName.trim(),
-          company: formData.newClientName.trim(),
+          company_name: formData.newClientName.trim(),
         })
         selectedClientId = createdClient.id.toString()
       }
