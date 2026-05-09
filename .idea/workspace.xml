@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d8b0ff81-3a0c-4ea7-a254-99ae932104e2" name="Changes" comment="frontend UI done" />
+    <list default="true" id="d8b0ff81-3a0c-4ea7-a254-99ae932104e2" name="Changes" comment="frontend UI done">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/.env" beforeDir="false" afterPath="$PROJECT_DIR$/backend/.env" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -25,12 +28,12 @@
     &quot;assignee&quot;: &quot;stugnait&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/stugnait/Valdi.git",
-    "accountId": "5f417025-a7e9-4732-b89f-e7e54c1556c6"
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/stugnait/Valdi.git&quot;,
+    &quot;accountId&quot;: &quot;5f417025-a7e9-4732-b89f-e7e54c1556c6&quot;
   }
-}]]></component>
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 5
 }</component>
@@ -94,7 +97,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-WS-253.32098.39" />
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-WS-261.23567.141" />
       </set>
     </attachedChunks>
   </component>
@@ -112,7 +115,14 @@
       <workItem from="1776942875213" duration="8135000" />
       <workItem from="1777218248407" duration="18308000" />
       <workItem from="1777315711137" duration="9993000" />
-      <workItem from="1777396260897" duration="13668000" />
+      <workItem from="1777396260897" duration="15195000" />
+      <workItem from="1778106298508" duration="6894000" />
+      <workItem from="1778163464997" duration="746000" />
+      <workItem from="1778177209436" duration="8331000" />
+      <workItem from="1778242762530" duration="14679000" />
+      <workItem from="1778334682598" duration="703000" />
+      <workItem from="1778336850014" duration="9369000" />
+      <workItem from="1778355480915" duration="5662000" />
     </task>
     <task id="LOCAL-00001" summary="frontend UI done">
       <option name="closed" value="true" />
@@ -138,7 +148,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777419332475</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="frontend UI done">
+      <option name="closed" value="true" />
+      <created>1777420013987</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1777420013987</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
