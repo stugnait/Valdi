@@ -70,7 +70,9 @@ export default function ClientsPage() {
 
   const formatMoney = (v: number) => new Intl.NumberFormat("uk-UA", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v)
 
-  const getClientProjects = (clientId: string) => projects.filter((p) => p.client.toString() === clientId)
+  function getClientProjects(clientId: string) {
+    return projects.filter((p) => p.client.toString() === clientId)
+  }
   const getProjectStats = (clientId: string) => {
     const p = getClientProjects(clientId)
     return { total: p.length, active: p.filter((x) => x.status === "active").length, completed: p.filter((x) => x.status === "finished").length }
