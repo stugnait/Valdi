@@ -492,9 +492,6 @@ export default function VariableExpensesPage() {
                         <span className="text-sm text-muted-foreground flex items-center gap-1">
                           {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
                         </span>
-                        {expense.assigneeName && (
-                          <span className="hidden text-sm text-muted-foreground sm:inline">• {expense.assigneeName}</span>
-                        )}
                       </div>
                     </div>
                     {activeImpactBadges.length > 0 && (
