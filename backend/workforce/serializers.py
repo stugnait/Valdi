@@ -109,14 +109,15 @@ class ClientSerializer(serializers.ModelSerializer):
         fields = (
             'id',
             'name',
-            'company',
-            'email',
+            'company_name',
             'contact_person',
+            'email',
             'phone',
             'country',
+            'website',
             'notes',
+            'status',
             'total_revenue',
-            'is_active',
             'active_projects',
             'created_at',
             'updated_at',
@@ -126,6 +127,15 @@ class ClientSerializer(serializers.ModelSerializer):
     def get_active_projects(self, obj):
         return obj.projects.filter(status=Project.Status.ACTIVE).count()
 
+
+    def validate(self, attrs):
+        email = (attrs.get('email') or '').strip()
+        phone = (attrs.get('phone') or '').strip()
+
+        if not email and not phone:
+            raise serializers.ValidationError({'non_field_errors': 'Потрібно вказати email або телефон.'})
+
+        return attrs
 
 class ProjectSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.name', read_only=True)

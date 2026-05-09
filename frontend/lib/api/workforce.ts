@@ -54,14 +54,15 @@ export interface ApiDeveloper {
 export interface ApiClient {
   id: number
   name: string
-  company: string
+  company_name: string
   email: string
   contact_person: string
   phone: string
   country: string
+  website: string
   notes: string
+  status: "lead" | "active" | "paused" | "completed" | "archived"
   total_revenue: string
-  is_active: boolean
   active_projects: number
   created_at: string
   updated_at: string
