@@ -451,9 +451,17 @@ export default function VariableExpensesPage() {
           const category = expenseCategories.find(c => c.id === expense.category)
           const allocationLabel = (() => {
             if (expense.allocation.type === "all") return { title: "Company", subtitle: "Вся компанія" }
-            if (expense.allocation.type === "team") return { title: "Team", subtitle: expense.allocation.teamName || "Без назви команди" }
-            if (expense.allocation.type === "project") return { title: "Project", subtitle: expense.allocation.projectName || "Без назви проєкту" }
-            return { title: "Unallocated", subtitle: "Без прив’язки" }
+            if (expense.allocation.type === "team") {
+              const teamName = expense.allocation.teamName
+                || teams.find((team) => team.id.toString() === expense.allocation.teamId)?.name
+              return { title: "Team", subtitle: teamName || "Без розподілу" }
+            }
+            if (expense.allocation.type === "project") {
+              const projectName = expense.allocation.projectName
+                || projects.find((project) => project.id.toString() === expense.allocation.projectId)?.name
+              return { title: "Project", subtitle: projectName || "Без розподілу" }
+            }
+            return { title: "Unallocated", subtitle: "Без розподілу" }
           })()
           const activeImpactBadges = [
             ["actualMonthlySpend", "Actual Spend"],
@@ -463,55 +471,54 @@ export default function VariableExpensesPage() {
             ["budgetDeviation", "Budget Deviation"],
             ["companyBurnRate", "Burn Rate"],
           ].filter(([key]) => Boolean((expense.impactFlags as Record<string, boolean> | undefined)?.[key]))
+          const allocationBadgeClass = (() => {
+            if (allocationLabel.title === "Company") return "bg-violet-100 text-violet-700 hover:bg-violet-100"
+            if (allocationLabel.title === "Team") return "bg-blue-100 text-blue-700 hover:bg-blue-100"
+            if (allocationLabel.title === "Project") return "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+            return "border-muted-foreground/30 text-muted-foreground"
+          })()
           return (
             <Card key={expense.id} className="overflow-hidden">
-              <CardContent className="p-2.5 sm:px-3.5 sm:py-3">
-                <div className="grid gap-2.5 md:grid-cols-[1.8fr_1fr_auto] md:items-center">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="text-center min-w-[50px]">
-                      <div className="text-base font-semibold">{new Date(expense.date).getDate()}</div>
-                      <div className="text-xs text-muted-foreground uppercase">
-                        {new Date(expense.date).toLocaleDateString("uk-UA", { month: "short" })}
-                      </div>
+              <CardContent className="p-2 sm:px-3 sm:py-2.5">
+                <div className="grid gap-x-3 gap-y-1.5 md:grid-cols-[72px_minmax(280px,1fr)_minmax(240px,320px)_160px] md:items-center">
+                  <div className="text-center md:w-[72px]">
+                    <div className="text-base font-semibold">{new Date(expense.date).getDate()}</div>
+                    <div className="text-xs text-muted-foreground uppercase">
+                      {new Date(expense.date).toLocaleDateString("uk-UA", { month: "short" })}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="truncate text-sm font-semibold text-foreground">{expense.name}</span>
-                        {expense.receiptUrl && <Paperclip className="size-3 text-muted-foreground shrink-0" />}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        {category && (
-                          <Badge
-                            variant="secondary"
-                            className="text-xs px-2 py-0.5"
-                            style={{ backgroundColor: `${category.color}20`, color: category.color }}
-                          >
-                            {category.name}
-                          </Badge>
-                        )}
-                        <span className="text-sm text-muted-foreground flex items-center gap-1">
-                          {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
-                        </span>
-                      </div>
-                    </div>
-                    {activeImpactBadges.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {activeImpactBadges.map(([key, label]) => (
-                          <Badge key={`${expense.id}-${key}`} variant="outline" className="text-[9px] px-1.5 py-0 font-normal text-muted-foreground/90 border-muted-foreground/20">
-                            {label}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
                   </div>
 
-                  <div className="min-w-0 px-1 py-0.5">
-                    <Badge variant="outline" className="text-xs px-2 py-0.5 border-muted-foreground/25">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-semibold text-foreground">{expense.name}</span>
+                      {expense.receiptUrl && <Paperclip className="size-3 text-muted-foreground shrink-0" />}
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                      {category && (
+                        <Badge
+                          variant="secondary"
+                          className="text-xs px-2 py-0.5"
+                          style={{ backgroundColor: `${category.color}20`, color: category.color }}
+                        >
+                          {category.name}
+                        </Badge>
+                      )}
+                      <span className="text-sm text-muted-foreground flex items-center gap-1">
+                        {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="min-w-0 w-full md:min-w-[240px] md:max-w-[320px] md:pl-0.5 py-0">
+                    <Badge
+                      variant={allocationLabel.title === "Unallocated" ? "outline" : "secondary"}
+                      className={`inline-flex px-2 py-0.5 text-[11px] font-medium ${allocationBadgeClass}`}
+                    >
                       {allocationLabel.title}
                     </Badge>
-                    <p className="mt-1 truncate text-sm text-muted-foreground">{allocationLabel.subtitle}</p>
+                    <p className="mt-0.5 truncate text-sm text-muted-foreground/90">{allocationLabel.subtitle}</p>
                     {activeImpactBadges.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
+                      <div className="mt-0.5 flex flex-wrap gap-0.5">
                         {activeImpactBadges.map(([key, label]) => (
                           <Badge key={`${expense.id}-${key}`} variant="secondary" className="text-[11px] px-1.5 py-0.5 font-normal text-muted-foreground">
                             {label}
@@ -521,7 +528,7 @@ export default function VariableExpensesPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 md:justify-end">
+                  <div className="flex items-center justify-between gap-1.5 md:w-[160px] md:justify-end md:justify-self-end">
                     <div className="text-right">
                       <div className="text-sm font-semibold text-foreground">{formatAmountWithCode(expense.amount, expense.currency)}</div>
                       {expense.currency !== "USD" && (
