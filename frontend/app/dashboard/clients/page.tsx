@@ -14,8 +14,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Client } from "@/lib/types/projects"
 import { ApiClient, ApiProject, workforceApi } from "@/lib/api/workforce"
 
-const countries = ["USA", "Ukraine", "Germany", "UK", "Canada"]
-const countryLabels: Record<string, string> = { USA: "США", Ukraine: "Україна", Germany: "Німеччина", UK: "Велика Британія", Canada: "Канада" }
+const countries = [
+  "Україна", "Австралія", "Австрія", "Аргентина", "Бельгія", "Болгарія", "Бразилія", "Велика Британія", "Вірменія", "Греція", "Грузія", "Данія", "Естонія", "Ізраїль", "Індія", "Ірландія", "Іспанія", "Італія", "Казахстан", "Канада", "Катар", "Китай", "Латвія", "Литва", "Люксембург", "Мексика", "Нідерланди", "Німеччина", "Нова Зеландія", "Норвегія", "ОАЕ", "Південна Корея", "Польща", "Португалія", "Румунія", "Саудівська Аравія", "Сингапур", "Словаччина", "Словенія", "США", "Туреччина", "Угорщина", "Фінляндія", "Франція", "Хорватія", "Чехія", "Швейцарія", "Швеція", "Японія",
+]
+const sortedCountries = ["Україна", ...countries.filter((c) => c !== "Україна").sort((a, b) => a.localeCompare(b, "uk"))]
 const statusLabels: Record<Client["status"], string> = { lead: "Потенційний", active: "Активний", paused: "Призупинений", completed: "Завершений", archived: "Архівний" }
 const normalizeStatus = (status?: string | null): Client["status"] => (status && ["lead", "active", "paused", "completed", "archived"].includes(status) ? status : "lead") as Client["status"]
 const phoneRegex = /^\+?[1-9]\d{7,14}$/
@@ -24,9 +26,10 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<ApiProject[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [countrySearch, setCountrySearch] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
 
-  const [formData, setFormData] = useState({ name: "", companyName: "", contactPerson: "", email: "", phone: "", country: "", website: "", notes: "", status: "lead" as Client["status"] })
+  const [formData, setFormData] = useState({ name: "", companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", website: "", notes: "", status: "lead" as Client["status"] })
 
   const mapApiClient = (apiClient: ApiClient): Client => ({
     id: apiClient.id.toString(),
@@ -94,7 +97,7 @@ export default function ClientsPage() {
     await workforceApi.createClient(payload)
     setError(null)
     setIsAddDialogOpen(false)
-    setFormData({ name: "", companyName: "", contactPerson: "", email: "", phone: "", country: "", website: "", notes: "", status: "lead" })
+    setFormData({ name: "", companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", website: "", notes: "", status: "lead" })
     await loadData()
   }
 
@@ -140,7 +143,13 @@ export default function ClientsPage() {
             <Label>Країна *</Label>
             <Select value={formData.country || "none"} onValueChange={(v) => setFormData({ ...formData, country: v === "none" ? "" : v })}>
               <SelectTrigger><SelectValue placeholder="Оберіть країну" /></SelectTrigger>
-              <SelectContent><SelectItem value="none">Оберіть країну</SelectItem>{countries.map((c) => <SelectItem key={c} value={c}>{countryLabels[c] ?? c}</SelectItem>)}</SelectContent>
+              <SelectContent className="max-h-80 overflow-y-auto">
+                <div className="p-2 sticky top-0 bg-popover z-10">
+                  <Input placeholder="Пошук країни…" value={countrySearch} onChange={(e) => setCountrySearch(e.target.value)} />
+                </div>
+                <SelectItem value="none">Оберіть країну</SelectItem>
+                {sortedCountries.filter((c) => c.toLowerCase().includes(countrySearch.toLowerCase())).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
             </Select>
 
             <Label>Вебсайт *</Label>
