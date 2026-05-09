@@ -471,7 +471,7 @@ export default function CreateProjectPage() {
                         <SelectContent>
                           {clients.map(client => (
                             <SelectItem key={client.id} value={client.id.toString()}>
-                              {client.name} {client.company && `(${client.company})`}
+                              {client.name} {client.company_name && `(${client.company_name})`}
                             </SelectItem>
                           ))}
                         </SelectContent>
