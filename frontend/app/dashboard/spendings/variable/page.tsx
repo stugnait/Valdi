@@ -490,7 +490,7 @@ export default function VariableExpensesPage() {
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold text-foreground">{expense.name}</span>
+                      <span className="truncate text-[15px] font-semibold text-foreground">{expense.name}</span>
                       {expense.receiptUrl && <Paperclip className="size-3 text-muted-foreground shrink-0" />}
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1">
@@ -503,7 +503,7 @@ export default function VariableExpensesPage() {
                           {category.name}
                         </Badge>
                       )}
-                      <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <span className="text-sm text-muted-foreground/90 flex items-center gap-1">
                         {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
                       </span>
                     </div>
@@ -516,11 +516,11 @@ export default function VariableExpensesPage() {
                     >
                       {allocationLabel.title}
                     </Badge>
-                    <p className="mt-0.5 truncate text-sm text-muted-foreground/90">{allocationLabel.subtitle}</p>
+                    <p className="mt-0.5 truncate text-sm text-muted-foreground">{allocationLabel.subtitle}</p>
                     {activeImpactBadges.length > 0 && (
                       <div className="mt-0.5 flex flex-wrap gap-0.5">
                         {activeImpactBadges.map(([key, label]) => (
-                          <Badge key={`${expense.id}-${key}`} variant="secondary" className="text-[11px] px-1.5 py-0.5 font-normal text-muted-foreground">
+                          <Badge key={`${expense.id}-${key}`} variant="secondary" className="text-xs px-2 py-0.5 font-medium text-foreground/80 border-muted-foreground/25">
                             {label}
                           </Badge>
                         ))}
@@ -530,7 +530,7 @@ export default function VariableExpensesPage() {
 
                   <div className="flex items-center justify-between gap-1.5 md:w-[160px] md:justify-end md:justify-self-end">
                     <div className="text-right">
-                      <div className="text-sm font-semibold text-foreground">{formatAmountWithCode(expense.amount, expense.currency)}</div>
+                      <div className="text-base font-semibold text-foreground">{formatAmountWithCode(expense.amount, expense.currency)}</div>
                       {expense.currency !== "USD" && (
                         <div className="text-sm text-muted-foreground">≈ {formatAmountWithCode(expense.amountUSD, "USD")}</div>
                       )}
