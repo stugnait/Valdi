@@ -309,7 +309,7 @@ export default function VariableExpensesPage() {
       case "cash":
         return "Готівка"
       default:
-        return source
+        return String(source).split("·")[0].trim()
     }
   }
 
