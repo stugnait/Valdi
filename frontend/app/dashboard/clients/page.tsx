@@ -65,7 +65,6 @@ export default function ClientsPage() {
       active: p.filter((x) => x.status === "active").length,
       completed: p.filter((x) => x.status === "finished").length,
     }
-  }
 
   const validateForm = (): string | null => {
     if (!formData.companyName.trim()) return "Введіть назву компанії"
