@@ -136,7 +136,6 @@ class ClientSerializer(serializers.ModelSerializer):
 
         required_errors = {}
         for key, message in {
-            'name': 'Введіть ім’я клієнта',
             'company_name': 'Введіть назву компанії',
             'email': 'Введіть коректний Email',
             'phone': 'Введіть номер телефону',
@@ -149,6 +148,12 @@ class ClientSerializer(serializers.ModelSerializer):
 
         if required_errors:
             raise serializers.ValidationError(required_errors)
+
+
+        if not str(data.get('name', '')).strip():
+            company_name = str(data.get('company_name', '')).strip()
+            if company_name:
+                attrs['name'] = company_name
 
         email = str(data.get('email', '')).strip()
         phone = str(data.get('phone', '')).strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')

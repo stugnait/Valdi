@@ -29,12 +29,12 @@ export default function ClientsPage() {
   const [countrySearch, setCountrySearch] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
 
-  const [formData, setFormData] = useState({ name: "", companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", website: "", notes: "", status: "lead" as Client["status"] })
+  const [formData, setFormData] = useState({ companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", website: "", notes: "", status: "lead" as Client["status"] })
 
   const mapApiClient = (apiClient: ApiClient): Client => ({
     id: apiClient.id.toString(),
-    name: apiClient.name,
-    companyName: apiClient.company_name || apiClient.company || undefined,
+    name: apiClient.company_name || apiClient.name,
+    companyName: apiClient.company_name || apiClient.company || apiClient.name || undefined,
     contactPerson: apiClient.contact_person || undefined,
     email: apiClient.email || undefined,
     phone: apiClient.phone || undefined,
@@ -58,7 +58,6 @@ export default function ClientsPage() {
   }, [])
 
   const validateForm = (): string | null => {
-    if (!formData.name.trim()) return "Введіть ім’я клієнта"
     if (!formData.companyName.trim()) return "Введіть назву компанії"
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) return "Введіть коректний Email"
     if (!formData.phone.trim()) return "Введіть номер телефону"
@@ -83,7 +82,7 @@ export default function ClientsPage() {
     }
 
     const payload = {
-      name: formData.name.trim(),
+      name: formData.companyName.trim(),
       company_name: formData.companyName.trim(),
       contact_person: formData.contactPerson.trim(),
       email: formData.email.trim(),
@@ -97,7 +96,7 @@ export default function ClientsPage() {
     await workforceApi.createClient(payload)
     setError(null)
     setIsAddDialogOpen(false)
-    setFormData({ name: "", companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", website: "", notes: "", status: "lead" })
+    setFormData({ companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", website: "", notes: "", status: "lead" })
     await loadData()
   }
 
@@ -125,9 +124,6 @@ export default function ClientsPage() {
           </DialogHeader>
 
           <div className="grid gap-3">
-            <Label>Ім’я клієнта *</Label>
-            <Input placeholder="Наприклад: Acme" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-
             <Label>Назва компанії *</Label>
             <Input placeholder="Наприклад: Acme Inc." value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} />
 
