@@ -63,6 +63,7 @@ import {
   getSourceIcon,
 } from "@/lib/types/spendings"
 import { workforceApi, type ApiProject, type ApiTeam, type ApiVariableExpense } from "@/lib/api/workforce"
+import { getNbuRates, type NbuRates } from "@/lib/utils/currency"
 
 export default function VariableExpensesPage() {
   const getDefaultImpactFlags = (allocationType: AllocationTarget) => ({
@@ -84,6 +85,7 @@ export default function VariableExpensesPage() {
   
   const [teams, setTeams] = useState<ApiTeam[]>([])
   const [projects, setProjects] = useState<ApiProject[]>([])
+  const [rates, setRates] = useState<NbuRates | null>(null)
   const allMembers = teams.flatMap((team) =>
     team.memberships.map((membership) => ({
       id: membership.developer.toString(),
@@ -155,6 +157,10 @@ export default function VariableExpensesPage() {
     void loadExpenses()
   }, [])
 
+  useEffect(() => {
+    void getNbuRates().then(({ rates: loadedRates }) => setRates(loadedRates)).catch(() => undefined)
+  }, [])
+
   // Stats
   const currentMonth = new Date().getMonth()
   const currentYear = new Date().getFullYear()
@@ -168,14 +174,15 @@ export default function VariableExpensesPage() {
   })
   const monthlyTotal = monthlyExpenses.reduce((sum, e) => sum + e.amountUSD, 0)
   
-  const categoryTotals = expenses.reduce((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + e.amountUSD
-    return acc
-  }, {} as Record<string, number>)
-  const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0]
-  const topCategoryName = topCategory
-    ? (expenseCategories.find((item) => item.id === topCategory[0])?.name ?? topCategory[0])
-    : null
+  const largestExpenseInPeriod = monthlyExpenses
+    .slice()
+    .sort((a, b) => b.amountUSD - a.amountUSD)[0]
+
+  const getNbuRateLabel = (currency: "USD" | "EUR") => {
+    if (!rates) return "—"
+    const value = currency === "USD" ? rates.USD : rates.EUR
+    return `${value.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴`
+  }
 
   // Filtered expenses
   const filteredExpenses = expenses.filter(expense => {
@@ -297,17 +304,26 @@ export default function VariableExpensesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Нерегулярні витрати</h1>
           <p className="text-sm text-muted-foreground">
             Тут фіксуються разові, непередбачувані або нерегулярні витрати: обладнання, ремонти, разові покупки, emergency costs, тимчасові підрядники, team events.
           </p>
         </div>
-        <Button onClick={handleOpenAdd} className="gap-2">
-          <Plus className="size-4" />
-          Додати витрату
-        </Button>
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
+            <div className="mb-1 font-medium text-foreground/80">Офіційний курс НБУ</div>
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <span>$: {getNbuRateLabel("USD")}</span>
+              <span>€: {getNbuRateLabel("EUR")}</span>
+            </div>
+          </div>
+          <Button onClick={handleOpenAdd} className="gap-2">
+            <Plus className="size-4" />
+            Додати витрату
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -323,7 +339,7 @@ export default function VariableExpensesPage() {
       )}
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Витрачено за місяць</CardTitle>
@@ -331,24 +347,37 @@ export default function VariableExpensesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${monthlyTotal.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Зафіксовано витрат: {monthlyExpenses.length}</p>
+            <p className="text-xs text-muted-foreground">Нерегулярні витрати за поточний період</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Найбільша категорія</CardTitle>
+            <CardTitle className="text-sm font-medium">Найбільша одноразова витрата</CardTitle>
             <TrendingUp className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {topCategory ? (
+            {largestExpenseInPeriod ? (
               <>
-                <div className="text-2xl font-bold">{topCategoryName}</div>
-                <p className="text-xs text-muted-foreground">Загалом: ${topCategory[1].toLocaleString()}</p>
+                <div className="text-base font-bold leading-tight">{largestExpenseInPeriod.name}</div>
+                <p className="text-xs text-muted-foreground">
+                  {formatCurrency(largestExpenseInPeriod.amount, largestExpenseInPeriod.currency, "uk-UA")}
+                </p>
               </>
             ) : (
               <div className="text-muted-foreground">Дані відсутні</div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Витрати цього місяця</CardTitle>
+            <Calendar className="size-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{monthlyExpenses.length}</div>
+            <p className="text-xs text-muted-foreground">за поточний місяць</p>
           </CardContent>
         </Card>
       </div>
