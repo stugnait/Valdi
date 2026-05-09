@@ -143,12 +143,14 @@ export default function ClientsPage() {
             <Label>Країна *</Label>
             <Select value={formData.country || "none"} onValueChange={(v) => setFormData({ ...formData, country: v === "none" ? "" : v })}>
               <SelectTrigger><SelectValue placeholder="Оберіть країну" /></SelectTrigger>
-              <SelectContent className="max-h-80 overflow-y-auto">
-                <div className="p-2 sticky top-0 bg-popover z-10">
-                  <Input placeholder="Пошук країни…" value={countrySearch} onChange={(e) => setCountrySearch(e.target.value)} />
+              <SelectContent className="max-h-80 overflow-hidden p-0">
+                <div className="sticky top-0 z-10 bg-popover px-2 pt-2 pb-1 border-b">
+                  <Input className="h-8" placeholder="Пошук країни…" value={countrySearch} onChange={(e) => setCountrySearch(e.target.value)} />
                 </div>
-                <SelectItem value="none">Оберіть країну</SelectItem>
+                <div className="max-h-64 overflow-y-auto py-1">
+                  <SelectItem value="none">Оберіть країну</SelectItem>
                 {sortedCountries.filter((c) => c.toLowerCase().includes(countrySearch.toLowerCase())).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </div>
               </SelectContent>
             </Select>
 
