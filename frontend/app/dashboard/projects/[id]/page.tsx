@@ -74,7 +74,8 @@ import {
   getStatusBadgeVariant,
   getStatusLabel,
 } from "@/lib/types/projects"
-import { ApiInvoice, ApiProject, ApiTeam, ApiDeveloper, workforceApi } from "@/lib/api/workforce"
+import { ApiInvoice, ApiProject, ApiRecurringExpense, ApiTeam, ApiDeveloper, workforceApi } from "@/lib/api/workforce"
+import { convertToBaseCurrency, getNbuRates, toMonthlyRecurringAmount } from "@/lib/utils/currency"
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -98,13 +99,23 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       : currentProject.laborCost
 
     const totalExpenses = currentProject.expenses.length > 0
-      ? currentProject.expenses.reduce((sum, e) => sum + e.amount, 0)
+      ? currentProject.expenses
+        .filter((expense) => expense.impactProjectProfitability ?? true)
+        .reduce((sum, e) => sum + (e.amountUsd ?? e.amount), 0)
       : currentProject.directOverheads
 
     const netProfit = totalRevenue - totalLaborCost - totalExpenses
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
 
     return { totalRevenue, totalLaborCost, totalExpenses, netProfit, profitMargin }
+  }
+
+  const toRecurringMonthlyAmountInUsd = (expense: ApiRecurringExpense, rates: Awaited<ReturnType<typeof getNbuRates>>["rates"]) => {
+    const monthKey = new Date().toISOString().slice(0, 7)
+    const baseAmount = expense.amount_type === "variable"
+      ? Number(expense.monthly_actual_amounts?.[monthKey] ?? expense.estimated_amount ?? expense.amount ?? 0)
+      : Number(expense.amount ?? 0)
+    return convertToBaseCurrency(toMonthlyRecurringAmount(baseAmount, expense.cycle), expense.currency, rates)
   }
 
   const mapApiProject = (apiProject: ApiProject): Project => {
@@ -197,11 +208,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       try {
         setIsLoading(true)
         setError(null)
-        const [apiProject, allInvoices, teamsResponse, developersResponse] = await Promise.all([
+        const [apiProject, allInvoices, teamsResponse, developersResponse, variableExpenses, recurringExpenses, { rates: loadedRates }] = await Promise.all([
           workforceApi.getProject(id),
           workforceApi.listInvoices(),
           workforceApi.listTeams(),
           workforceApi.listDevelopers(),
+          workforceApi.listVariableExpenses(),
+          workforceApi.listRecurringExpenses(),
+          getNbuRates(),
         ])
 
         setTeams(teamsResponse)
@@ -227,7 +241,41 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse)
         const initialAllocations = persistedAllocations.length > 0 ? persistedAllocations : fallbackAllocations
 
-        setProject({ ...mappedProject, invoices: projectInvoices, allocations: initialAllocations })
+        const projectIrregularExpenses: ProjectExpense[] = variableExpenses
+          .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
+          .map((expense) => ({
+            id: String(expense.id),
+            sourceId: expense.id,
+            expenseType: "irregular" as const,
+            name: expense.name,
+            amount: Number(expense.amount ?? 0),
+            currency: expense.currency,
+            amountUsd: convertToBaseCurrency(Number(expense.amount ?? 0), expense.currency, loadedRates),
+            category: expense.category,
+            date: expense.expense_date,
+            description: expense.description || undefined,
+            impactProjectProfitability: expense.impact_flags?.projectProfitability ?? true,
+          }))
+        const projectRecurringExpenses: ProjectExpense[] = recurringExpenses
+          .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
+          .map((expense) => ({
+            id: `recurring-${expense.id}`,
+            sourceId: expense.id,
+            expenseType: "recurring" as const,
+            name: expense.name,
+            amount: Number(expense.amount ?? 0),
+            currency: expense.currency,
+            amountUsd: toRecurringMonthlyAmountInUsd(expense, loadedRates),
+            category: expense.category,
+            date: expense.next_payment_date,
+            description: expense.description || undefined,
+            impactProjectProfitability: true,
+            recurringCycle: expense.cycle,
+          }))
+        const projectDirectExpenses = [...projectIrregularExpenses, ...projectRecurringExpenses]
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+        setProject({ ...mappedProject, invoices: projectInvoices, allocations: initialAllocations, expenses: projectDirectExpenses })
       } catch (loadError) {
         setProject(null)
         setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проект")
@@ -541,9 +589,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       id: selectedExpense?.id || `exp-${Date.now()}`,
       name: expenseForm.name,
       amount: parseFloat(expenseForm.amount) || 0,
+      currency: selectedExpense?.currency ?? "USD",
+      amountUsd: parseFloat(expenseForm.amount) || 0,
       category: expenseForm.category,
       date: expenseForm.date,
       description: expenseForm.description,
+      impactProjectProfitability: selectedExpense?.impactProjectProfitability ?? true,
     }
 
     if (selectedExpense) {
@@ -561,14 +612,64 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     closeExpenseDialog()
   }
 
-  const handleDeleteExpense = () => {
-    if (!selectedExpense) return
-    setProject({
-      ...project,
-      expenses: project.expenses.filter(e => e.id !== selectedExpense.id),
-    })
-    setIsDeleteExpenseOpen(false)
-    setSelectedExpense(null)
+  const handleDeleteExpense = async () => {
+    if (!selectedExpense?.sourceId || !project) return
+    try {
+      if (selectedExpense.expenseType === "recurring") {
+        await workforceApi.deleteRecurringExpense(selectedExpense.sourceId)
+      } else {
+        await workforceApi.deleteVariableExpense(selectedExpense.sourceId)
+      }
+      const [apiProject, allInvoices, teamsResponse, developersResponse, variableExpenses, recurringExpenses, { rates: loadedRates }] = await Promise.all([
+        workforceApi.getProject(id),
+        workforceApi.listInvoices(),
+        workforceApi.listTeams(),
+        workforceApi.listDevelopers(),
+        workforceApi.listVariableExpenses(),
+        workforceApi.listRecurringExpenses(),
+        getNbuRates(),
+      ])
+      const mappedProject = mapApiProject(apiProject)
+      const projectInvoices = allInvoices.filter(invoice => String(invoice.project) === id).map(mapApiInvoice)
+      const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse)
+      const irregular = variableExpenses
+        .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
+        .map((expense) => ({
+          id: String(expense.id),
+          sourceId: expense.id,
+          expenseType: "irregular" as const,
+          name: expense.name,
+          amount: Number(expense.amount ?? 0),
+          currency: expense.currency,
+          amountUsd: convertToBaseCurrency(Number(expense.amount ?? 0), expense.currency, loadedRates),
+          category: expense.category,
+          date: expense.expense_date,
+          description: expense.description || undefined,
+          impactProjectProfitability: expense.impact_flags?.projectProfitability ?? true,
+        }))
+      const recurring = recurringExpenses
+        .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
+        .map((expense) => ({
+          id: `recurring-${expense.id}`,
+          sourceId: expense.id,
+          expenseType: "recurring" as const,
+          name: expense.name,
+          amount: Number(expense.amount ?? 0),
+          currency: expense.currency,
+          amountUsd: toRecurringMonthlyAmountInUsd(expense, loadedRates),
+          category: expense.category,
+          date: expense.next_payment_date,
+          description: expense.description || undefined,
+          impactProjectProfitability: true,
+          recurringCycle: expense.cycle,
+        }))
+      setProject({ ...mappedProject, invoices: projectInvoices, allocations: project.allocations.length > 0 ? project.allocations : fallbackAllocations, expenses: [...irregular, ...recurring].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime()) })
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Не вдалося видалити витрату")
+    } finally {
+      setIsDeleteExpenseOpen(false)
+      setSelectedExpense(null)
+    }
   }
 
   const openEditExpense = (expense: ProjectExpense) => {
@@ -751,8 +852,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Direct Overheads</CardTitle>
-                  <CardDescription>Витрати суто під цей проект</CardDescription>
+              <CardTitle>Прямі витрати проєкту</CardTitle>
+              <CardDescription>Нерегулярні витрати, прив&apos;язані до цього проєкту</CardDescription>
                 </div>
                 <Button size="sm" onClick={() => setIsExpenseDialogOpen(true)}>
                   <Plus className="mr-1 size-4" />
@@ -776,11 +877,30 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           <p className="font-medium text-sm">{expense.name}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <Badge variant="outline" className="text-xs">{expense.category}</Badge>
+                            <Badge variant={expense.expenseType === "recurring" ? "secondary" : "default"} className="text-xs">
+                              {expense.expenseType === "recurring" ? "Regular" : "Irregular"}
+                            </Badge>
                             <span className="text-xs text-muted-foreground">{formatDate(expense.date)}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">{formatCurrency(expense.amount)}</span>
+                          <div className="text-right">
+                            <span className="font-semibold">
+                              {new Intl.NumberFormat("uk-UA", {
+                                style: "currency",
+                                currency: expense.currency ?? "USD",
+                                maximumFractionDigits: 0,
+                              }).format(expense.amount)}
+                            </span>
+                            {(expense.currency ?? "USD") !== "USD" && (
+                              <p className="text-xs text-muted-foreground">
+                                ≈ {formatCurrency(expense.amountUsd ?? expense.amount)}
+                              </p>
+                            )}
+                            {expense.expenseType === "recurring" && expense.recurringCycle && (
+                              <p className="text-xs text-muted-foreground">{expense.recurringCycle}</p>
+                            )}
+                          </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8">
