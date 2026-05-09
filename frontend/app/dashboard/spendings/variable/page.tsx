@@ -497,6 +497,15 @@ export default function VariableExpensesPage() {
                         )}
                       </div>
                     </div>
+                    {activeImpactBadges.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {activeImpactBadges.map(([key, label]) => (
+                          <Badge key={`${expense.id}-${key}`} variant="outline" className="text-[9px] px-1.5 py-0 font-normal text-muted-foreground/90 border-muted-foreground/20">
+                            {label}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="min-w-0 rounded-md bg-muted/30 px-2.5 py-2">
