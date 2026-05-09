@@ -13,7 +13,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
-from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 
 from .serializers import (
@@ -99,6 +98,14 @@ class GoogleAuthView(APIView):
             return Response(
                 {'detail': 'GOOGLE_CLIENT_ID/GOOGLE_CLIENT_IDS не налаштований на бекенді.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        try:
+            from google.auth.transport import requests as google_requests
+        except ImportError:
+            return Response(
+                {'detail': 'Google auth transport dependency is missing on backend.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
         try:
