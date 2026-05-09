@@ -79,6 +79,8 @@ export default function VariableExpensesPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
+  const [allocationFilter, setAllocationFilter] = useState<"all" | "company" | AllocationTarget>("all")
+  const [impactFilter, setImpactFilter] = useState<string>("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<VariableExpense | null>(null)
   const [deleteExpense, setDeleteExpense] = useState<VariableExpense | null>(null)
@@ -190,7 +192,14 @@ export default function VariableExpensesPage() {
       expense.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (expense.assigneeName?.toLowerCase().includes(searchQuery.toLowerCase()))
     const matchesCategory = categoryFilter === "all" || expense.category === categoryFilter
-    return matchesSearch && matchesCategory
+    const matchesAllocation =
+      allocationFilter === "all"
+      || (allocationFilter === "company" && expense.allocation.type === "all")
+      || expense.allocation.type === allocationFilter
+    const matchesImpact =
+      impactFilter === "all"
+      || Boolean((expense.impactFlags as Record<string, boolean> | undefined)?.[impactFilter])
+    return matchesSearch && matchesCategory && matchesAllocation && matchesImpact
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const resetForm = () => {
@@ -383,7 +392,7 @@ export default function VariableExpensesPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col gap-4 md:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -405,12 +414,52 @@ export default function VariableExpensesPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={allocationFilter} onValueChange={(v) => setAllocationFilter(v as "all" | "company" | AllocationTarget)}>
+          <SelectTrigger className="w-full md:w-[200px]">
+            <SelectValue placeholder="Allocation" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All allocations</SelectItem>
+            <SelectItem value="company">Company</SelectItem>
+            <SelectItem value="team">Team</SelectItem>
+            <SelectItem value="project">Project</SelectItem>
+            <SelectItem value="none">Unallocated</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={impactFilter} onValueChange={setImpactFilter}>
+          <SelectTrigger className="w-full md:w-[220px]">
+            <SelectValue placeholder="Impact flag" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All impact flags</SelectItem>
+            <SelectItem value="actualMonthlySpend">Actual Spend</SelectItem>
+            <SelectItem value="teamCost">Team Cost</SelectItem>
+            <SelectItem value="projectProfitability">Project Profitability</SelectItem>
+            <SelectItem value="cashFlow">Cash Flow</SelectItem>
+            <SelectItem value="budgetDeviation">Budget Deviation</SelectItem>
+            <SelectItem value="companyBurnRate">Burn Rate</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Журнал витрат */}
       <div className="space-y-3">
         {filteredExpenses.map((expense) => {
           const category = expenseCategories.find(c => c.id === expense.category)
+          const allocationLabel = (() => {
+            if (expense.allocation.type === "all") return { title: "Company", subtitle: "Вся компанія" }
+            if (expense.allocation.type === "team") return { title: "Team", subtitle: expense.allocation.teamName || "Команда" }
+            if (expense.allocation.type === "project") return { title: "Project", subtitle: expense.allocation.projectName || "Проєкт" }
+            return { title: "Unallocated", subtitle: "Без прив’язки" }
+          })()
+          const activeImpactBadges = [
+            ["actualMonthlySpend", "Actual Spend"],
+            ["cashFlow", "Cash Flow"],
+            ["teamCost", "Team Cost"],
+            ["projectProfitability", "Project Profitability"],
+            ["budgetDeviation", "Budget Deviation"],
+            ["companyBurnRate", "Burn Rate"],
+          ].filter(([key]) => Boolean((expense.impactFlags as Record<string, boolean> | undefined)?.[key]))
           return (
             <Card key={expense.id} className="overflow-hidden">
               <CardContent className="p-4">
@@ -444,10 +493,23 @@ export default function VariableExpensesPage() {
                           {category.name}
                         </Badge>
                       )}
+                      <Badge variant="outline" className="text-xs">
+                        {allocationLabel.title}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">{allocationLabel.subtitle}</span>
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
                       </span>
                     </div>
+                    {activeImpactBadges.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {activeImpactBadges.map(([key, label]) => (
+                          <Badge key={`${expense.id}-${key}`} variant="secondary" className="text-[10px] font-normal text-muted-foreground">
+                            {label}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Assignee */}
