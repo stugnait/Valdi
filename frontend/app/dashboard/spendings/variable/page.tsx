@@ -10,13 +10,14 @@ import {
   Pencil,
   Trash2,
   Filter,
-  DollarSign
+  DollarSign,
+  Paperclip,
+  Receipt,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { 
   Dialog, 
   DialogContent, 
@@ -464,44 +465,37 @@ export default function VariableExpensesPage() {
           ].filter(([key]) => Boolean((expense.impactFlags as Record<string, boolean> | undefined)?.[key]))
           return (
             <Card key={expense.id} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  {/* Date */}
-                  <div className="text-center min-w-[60px]">
-                    <div className="text-lg font-bold">{new Date(expense.date).getDate()}</div>
-                    <div className="text-xs text-muted-foreground uppercase">
-                      {new Date(expense.date).toLocaleDateString("uk-UA", { month: "short" })}
+              <CardContent className="p-3 sm:p-4">
+                <div className="grid gap-3 md:grid-cols-[1.6fr_1fr_auto] md:items-center">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="text-center min-w-[52px]">
+                      <div className="text-base font-bold">{new Date(expense.date).getDate()}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase">
+                        {new Date(expense.date).toLocaleDateString("uk-UA", { month: "short" })}
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">{expense.name}</span>
-                      {expense.receiptUrl && (
-                        <Paperclip className="size-3.5 text-muted-foreground shrink-0" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      {category && (
-                        <Badge 
-                          variant="secondary"
-                          className="text-xs"
-                          style={{ 
-                            backgroundColor: `${category.color}20`, 
-                            color: category.color,
-                          }}
-                        >
-                          {category.name}
-                        </Badge>
-                      )}
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                        {allocationLabel.title}
-                      </Badge>
-                      <span className="text-[11px] text-muted-foreground">{allocationLabel.subtitle}</span>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
-                      </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium truncate">{expense.name}</span>
+                        {expense.receiptUrl && <Paperclip className="size-3 text-muted-foreground shrink-0" />}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {category && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0"
+                            style={{ backgroundColor: `${category.color}20`, color: category.color }}
+                          >
+                            {category.name}
+                          </Badge>
+                        )}
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
+                        </span>
+                        {expense.assigneeName && (
+                          <span className="hidden text-[11px] text-muted-foreground sm:inline">• {expense.assigneeName}</span>
+                        )}
+                      </div>
                     </div>
                     {activeImpactBadges.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -514,30 +508,30 @@ export default function VariableExpensesPage() {
                     )}
                   </div>
 
-                  {/* Assignee */}
-                  {expense.assigneeName && (
-                    <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
-                      <Avatar className="size-6">
-                        <AvatarFallback className="text-xs">
-                          {expense.assigneeName.split(" ").map(n => n[0]).join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="truncate max-w-[120px]">{expense.assigneeName}</span>
-                    </div>
-                  )}
-
-                  {/* Amount */}
-                  <div className="text-right">
-                    <div className="font-semibold">{formatAmountWithCode(expense.amount, expense.currency)}</div>
-                    {expense.currency !== "USD" && (
-                      <div className="text-xs text-muted-foreground">≈ {formatAmountWithCode(expense.amountUSD, "USD")}</div>
+                  <div className="min-w-0">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{allocationLabel.title}</Badge>
+                    <p className="mt-1 truncate text-[11px] text-muted-foreground">{allocationLabel.subtitle}</p>
+                    {activeImpactBadges.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {activeImpactBadges.map(([key, label]) => (
+                          <Badge key={`${expense.id}-${key}`} variant="outline" className="text-[9px] px-1.5 py-0 font-normal text-muted-foreground/90 border-muted-foreground/20">
+                            {label}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
 
-                  {/* Actions */}
-                  <DropdownMenu>
+                  <div className="flex items-start justify-between gap-2 md:justify-end">
+                    <div className="text-right">
+                      <div className="font-semibold">{formatAmountWithCode(expense.amount, expense.currency)}</div>
+                      {expense.currency !== "USD" && (
+                        <div className="text-xs text-muted-foreground">≈ {formatAmountWithCode(expense.amountUSD, "USD")}</div>
+                      )}
+                    </div>
+                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="shrink-0">
+                      <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8">
                         <MoreHorizontal className="size-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -562,6 +556,7 @@ export default function VariableExpensesPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  </div>
                 </div>
               </CardContent>
             </Card>
