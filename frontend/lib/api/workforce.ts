@@ -65,6 +65,11 @@ export interface ApiClient {
   status?: "lead" | "active" | "paused" | "completed" | "archived" | null
   total_revenue: string
   active_projects: number
+  total_projects?: number
+  total_revenue_computed?: number | string
+  total_cost?: number | string
+  profit?: number | string
+  margin_percent?: number | string
   created_at: string
   updated_at: string
 }

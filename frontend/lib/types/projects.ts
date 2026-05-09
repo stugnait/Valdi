@@ -24,6 +24,10 @@ export interface Client {
   createdAt: string
   totalRevenue: number
   activeProjects: number
+  totalProjects?: number
+  totalCost?: number
+  profit?: number
+  marginPercent?: number
 }
 
 export type SupportContractStatus = "active" | "paused" | "ended"

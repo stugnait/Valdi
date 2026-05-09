@@ -43,8 +43,12 @@ export default function ClientsPage() {
     notes: apiClient.notes || undefined,
     status: normalizeStatus(apiClient.status),
     createdAt: apiClient.created_at,
-    totalRevenue: Number(apiClient.total_revenue || 0),
     activeProjects: apiClient.active_projects ?? 0,
+    totalProjects: apiClient.total_projects ?? undefined,
+    totalRevenue: Number(apiClient.total_revenue_computed ?? apiClient.total_revenue ?? 0),
+    totalCost: Number(apiClient.total_cost ?? 0),
+    profit: Number(apiClient.profit ?? 0),
+    marginPercent: Number(apiClient.margin_percent ?? 0),
   })
 
   const loadData = async () => {
@@ -56,6 +60,15 @@ export default function ClientsPage() {
   useEffect(() => {
     void loadData().catch((e) => setError(e instanceof Error ? e.message : "Не вдалося завантажити клієнтів"))
   }, [])
+
+  const totalClients = clients.length
+  const activeClients = clients.filter((c) => getClientProjects(c.id).some((p) => p.status === "active")).length
+  const totalRevenueAll = clients.reduce((sum, c) => sum + (c.totalRevenue || 0), 0)
+  const totalCostAll = clients.reduce((sum, c) => sum + (c.totalCost || 0), 0)
+  const totalProfitAll = clients.reduce((sum, c) => sum + (c.profit || 0), 0)
+  const avgMargin = clients.length ? clients.reduce((sum, c) => sum + (c.marginPercent || 0), 0) / clients.length : 0
+
+  const formatMoney = (v: number) => new Intl.NumberFormat("uk-UA", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v)
 
   const getClientProjects = (clientId: string) => projects.filter((p) => p.client.toString() === clientId)
   const getProjectStats = (clientId: string) => {
@@ -107,6 +120,15 @@ export default function ClientsPage() {
         </Card>
       )}
 
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Усього клієнтів</div><div className="text-xl font-semibold">{totalClients}</div></CardContent></Card>
+        <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Активні клієнти</div><div className="text-xl font-semibold">{activeClients}</div></CardContent></Card>
+        <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Загальний дохід</div><div className="text-xl font-semibold">{formatMoney(totalRevenueAll)}</div></CardContent></Card>
+        <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Загальні витрати</div><div className="text-xl font-semibold">{formatMoney(totalCostAll)}</div></CardContent></Card>
+        <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Загальний прибуток</div><div className={`text-xl font-semibold ${totalProfitAll < 0 ? "text-destructive" : "text-emerald-600"}`}>{formatMoney(totalProfitAll)}</div></CardContent></Card>
+        <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Середня маржинальність</div><div className={`text-xl font-semibold ${avgMargin < 0 ? "text-destructive" : "text-emerald-600"}`}>{avgMargin.toFixed(1)}%</div></CardContent></Card>
+      </div>
+
       <Card>
         <Table>
           <TableHeader>
@@ -115,7 +137,7 @@ export default function ClientsPage() {
               <TableHead>Статус</TableHead>
               <TableHead className="text-center">Усього проєктів</TableHead>
               <TableHead className="text-center">Активні</TableHead>
-              <TableHead className="text-center">Завершені</TableHead>
+              <TableHead className="text-center">Завершені</TableHead><TableHead className="text-right">Дохід</TableHead><TableHead className="text-right">Витрати</TableHead><TableHead className="text-right">Прибуток</TableHead><TableHead className="text-right">Маржинальність</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -127,7 +149,7 @@ export default function ClientsPage() {
                   <TableCell><Badge>{statusLabels[normalizeStatus(c.status)]}</Badge></TableCell>
                   <TableCell className="text-center">{stats.total}</TableCell>
                   <TableCell className="text-center">{stats.active}</TableCell>
-                  <TableCell className="text-center">{stats.completed}</TableCell>
+                  <TableCell className="text-center">{stats.completed}</TableCell><TableCell className="text-right">{formatMoney(c.totalRevenue || 0)}</TableCell><TableCell className="text-right">{formatMoney(c.totalCost || 0)}</TableCell><TableCell className={`text-right font-medium ${(c.profit || 0) < 0 ? "text-destructive" : "text-emerald-600"}`}>{formatMoney(c.profit || 0)}</TableCell><TableCell className={`text-right ${(c.marginPercent || 0) < 0 ? "text-destructive" : "text-emerald-600"}`}>{(c.marginPercent || 0).toFixed(1)}%</TableCell>
                 </TableRow>
               )
             })}
