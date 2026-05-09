@@ -127,7 +127,7 @@ export default function ClientsPage() {
             <Label>Назва компанії *</Label>
             <Input placeholder="Наприклад: Acme Inc." value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} />
 
-            <Label>Контактна особа</Label>
+            <Label>Контактна особа *</Label>
             <Input placeholder="Наприклад: Іван Петренко" value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} />
 
             <Label>Email *</Label>
