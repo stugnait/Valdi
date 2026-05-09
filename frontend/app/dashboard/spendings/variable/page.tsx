@@ -451,8 +451,16 @@ export default function VariableExpensesPage() {
           const category = expenseCategories.find(c => c.id === expense.category)
           const allocationLabel = (() => {
             if (expense.allocation.type === "all") return { title: "Company", subtitle: "Вся компанія" }
-            if (expense.allocation.type === "team") return { title: "Team", subtitle: expense.allocation.teamName || "Без назви команди" }
-            if (expense.allocation.type === "project") return { title: "Project", subtitle: expense.allocation.projectName || "Без назви проєкту" }
+            if (expense.allocation.type === "team") {
+              const teamName = expense.allocation.teamName
+                || teams.find((team) => team.id.toString() === expense.allocation.teamId)?.name
+              return { title: "Team", subtitle: teamName || "Без прив’язки" }
+            }
+            if (expense.allocation.type === "project") {
+              const projectName = expense.allocation.projectName
+                || projects.find((project) => project.id.toString() === expense.allocation.projectId)?.name
+              return { title: "Project", subtitle: projectName || "Без прив’язки" }
+            }
             return { title: "Unallocated", subtitle: "Без прив’язки" }
           })()
           const activeImpactBadges = [
@@ -494,15 +502,6 @@ export default function VariableExpensesPage() {
                         </span>
                       </div>
                     </div>
-                    {activeImpactBadges.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {activeImpactBadges.map(([key, label]) => (
-                          <Badge key={`${expense.id}-${key}`} variant="outline" className="text-[9px] px-1.5 py-0 font-normal text-muted-foreground/90 border-muted-foreground/20">
-                            {label}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
                   </div>
 
                   <div className="min-w-0 px-1 py-0.5">
