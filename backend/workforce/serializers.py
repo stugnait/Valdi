@@ -109,14 +109,15 @@ class ClientSerializer(serializers.ModelSerializer):
         fields = (
             'id',
             'name',
-            'company',
-            'email',
+            'company_name',
             'contact_person',
+            'email',
             'phone',
             'country',
+            'website',
             'notes',
+            'status',
             'total_revenue',
-            'is_active',
             'active_projects',
             'created_at',
             'updated_at',
@@ -126,6 +127,52 @@ class ClientSerializer(serializers.ModelSerializer):
     def get_active_projects(self, obj):
         return obj.projects.filter(status=Project.Status.ACTIVE).count()
 
+
+    def validate(self, attrs):
+        data = attrs.copy()
+        if self.instance:
+            for key in ('name', 'company_name', 'email', 'phone', 'country', 'website', 'status'):
+                data[key] = data.get(key, getattr(self.instance, key, ''))
+
+        required_errors = {}
+        for key, message in {
+            'company_name': 'Введіть назву компанії',
+            'email': 'Введіть коректний Email',
+            'phone': 'Введіть номер телефону',
+            'country': 'Оберіть країну',
+            'website': 'Введіть вебсайт',
+            'status': 'Оберіть статус',
+        }.items():
+            if not str(data.get(key, '')).strip():
+                required_errors[key] = message
+
+        if required_errors:
+            raise serializers.ValidationError(required_errors)
+
+
+        if not str(data.get('name', '')).strip():
+            company_name = str(data.get('company_name', '')).strip()
+            if company_name:
+                attrs['name'] = company_name
+
+        email = str(data.get('email', '')).strip()
+        phone = str(data.get('phone', '')).strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+        website = str(data.get('website', '')).strip()
+        status_value = str(data.get('status', '')).strip()
+
+        import re
+        if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+            raise serializers.ValidationError({'email': 'Введіть коректний Email'})
+        if not re.match(r'^\+?[1-9]\d{7,14}$', phone):
+            raise serializers.ValidationError({'phone': 'Введіть коректний номер телефону'})
+        if not (website.startswith('http://') or website.startswith('https://')):
+            raise serializers.ValidationError({'website': 'Введіть коректний URL'})
+
+        allowed_statuses = {choice[0] for choice in Client.Status.choices}
+        if status_value not in allowed_statuses:
+            raise serializers.ValidationError({'status': 'Оберіть статус'})
+
+        return attrs
 
 class ProjectSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.name', read_only=True)
