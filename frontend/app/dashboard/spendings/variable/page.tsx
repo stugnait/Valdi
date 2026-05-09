@@ -451,8 +451,8 @@ export default function VariableExpensesPage() {
           const category = expenseCategories.find(c => c.id === expense.category)
           const allocationLabel = (() => {
             if (expense.allocation.type === "all") return { title: "Company", subtitle: "Вся компанія" }
-            if (expense.allocation.type === "team") return { title: "Team", subtitle: expense.allocation.teamName || "Команда" }
-            if (expense.allocation.type === "project") return { title: "Project", subtitle: expense.allocation.projectName || "Проєкт" }
+            if (expense.allocation.type === "team") return { title: "Team", subtitle: expense.allocation.teamName || "—" }
+            if (expense.allocation.type === "project") return { title: "Project", subtitle: expense.allocation.projectName || "—" }
             return { title: "Unallocated", subtitle: "Без прив’язки" }
           })()
           const activeImpactBadges = [
