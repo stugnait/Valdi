@@ -446,7 +446,7 @@ export default function VariableExpensesPage() {
       </div>
 
       {/* Журнал витрат */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {filteredExpenses.map((expense) => {
           const category = expenseCategories.find(c => c.id === expense.category)
           const allocationLabel = (() => {
@@ -479,8 +479,8 @@ export default function VariableExpensesPage() {
           })()
           return (
             <Card key={expense.id} className="overflow-hidden">
-              <CardContent className="p-2 sm:px-3 sm:py-2.5">
-                <div className="grid gap-x-3 gap-y-1.5 md:grid-cols-[72px_minmax(280px,1fr)_minmax(240px,320px)_160px] md:items-center">
+              <CardContent className="p-1.5 sm:px-3 sm:py-2">
+                <div className="grid gap-x-3 gap-y-1 md:grid-cols-[72px_minmax(280px,1fr)_minmax(240px,320px)_160px] md:items-center">
                   <div className="text-center md:w-[72px]">
                     <div className="text-base font-semibold">{new Date(expense.date).getDate()}</div>
                     <div className="text-xs text-muted-foreground uppercase">
@@ -509,7 +509,7 @@ export default function VariableExpensesPage() {
                     </div>
                   </div>
 
-                  <div className="min-w-0 w-full md:min-w-[240px] md:max-w-[320px] md:pl-0.5 py-0">
+                  <div className="min-w-0 w-full md:min-w-[240px] md:max-w-[320px] md:pl-0.5 py-0 md:self-center">
                     <Badge
                       variant={allocationLabel.title === "Unallocated" ? "outline" : "secondary"}
                       className={`inline-flex px-2 py-0.5 text-[11px] font-medium ${allocationBadgeClass}`}
