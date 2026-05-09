@@ -10,13 +10,14 @@ import {
   Pencil,
   Trash2,
   Filter,
-  DollarSign
+  DollarSign,
+  Paperclip,
+  Receipt,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { 
   Dialog, 
   DialogContent, 
@@ -63,19 +64,33 @@ import {
   getSourceIcon,
 } from "@/lib/types/spendings"
 import { workforceApi, type ApiProject, type ApiTeam, type ApiVariableExpense } from "@/lib/api/workforce"
+import { getNbuRates, type NbuRates } from "@/lib/utils/currency"
 
 export default function VariableExpensesPage() {
+  const formatAmountWithCode = (amount: number, currency: Currency) =>
+    `${amount.toLocaleString("uk-UA", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${currency}`
+  const getDefaultImpactFlags = (allocationType: AllocationTarget) => ({
+    actualMonthlySpend: true,
+    cashFlow: true,
+    projectProfitability: allocationType === "project",
+    budgetDeviation: true,
+    teamCost: allocationType === "team",
+    companyBurnRate: false,
+  })
   const [expenses, setExpenses] = useState<VariableExpense[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
+  const [allocationFilter, setAllocationFilter] = useState<"all" | "company" | AllocationTarget>("all")
+  const [impactFilter, setImpactFilter] = useState<string>("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<VariableExpense | null>(null)
   const [deleteExpense, setDeleteExpense] = useState<VariableExpense | null>(null)
   
   const [teams, setTeams] = useState<ApiTeam[]>([])
   const [projects, setProjects] = useState<ApiProject[]>([])
+  const [rates, setRates] = useState<NbuRates | null>(null)
   const allMembers = teams.flatMap((team) =>
     team.memberships.map((membership) => ({
       id: membership.developer.toString(),
@@ -97,14 +112,7 @@ export default function VariableExpensesPage() {
     teamId: "",
     projectId: "",
     receiptUrl: "",
-    impactFlags: {
-      actualMonthlySpend: true,
-      cashFlow: true,
-      projectProfitability: false,
-      budgetDeviation: false,
-      teamCost: false,
-      companyBurnRate: false,
-    },
+    impactFlags: getDefaultImpactFlags("all"),
   })
 
   const mapApiExpense = (expense: ApiVariableExpense): VariableExpense => ({
@@ -154,23 +162,32 @@ export default function VariableExpensesPage() {
     void loadExpenses()
   }, [])
 
+  useEffect(() => {
+    void getNbuRates().then(({ rates: loadedRates }) => setRates(loadedRates)).catch(() => undefined)
+  }, [])
+
   // Stats
   const currentMonth = new Date().getMonth()
   const currentYear = new Date().getFullYear()
   const monthlyExpenses = expenses.filter(e => {
     const date = new Date(e.date)
-    return date.getMonth() === currentMonth && date.getFullYear() === currentYear
+    return (
+      date.getMonth() === currentMonth
+      && date.getFullYear() === currentYear
+      && (e.impactFlags?.actualMonthlySpend ?? true)
+    )
   })
   const monthlyTotal = monthlyExpenses.reduce((sum, e) => sum + e.amountUSD, 0)
   
-  const categoryTotals = expenses.reduce((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + e.amountUSD
-    return acc
-  }, {} as Record<string, number>)
-  const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0]
-  const topCategoryName = topCategory
-    ? (expenseCategories.find((item) => item.id === topCategory[0])?.name ?? topCategory[0])
-    : null
+  const largestExpenseInPeriod = monthlyExpenses
+    .slice()
+    .sort((a, b) => b.amountUSD - a.amountUSD)[0]
+
+  const getNbuRateLabel = (currency: "USD" | "EUR") => {
+    if (!rates) return "—"
+    const value = currency === "USD" ? rates.USD : rates.EUR
+    return `${value.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴`
+  }
 
   // Filtered expenses
   const filteredExpenses = expenses.filter(expense => {
@@ -178,7 +195,14 @@ export default function VariableExpensesPage() {
       expense.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (expense.assigneeName?.toLowerCase().includes(searchQuery.toLowerCase()))
     const matchesCategory = categoryFilter === "all" || expense.category === categoryFilter
-    return matchesSearch && matchesCategory
+    const matchesAllocation =
+      allocationFilter === "all"
+      || (allocationFilter === "company" && expense.allocation.type === "all")
+      || expense.allocation.type === allocationFilter
+    const matchesImpact =
+      impactFilter === "all"
+      || Boolean((expense.impactFlags as Record<string, boolean> | undefined)?.[impactFilter])
+    return matchesSearch && matchesCategory && matchesAllocation && matchesImpact
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const resetForm = () => {
@@ -195,14 +219,7 @@ export default function VariableExpensesPage() {
       teamId: "",
       projectId: "",
       receiptUrl: "",
-      impactFlags: {
-        actualMonthlySpend: true,
-        cashFlow: true,
-        projectProfitability: false,
-        budgetDeviation: false,
-        teamCost: false,
-        companyBurnRate: false,
-      },
+      impactFlags: getDefaultImpactFlags("all"),
     })
     setEditingExpense(null)
   }
@@ -226,14 +243,7 @@ export default function VariableExpensesPage() {
       teamId: expense.allocation.teamId || "",
       projectId: expense.allocation.projectId || "",
       receiptUrl: expense.receiptUrl || "",
-      impactFlags: expense.impactFlags || {
-        actualMonthlySpend: true,
-        cashFlow: true,
-        projectProfitability: false,
-        budgetDeviation: false,
-        teamCost: false,
-        companyBurnRate: false,
-      },
+      impactFlags: expense.impactFlags || getDefaultImpactFlags(expense.allocation.type),
     })
     setEditingExpense(expense)
     setIsAddDialogOpen(true)
@@ -306,17 +316,26 @@ export default function VariableExpensesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Нерегулярні витрати</h1>
           <p className="text-sm text-muted-foreground">
             Тут фіксуються разові, непередбачувані або нерегулярні витрати: обладнання, ремонти, разові покупки, emergency costs, тимчасові підрядники, team events.
           </p>
         </div>
-        <Button onClick={handleOpenAdd} className="gap-2">
-          <Plus className="size-4" />
-          Додати витрату
-        </Button>
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
+            <div className="mb-1 font-medium text-foreground/80">Офіційний курс НБУ</div>
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <span>USD: {getNbuRateLabel("USD")}</span>
+              <span>EUR: {getNbuRateLabel("EUR")}</span>
+            </div>
+          </div>
+          <Button onClick={handleOpenAdd} className="gap-2">
+            <Plus className="size-4" />
+            Додати витрату
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -332,7 +351,7 @@ export default function VariableExpensesPage() {
       )}
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Витрачено за місяць</CardTitle>
@@ -340,30 +359,43 @@ export default function VariableExpensesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${monthlyTotal.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Зафіксовано витрат: {monthlyExpenses.length}</p>
+            <p className="text-xs text-muted-foreground">Нерегулярні витрати за поточний період</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Найбільша категорія</CardTitle>
+            <CardTitle className="text-sm font-medium">Найбільша одноразова витрата</CardTitle>
             <TrendingUp className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {topCategory ? (
+            {largestExpenseInPeriod ? (
               <>
-                <div className="text-2xl font-bold">{topCategoryName}</div>
-                <p className="text-xs text-muted-foreground">Загалом: ${topCategory[1].toLocaleString()}</p>
+                <div className="text-base font-bold leading-tight">{largestExpenseInPeriod.name}</div>
+                <p className="text-xs text-muted-foreground">
+                  {formatCurrency(largestExpenseInPeriod.amount, largestExpenseInPeriod.currency, "uk-UA")}
+                </p>
               </>
             ) : (
               <div className="text-muted-foreground">Дані відсутні</div>
             )}
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Витрати цього місяця</CardTitle>
+            <Calendar className="size-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{monthlyExpenses.length}</div>
+            <p className="text-xs text-muted-foreground">за поточний місяць</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col gap-4 md:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -385,75 +417,114 @@ export default function VariableExpensesPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={allocationFilter} onValueChange={(v) => setAllocationFilter(v as "all" | "company" | AllocationTarget)}>
+          <SelectTrigger className="w-full md:w-[200px]">
+            <SelectValue placeholder="Allocation" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All allocations</SelectItem>
+            <SelectItem value="company">Company</SelectItem>
+            <SelectItem value="team">Team</SelectItem>
+            <SelectItem value="project">Project</SelectItem>
+            <SelectItem value="none">Unallocated</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={impactFilter} onValueChange={setImpactFilter}>
+          <SelectTrigger className="w-full md:w-[220px]">
+            <SelectValue placeholder="Impact flag" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All impact flags</SelectItem>
+            <SelectItem value="actualMonthlySpend">Actual Spend</SelectItem>
+            <SelectItem value="teamCost">Team Cost</SelectItem>
+            <SelectItem value="projectProfitability">Project Profitability</SelectItem>
+            <SelectItem value="cashFlow">Cash Flow</SelectItem>
+            <SelectItem value="budgetDeviation">Budget Deviation</SelectItem>
+            <SelectItem value="companyBurnRate">Burn Rate</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Журнал витрат */}
       <div className="space-y-3">
         {filteredExpenses.map((expense) => {
           const category = expenseCategories.find(c => c.id === expense.category)
+          const allocationLabel = (() => {
+            if (expense.allocation.type === "all") return { title: "Company", subtitle: "Вся компанія" }
+            if (expense.allocation.type === "team") return { title: "Team", subtitle: expense.allocation.teamName || "Команда" }
+            if (expense.allocation.type === "project") return { title: "Project", subtitle: expense.allocation.projectName || "Проєкт" }
+            return { title: "Unallocated", subtitle: "Без прив’язки" }
+          })()
+          const activeImpactBadges = [
+            ["actualMonthlySpend", "Actual Spend"],
+            ["cashFlow", "Cash Flow"],
+            ["teamCost", "Team Cost"],
+            ["projectProfitability", "Project Profitability"],
+            ["budgetDeviation", "Budget Deviation"],
+            ["companyBurnRate", "Burn Rate"],
+          ].filter(([key]) => Boolean((expense.impactFlags as Record<string, boolean> | undefined)?.[key]))
           return (
             <Card key={expense.id} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  {/* Date */}
-                  <div className="text-center min-w-[60px]">
-                    <div className="text-lg font-bold">{new Date(expense.date).getDate()}</div>
-                    <div className="text-xs text-muted-foreground uppercase">
-                      {new Date(expense.date).toLocaleDateString("uk-UA", { month: "short" })}
+              <CardContent className="p-3 sm:px-4 sm:py-3.5">
+                <div className="grid gap-3 md:grid-cols-[1.7fr_1.1fr_auto] md:items-center">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="text-center min-w-[54px]">
+                      <div className="text-base font-semibold">{new Date(expense.date).getDate()}</div>
+                      <div className="text-xs text-muted-foreground uppercase">
+                        {new Date(expense.date).toLocaleDateString("uk-UA", { month: "short" })}
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-sm font-semibold text-foreground">{expense.name}</span>
+                        {expense.receiptUrl && <Paperclip className="size-3 text-muted-foreground shrink-0" />}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {category && (
+                          <Badge
+                            variant="secondary"
+                            className="text-xs px-2 py-0.5"
+                            style={{ backgroundColor: `${category.color}20`, color: category.color }}
+                          >
+                            {category.name}
+                          </Badge>
+                        )}
+                        <span className="text-sm text-muted-foreground flex items-center gap-1">
+                          {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
+                        </span>
+                        {expense.assigneeName && (
+                          <span className="hidden text-sm text-muted-foreground sm:inline">• {expense.assigneeName}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">{expense.name}</span>
-                      {expense.receiptUrl && (
-                        <Paperclip className="size-3.5 text-muted-foreground shrink-0" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      {category && (
-                        <Badge 
-                          variant="secondary"
-                          className="text-xs"
-                          style={{ 
-                            backgroundColor: `${category.color}20`, 
-                            color: category.color,
-                          }}
-                        >
-                          {category.name}
-                        </Badge>
-                      )}
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Assignee */}
-                  {expense.assigneeName && (
-                    <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
-                      <Avatar className="size-6">
-                        <AvatarFallback className="text-xs">
-                          {expense.assigneeName.split(" ").map(n => n[0]).join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="truncate max-w-[120px]">{expense.assigneeName}</span>
-                    </div>
-                  )}
-
-                  {/* Amount */}
-                  <div className="text-right">
-                    <div className="font-semibold">{formatCurrency(expense.amount, expense.currency)}</div>
-                    {expense.currency !== "USD" && (
-                      <div className="text-xs text-muted-foreground">${expense.amountUSD}</div>
+                  <div className="min-w-0 rounded-md bg-muted/30 px-2.5 py-2">
+                    <Badge variant="outline" className="text-xs px-2 py-0.5 border-muted-foreground/30 bg-background">
+                      {allocationLabel.title}
+                    </Badge>
+                    <p className="mt-1 truncate text-sm text-muted-foreground">{allocationLabel.subtitle}</p>
+                    {activeImpactBadges.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {activeImpactBadges.map(([key, label]) => (
+                          <Badge key={`${expense.id}-${key}`} variant="secondary" className="text-xs px-2 py-0.5 font-normal text-muted-foreground">
+                            {label}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
 
-                  {/* Actions */}
-                  <DropdownMenu>
+                  <div className="flex items-center justify-between gap-2 md:justify-end">
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-foreground">{formatAmountWithCode(expense.amount, expense.currency)}</div>
+                      {expense.currency !== "USD" && (
+                        <div className="text-sm text-muted-foreground">≈ {formatAmountWithCode(expense.amountUSD, "USD")}</div>
+                      )}
+                    </div>
+                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="shrink-0">
+                      <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8">
                         <MoreHorizontal className="size-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -478,6 +549,7 @@ export default function VariableExpensesPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -540,9 +612,9 @@ export default function VariableExpensesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="UAH">UAH (₴)</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="UAH">UAH</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -617,7 +689,11 @@ export default function VariableExpensesPage() {
               <Label>Фінансова прив’язка витрати</Label>
               <RadioGroup 
                 value={formData.allocationType}
-                onValueChange={(v) => setFormData({ ...formData, allocationType: v as AllocationTarget })}
+                onValueChange={(v) => setFormData({
+                  ...formData,
+                  allocationType: v as AllocationTarget,
+                  impactFlags: getDefaultImpactFlags(v as AllocationTarget),
+                })}
                 className="grid grid-cols-2 gap-4"
               >
                 <div className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
