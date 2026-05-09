@@ -129,11 +129,43 @@ class ClientSerializer(serializers.ModelSerializer):
 
 
     def validate(self, attrs):
-        email = (attrs.get('email') or '').strip()
-        phone = (attrs.get('phone') or '').strip()
+        data = attrs.copy()
+        if self.instance:
+            for key in ('name', 'company_name', 'email', 'phone', 'country', 'website', 'status'):
+                data[key] = data.get(key, getattr(self.instance, key, ''))
 
-        if not email and not phone:
-            raise serializers.ValidationError({'non_field_errors': 'Потрібно вказати email або телефон.'})
+        required_errors = {}
+        for key, message in {
+            'name': 'Введіть ім’я клієнта',
+            'company_name': 'Введіть назву компанії',
+            'email': 'Введіть коректний Email',
+            'phone': 'Введіть номер телефону',
+            'country': 'Оберіть країну',
+            'website': 'Введіть вебсайт',
+            'status': 'Оберіть статус',
+        }.items():
+            if not str(data.get(key, '')).strip():
+                required_errors[key] = message
+
+        if required_errors:
+            raise serializers.ValidationError(required_errors)
+
+        email = str(data.get('email', '')).strip()
+        phone = str(data.get('phone', '')).strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+        website = str(data.get('website', '')).strip()
+        status_value = str(data.get('status', '')).strip()
+
+        import re
+        if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+            raise serializers.ValidationError({'email': 'Введіть коректний Email'})
+        if not re.match(r'^\+?[1-9]\d{7,14}$', phone):
+            raise serializers.ValidationError({'phone': 'Введіть коректний номер телефону'})
+        if not (website.startswith('http://') or website.startswith('https://')):
+            raise serializers.ValidationError({'website': 'Введіть коректний URL'})
+
+        allowed_statuses = {choice[0] for choice in Client.Status.choices}
+        if status_value not in allowed_statuses:
+            raise serializers.ValidationError({'status': 'Оберіть статус'})
 
         return attrs
 
