@@ -66,6 +66,8 @@ import { workforceApi, type ApiProject, type ApiTeam, type ApiVariableExpense } 
 import { getNbuRates, type NbuRates } from "@/lib/utils/currency"
 
 export default function VariableExpensesPage() {
+  const formatAmountWithCode = (amount: number, currency: Currency) =>
+    `${amount.toLocaleString("uk-UA", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${currency}`
   const getDefaultImpactFlags = (allocationType: AllocationTarget) => ({
     actualMonthlySpend: true,
     cashFlow: true,
@@ -324,8 +326,8 @@ export default function VariableExpensesPage() {
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
             <div className="mb-1 font-medium text-foreground/80">Офіційний курс НБУ</div>
             <div className="flex items-center gap-3 text-muted-foreground">
-              <span>$: {getNbuRateLabel("USD")}</span>
-              <span>€: {getNbuRateLabel("EUR")}</span>
+              <span>USD: {getNbuRateLabel("USD")}</span>
+              <span>EUR: {getNbuRateLabel("EUR")}</span>
             </div>
           </div>
           <Button onClick={handleOpenAdd} className="gap-2">
@@ -493,18 +495,18 @@ export default function VariableExpensesPage() {
                           {category.name}
                         </Badge>
                       )}
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                         {allocationLabel.title}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">{allocationLabel.subtitle}</span>
+                      <span className="text-[11px] text-muted-foreground">{allocationLabel.subtitle}</span>
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
                       </span>
                     </div>
                     {activeImpactBadges.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
+                      <div className="mt-1 flex flex-wrap gap-1">
                         {activeImpactBadges.map(([key, label]) => (
-                          <Badge key={`${expense.id}-${key}`} variant="secondary" className="text-[10px] font-normal text-muted-foreground">
+                          <Badge key={`${expense.id}-${key}`} variant="outline" className="text-[9px] px-1.5 py-0 font-normal text-muted-foreground/90 border-muted-foreground/20">
                             {label}
                           </Badge>
                         ))}
@@ -526,9 +528,9 @@ export default function VariableExpensesPage() {
 
                   {/* Amount */}
                   <div className="text-right">
-                    <div className="font-semibold">{formatCurrency(expense.amount, expense.currency, "uk-UA")}</div>
+                    <div className="font-semibold">{formatAmountWithCode(expense.amount, expense.currency)}</div>
                     {expense.currency !== "USD" && (
-                      <div className="text-xs text-muted-foreground">≈ {formatCurrency(expense.amountUSD, "USD", "uk-UA")}</div>
+                      <div className="text-xs text-muted-foreground">≈ {formatAmountWithCode(expense.amountUSD, "USD")}</div>
                     )}
                   </div>
 
@@ -622,9 +624,9 @@ export default function VariableExpensesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">$</SelectItem>
-                    <SelectItem value="EUR">€</SelectItem>
-                    <SelectItem value="UAH">₴</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="UAH">UAH</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

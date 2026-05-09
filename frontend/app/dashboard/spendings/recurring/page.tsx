@@ -824,9 +824,9 @@ export default function RecurringExpensesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">$</SelectItem>
-                    <SelectItem value="EUR">€</SelectItem>
-                    <SelectItem value="UAH">₴</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="UAH">UAH</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
