@@ -10,3 +10,5 @@ python-dotenv
 google-auth>=2.34,<3.0
 
 cryptography>=43.0,<44.0
+
+requests>=2.32,<3.0
