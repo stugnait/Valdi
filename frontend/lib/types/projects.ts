@@ -77,6 +77,8 @@ export interface ResourceAllocation {
 
 export interface ProjectExpense {
   id: string
+  sourceId?: number
+  expenseType?: "irregular" | "recurring"
   name: string
   amount: number
   currency?: "USD" | "EUR" | "UAH"
@@ -85,6 +87,7 @@ export interface ProjectExpense {
   date: string
   description?: string
   impactProjectProfitability?: boolean
+  recurringCycle?: "monthly" | "quarterly" | "yearly"
 }
 
 export interface Project {
