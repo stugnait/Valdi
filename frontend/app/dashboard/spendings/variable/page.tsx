@@ -454,14 +454,14 @@ export default function VariableExpensesPage() {
             if (expense.allocation.type === "team") {
               const teamName = expense.allocation.teamName
                 || teams.find((team) => team.id.toString() === expense.allocation.teamId)?.name
-              return { title: "Team", subtitle: teamName || "Без прив’язки" }
+              return { title: "Team", subtitle: teamName || "Без розподілу" }
             }
             if (expense.allocation.type === "project") {
               const projectName = expense.allocation.projectName
                 || projects.find((project) => project.id.toString() === expense.allocation.projectId)?.name
-              return { title: "Project", subtitle: projectName || "Без прив’язки" }
+              return { title: "Project", subtitle: projectName || "Без розподілу" }
             }
-            return { title: "Unallocated", subtitle: "Без прив’язки" }
+            return { title: "Unallocated", subtitle: "Без розподілу" }
           })()
           const activeImpactBadges = [
             ["actualMonthlySpend", "Actual Spend"],
@@ -471,10 +471,16 @@ export default function VariableExpensesPage() {
             ["budgetDeviation", "Budget Deviation"],
             ["companyBurnRate", "Burn Rate"],
           ].filter(([key]) => Boolean((expense.impactFlags as Record<string, boolean> | undefined)?.[key]))
+          const allocationBadgeClass = (() => {
+            if (allocationLabel.title === "Company") return "bg-violet-100 text-violet-700 hover:bg-violet-100"
+            if (allocationLabel.title === "Team") return "bg-blue-100 text-blue-700 hover:bg-blue-100"
+            if (allocationLabel.title === "Project") return "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+            return "border-muted-foreground/30 text-muted-foreground"
+          })()
           return (
             <Card key={expense.id} className="overflow-hidden">
               <CardContent className="p-2.5 sm:px-3.5 sm:py-3">
-                <div className="grid gap-2.5 md:grid-cols-[1.8fr_1fr_auto] md:items-center">
+                <div className="grid gap-2.5 md:grid-cols-[minmax(0,1.8fr)_minmax(220px,260px)_auto] md:items-center">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="text-center min-w-[50px]">
                       <div className="text-base font-semibold">{new Date(expense.date).getDate()}</div>
@@ -504,11 +510,14 @@ export default function VariableExpensesPage() {
                     </div>
                   </div>
 
-                  <div className="min-w-0 px-1 py-0.5">
-                    <Badge variant="outline" className="text-xs px-2 py-0.5 border-muted-foreground/25">
+                  <div className="min-w-0 w-full md:min-w-[220px] md:max-w-[260px] md:border-l md:border-border/60 md:pl-3 md:pr-1 py-0.5">
+                    <Badge
+                      variant={allocationLabel.title === "Unallocated" ? "outline" : "secondary"}
+                      className={`inline-flex px-2 py-0.5 text-[11px] font-medium ${allocationBadgeClass}`}
+                    >
                       {allocationLabel.title}
                     </Badge>
-                    <p className="mt-1 truncate text-sm text-muted-foreground">{allocationLabel.subtitle}</p>
+                    <p className="mt-1 truncate text-sm text-muted-foreground/90">{allocationLabel.subtitle}</p>
                     {activeImpactBadges.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {activeImpactBadges.map(([key, label]) => (
