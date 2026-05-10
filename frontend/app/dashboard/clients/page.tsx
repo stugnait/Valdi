@@ -153,6 +153,45 @@ export default function ClientsPage() {
       </DialogContent>
     </Dialog>
 
-    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}><DialogContent><DialogHeader><DialogTitle>{editingClient?"Редагувати клієнта":"Додати клієнта"}</DialogTitle><DialogDescription>Заповніть дані клієнта</DialogDescription></DialogHeader><div className="grid gap-3"><Label>Назва компанії *</Label><Input value={formData.companyName} onChange={(e)=>setFormData({...formData, companyName:e.target.value})}/><Label>Контактна особа</Label><Input value={formData.contactPerson} onChange={(e)=>setFormData({...formData, contactPerson:e.target.value})}/><Label>Email *</Label><Input type="email" value={formData.email} onChange={(e)=>setFormData({...formData, email:e.target.value})}/><Label>Телефон *</Label><Input value={formData.phone} onChange={(e)=>setFormData({...formData, phone:e.target.value})}/><Label>Країна *</Label><Select value={formData.country} onValueChange={(v)=>setFormData({...formData,country:v})}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{countries.map((c)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
+    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{editingClient ? "Редагувати клієнта" : "Додати клієнта"}</DialogTitle>
+          <DialogDescription>Заповніть дані клієнта</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <Label>Назва компанії *</Label>
+          <Input value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} />
+          <Label>Контактна особа</Label>
+          <Input value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} />
+          <Label>Email *</Label>
+          <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+          <Label>Телефон *</Label>
+          <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+          <Label>Країна *</Label>
+          <Select value={formData.country} onValueChange={(v) => setFormData({ ...formData, country: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+          </Select>
+          <Label>Статус *</Label>
+          <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v as Client["status"] })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="lead">Потенційний</SelectItem>
+              <SelectItem value="active">Активний</SelectItem>
+              <SelectItem value="paused">Призупинений</SelectItem>
+              <SelectItem value="completed">Завершений</SelectItem>
+              <SelectItem value="archived">Архівний</SelectItem>
+            </SelectContent>
+          </Select>
+          <Label>Нотатки</Label>
+          <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Скасувати</Button>
+          <Button onClick={onSave}>Зберегти</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 }
