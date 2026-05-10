@@ -27,6 +27,8 @@ export default function ClientsPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [viewClient, setViewClient] = useState<Client | null>(null)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
+  const [pendingDeleteClient, setPendingDeleteClient] = useState<Client | null>(null)
+  const [deleteBlocked, setDeleteBlocked] = useState(false)
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("default")
@@ -77,15 +79,19 @@ export default function ClientsPage() {
 
   const canDeleteClient = (c: Client) => (c.totalProjects || 0) === 0 && (c.totalRevenue || 0) === 0 && (c.totalCost || 0) === 0
 
-  const archiveClient = async (c: Client) => {
-    if (!window.confirm(`Архівувати клієнта "${c.companyName || c.name}"?`)) return
-    await workforceApi.updateClient(c.id, { status: "archived" })
-    await loadData()
+  const openDeleteFlow = (c: Client) => {
+    setPendingDeleteClient(c)
+    setDeleteBlocked(!canDeleteClient(c))
   }
 
-  const deleteClient = async (c: Client) => {
-    if (!window.confirm(`Видалити клієнта "${c.companyName || c.name}"? Дію неможливо скасувати.`)) return
-    await workforceApi.deleteClient(c.id)
+  const confirmDeleteOrArchive = async () => {
+    if (!pendingDeleteClient) return
+    if (deleteBlocked) {
+      await workforceApi.updateClient(pendingDeleteClient.id, { status: "archived" })
+    } else {
+      await workforceApi.deleteClient(pendingDeleteClient.id)
+    }
+    setPendingDeleteClient(null)
     await loadData()
   }
 
@@ -130,7 +136,7 @@ export default function ClientsPage() {
 
         <Table>
           <TableHeader><TableRow><TableHead>Клієнт</TableHead><TableHead>Статус</TableHead><TableHead>Контакти</TableHead><TableHead>Країна</TableHead><TableHead>Проєкти</TableHead><TableHead className="text-right">Дохід</TableHead><TableHead className="text-right">Витрати</TableHead><TableHead className="text-right">Прибуток</TableHead><TableHead className="text-right">Маржинальність</TableHead><TableHead className="text-right">Дії</TableHead></TableRow></TableHeader>
-          <TableBody>{filteredClients.map((c)=>{ const margin=c.marginPercent||0; const profit=c.profit||0; return <TableRow key={c.id} className="hover:bg-muted/40"><TableCell><div className="flex items-center gap-3"><Avatar className="h-9 w-9"><AvatarFallback>{(c.companyName||c.name||"C").slice(0,2).toUpperCase()}</AvatarFallback></Avatar><div><div className="font-medium">{c.companyName || c.name}</div><div className="text-xs text-muted-foreground">{c.contactPerson || "Контакт не вказано"}</div></div></div></TableCell><TableCell><Badge variant="outline">{statusLabels[normalizeStatus(c.status)]}</Badge></TableCell><TableCell><div className="text-sm">{c.email || "—"}</div><div className="text-xs text-muted-foreground">{c.phone || "—"}</div></TableCell><TableCell>{c.country || "—"}</TableCell><TableCell><div className="text-sm">Усього: {c.totalProjects || 0}</div><div className="text-xs text-muted-foreground">Активні: {c.activeProjects || 0}</div></TableCell><TableCell className="text-right">{money(c.totalRevenue || 0)}</TableCell><TableCell className="text-right">{money(c.totalCost || 0)}</TableCell><TableCell className={`text-right font-medium ${profit<0?"text-destructive":"text-emerald-600"}`}>{money(profit)}</TableCell><TableCell className="text-right"><Badge variant={margin<0?"destructive":margin>30?"default":"secondary"}>{margin.toFixed(1)}%</Badge></TableCell><TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={()=>setViewClient(c)}><Eye className="size-4 mr-2"/>Деталі</DropdownMenuItem><DropdownMenuItem onClick={()=>{setEditingClient(c); setFormData({ companyName:c.companyName||"", contactPerson:c.contactPerson||"", email:c.email||"", phone:c.phone||"", country:c.country||"Україна", notes:c.notes||"", status:normalizeStatus(c.status) }); setIsAddDialogOpen(true)}}><Pencil className="size-4 mr-2"/>Редагувати</DropdownMenuItem><DropdownMenuItem onClick={async()=>archiveClient(c)}>Архівувати</DropdownMenuItem>{canDeleteClient(c) ? <DropdownMenuItem className="text-destructive" onClick={async()=>deleteClient(c)}><Trash2 className="size-4 mr-2"/>Видалити</DropdownMenuItem> : <DropdownMenuItem onClick={async()=>archiveClient(c)}>Архівувати замість видалення</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell></TableRow>})}</TableBody>
+          <TableBody>{filteredClients.map((c)=>{ const margin=c.marginPercent||0; const profit=c.profit||0; return <TableRow key={c.id} className="hover:bg-muted/40"><TableCell><div className="flex items-center gap-3"><Avatar className="h-9 w-9"><AvatarFallback>{(c.companyName||c.name||"C").slice(0,2).toUpperCase()}</AvatarFallback></Avatar><div><div className="font-medium">{c.companyName || c.name}</div><div className="text-xs text-muted-foreground">{c.contactPerson || "Контакт не вказано"}</div></div></div></TableCell><TableCell><Badge variant="outline">{statusLabels[normalizeStatus(c.status)]}</Badge></TableCell><TableCell><div className="text-sm">{c.email || "—"}</div><div className="text-xs text-muted-foreground">{c.phone || "—"}</div></TableCell><TableCell>{c.country || "—"}</TableCell><TableCell><div className="text-sm">Усього: {c.totalProjects || 0}</div><div className="text-xs text-muted-foreground">Активні: {c.activeProjects || 0}</div></TableCell><TableCell className="text-right">{money(c.totalRevenue || 0)}</TableCell><TableCell className="text-right">{money(c.totalCost || 0)}</TableCell><TableCell className={`text-right font-medium ${profit<0?"text-destructive":"text-emerald-600"}`}>{money(profit)}</TableCell><TableCell className="text-right"><Badge variant={margin<0?"destructive":margin>30?"default":"secondary"}>{margin.toFixed(1)}%</Badge></TableCell><TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={()=>setViewClient(c)}><Eye className="size-4 mr-2"/>Деталі</DropdownMenuItem><DropdownMenuItem onClick={()=>{setEditingClient(c); setFormData({ companyName:c.companyName||"", contactPerson:c.contactPerson||"", email:c.email||"", phone:c.phone||"", country:c.country||"Україна", notes:c.notes||"", status:normalizeStatus(c.status) }); setIsAddDialogOpen(true)}}><Pencil className="size-4 mr-2"/>Редагувати</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={() => openDeleteFlow(c)}><Trash2 className="size-4 mr-2"/>Видалити</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>})}</TableBody>
         </Table>
       </CardContent>
     </Card>
@@ -165,6 +171,22 @@ export default function ClientsPage() {
             <Card><CardContent className="pt-4"><div className="text-sm font-medium mb-3">Витрати по проєктах клієнта</div>{clientProjects.length===0 ? <div className="text-sm text-muted-foreground">Немає витрат, прив’язаних до проєктів цього клієнта.</div> : <div className="space-y-2">{clientProjects.map((p)=> <div key={`cost-${p.id}`} className="text-sm border rounded p-2"><div className="font-medium">{p.name}</div><div>Тип: Витрати проєкту</div><div>Категорія: Labor + Overheads</div><div>Сума: {fmtMoney(Number(p.labor_cost||0)+Number(p.direct_overheads||0))}</div><div>Дата: {fmtDate(p.end_date)}</div><div>Проєкт: {p.name}</div><div>Команда: Немає даних</div></div>)}</div>}</CardContent></Card>
           </div>
         })()}
+      </DialogContent>
+    </Dialog>
+
+
+    <Dialog open={!!pendingDeleteClient} onOpenChange={() => setPendingDeleteClient(null)}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{deleteBlocked ? "Неможливо видалити клієнта" : "Видалити клієнта?"}</DialogTitle>
+          <DialogDescription>
+            {deleteBlocked ? "Цей клієнт має пов’язані проєкти, витрати або фінансову історію. Щоб не втратити історичні дані, клієнта можна лише архівувати. Архівний клієнт зникне зі стандартного списку, але проєкти та фінансова історія збережуться. Його можна буде знайти через фільтр “Архівні”." : "Клієнт буде повністю видалений без можливості відновлення."}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setPendingDeleteClient(null)}>Скасувати</Button>
+          <Button variant={deleteBlocked ? "default" : "destructive"} onClick={confirmDeleteOrArchive}>{deleteBlocked ? "Архівувати" : "Видалити"}</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
 
