@@ -185,7 +185,6 @@ class ClientSerializer(serializers.ModelSerializer):
             'email': 'Введіть коректний Email',
             'phone': 'Введіть номер телефону',
             'country': 'Оберіть країну',
-            'website': 'Введіть вебсайт',
             'status': 'Оберіть статус',
         }.items():
             if not str(data.get(key, '')).strip():
@@ -202,7 +201,6 @@ class ClientSerializer(serializers.ModelSerializer):
 
         email = str(data.get('email', '')).strip()
         phone = str(data.get('phone', '')).strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-        website = str(data.get('website', '')).strip()
         status_value = str(data.get('status', '')).strip()
 
         import re
@@ -210,9 +208,6 @@ class ClientSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'email': 'Введіть коректний Email'})
         if not re.match(r'^\+?[1-9]\d{7,14}$', phone):
             raise serializers.ValidationError({'phone': 'Введіть коректний номер телефону'})
-        if not (website.startswith('http://') or website.startswith('https://')):
-            raise serializers.ValidationError({'website': 'Введіть коректний URL'})
-
         allowed_statuses = {choice[0] for choice in Client.Status.choices}
         if status_value not in allowed_statuses:
             raise serializers.ValidationError({'status': 'Оберіть статус'})
