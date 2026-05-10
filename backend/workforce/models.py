@@ -135,7 +135,7 @@ class Project(models.Model):
         MONTHLY = 'monthly', 'Monthly'
 
     name = models.CharField(max_length=180)
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='projects')
+    client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name='projects')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.LEAD)
     start_date = models.DateField()
     end_date = models.DateField()
