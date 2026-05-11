@@ -261,6 +261,30 @@ class ProjectSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Не можна використовувати команду іншого користувача.')
         return value
 
+    def _team_monthly_cost(self, team):
+        from decimal import Decimal
+        total = Decimal('0')
+        memberships = team.memberships.select_related('developer').all()
+        for membership in memberships:
+            rate = membership.developer.hourly_rate or Decimal('0')
+            allocation = Decimal(membership.allocation or 0) / Decimal('100')
+            total += rate * Decimal('160') * allocation
+        return total
+
+    def create(self, validated_data):
+        labor_cost = validated_data.get('labor_cost')
+        team = validated_data.get('team')
+        if team and (labor_cost is None or labor_cost == 0):
+            validated_data['labor_cost'] = self._team_monthly_cost(team)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        labor_cost = validated_data.get('labor_cost', instance.labor_cost)
+        team = validated_data.get('team', instance.team)
+        if team and (labor_cost is None or labor_cost == 0):
+            validated_data['labor_cost'] = self._team_monthly_cost(team)
+        return super().update(instance, validated_data)
+
 
 class SubscriptionSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.name', read_only=True)
