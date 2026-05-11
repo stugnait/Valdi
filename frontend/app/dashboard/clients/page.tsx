@@ -38,6 +38,7 @@ export default function ClientsPage() {
 
   const [formData, setFormData] = useState({ companyName: "", contactPerson: "", email: "", phone: "", country: "", notes: "", status: "lead" as Client["status"] })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasSubmitted, setHasSubmitted] = useState(false)
 
@@ -109,22 +110,48 @@ export default function ClientsPage() {
   const money = (n: number) => new Intl.NumberFormat("uk-UA", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
 
 
-  const validateClientForm = () => {
+  const getClientFormErrors = (data = formData) => {
     const errors: Record<string, string> = {}
-    if (!formData.companyName.trim()) errors.companyName = "Введіть назву клієнта"
-    if (!formData.contactPerson.trim()) errors.contactPerson = "Введіть контактну особу"
-    const email = formData.email.trim()
-    const phone = formData.phone.trim()
-    if (!email && !phone) {
-      errors.email = "Вкажіть Email або номер телефону"
-      errors.phone = "Вкажіть Email або номер телефону"
-    }
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Введіть коректний Email"
-    if (phone && !/^\+?[1-9]\d{7,14}$/.test(phone.replace(/[\s()-]/g, ""))) errors.phone = "Введіть коректний номер телефону"
-    if (!formData.status) errors.status = "Оберіть статус"
+    if (!data.companyName.trim()) errors.companyName = "Введіть назву клієнта"
+    if (!data.contactPerson.trim()) errors.contactPerson = "Введіть контактну особу"
+
+    const email = data.email.trim()
+    const phone = data.phone.trim()
+    const emailValid = !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    const phoneValid = !!phone && /^\+?[1-9]\d{7,14}$/.test(phone.replace(/[\s()-]/g, ""))
+
+    if (email && !emailValid) errors.email = "Введіть коректний Email"
+    if (phone && !phoneValid) errors.phone = "Введіть коректний номер телефону"
+    if (!emailValid && !phoneValid) errors.contact = "Вкажіть Email або номер телефону"
+
+    if (!data.status) errors.status = "Оберіть статус"
+    return errors
+  }
+
+  const validateClientForm = (data = formData) => {
+    const errors = getClientFormErrors(data)
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
+
+  const updateFormField = (field: keyof typeof formData, value: string) => {
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value }
+      const shouldValidate = hasSubmitted || Object.keys(touchedFields).length > 0
+      if (shouldValidate) setFormErrors(getClientFormErrors(next))
+      return next
+    })
+  }
+
+  const onFieldBlur = (field: keyof typeof formData) => {
+    setTouchedFields((prev) => {
+      const next = { ...prev, [field]: true }
+      setFormErrors(getClientFormErrors(formData))
+      return next
+    })
+  }
+
+  const isFormValid = useMemo(() => Object.keys(getClientFormErrors(formData)).length === 0, [formData])
 
   const onSave = async () => {
     setHasSubmitted(true)
@@ -142,6 +169,7 @@ export default function ClientsPage() {
     }
     setIsAddDialogOpen(false); setEditingClient(null)
     setFormErrors({})
+    setTouchedFields({})
     setHasSubmitted(false)
     setFormData({ companyName: "", contactPerson: "", email: "", phone: "", country: "", notes: "", status: "lead" })
     await loadData()
@@ -149,7 +177,7 @@ export default function ClientsPage() {
   }
 
   return <div className="space-y-5">
-    <div className="flex items-center justify-between"><h1 className="text-2xl font-semibold">Клієнти</h1><Button onClick={() => { setHasSubmitted(false); setFormErrors({}); setIsAddDialogOpen(true) }}><Plus className="size-4 mr-2"/>Додати клієнта</Button></div>
+    <div className="flex items-center justify-between"><h1 className="text-2xl font-semibold">Клієнти</h1><Button onClick={() => { setHasSubmitted(false); setTouchedFields({}); setFormErrors({}); setIsAddDialogOpen(true) }}><Plus className="size-4 mr-2"/>Додати клієнта</Button></div>
 
     <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
       <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Усього клієнтів</div><div className="text-xl font-semibold">{totalClients}</div></CardContent></Card>
@@ -172,7 +200,7 @@ export default function ClientsPage() {
 
         <Table>
           <TableHeader><TableRow><TableHead>Клієнт</TableHead><TableHead>Статус</TableHead><TableHead>Контакти</TableHead><TableHead>Країна</TableHead><TableHead>Проєкти</TableHead><TableHead className="text-right">Дохід</TableHead><TableHead className="text-right">Витрати</TableHead><TableHead className="text-right">Прибуток</TableHead><TableHead className="text-right">Маржинальність</TableHead><TableHead className="text-right">Дії</TableHead></TableRow></TableHeader>
-          <TableBody>{filteredClients.map((c)=>{ const margin=c.marginPercent||0; const profit=c.profit||0; return <TableRow key={c.id} className="hover:bg-muted/40"><TableCell><div className="flex items-center gap-3"><Avatar className="h-9 w-9"><AvatarFallback>{(c.companyName||c.name||"C").slice(0,2).toUpperCase()}</AvatarFallback></Avatar><div><div className="font-medium">{c.companyName || c.name}</div><div className="text-xs text-muted-foreground">{c.contactPerson || "Контакт не вказано"}</div></div></div></TableCell><TableCell><Badge variant="outline">{statusLabels[normalizeStatus(c.status)]}</Badge></TableCell><TableCell><div className="text-sm">{c.email || "—"}</div><div className="text-xs text-muted-foreground">{c.phone || "—"}</div></TableCell><TableCell>{c.country || "—"}</TableCell><TableCell><div className="text-sm">Усього: {c.totalProjects || 0}</div><div className="text-xs text-muted-foreground">Активні: {c.activeProjects || 0}</div></TableCell><TableCell className="text-right">{money(c.totalRevenue || 0)}</TableCell><TableCell className="text-right">{money(c.totalCost || 0)}</TableCell><TableCell className={`text-right font-medium ${profit<0?"text-destructive":"text-emerald-600"}`}>{money(profit)}</TableCell><TableCell className="text-right"><Badge variant={margin<0?"destructive":margin>30?"default":"secondary"}>{margin.toFixed(1)}%</Badge></TableCell><TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={()=>setViewClient(c)}><Eye className="size-4 mr-2"/>Деталі</DropdownMenuItem><DropdownMenuItem onClick={()=>{setEditingClient(c); setFormData({ companyName:c.companyName||"", contactPerson:c.contactPerson||"", email:c.email||"", phone:c.phone||"", country:c.country||"Україна", notes:c.notes||"", status:normalizeStatus(c.status) }); setIsAddDialogOpen(true)}}><Pencil className="size-4 mr-2"/>Редагувати</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={() => openDeleteFlow(c)}><Trash2 className="size-4 mr-2"/>Видалити</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>})}</TableBody>
+          <TableBody>{filteredClients.map((c)=>{ const margin=c.marginPercent||0; const profit=c.profit||0; return <TableRow key={c.id} className="hover:bg-muted/40"><TableCell><div className="flex items-center gap-3"><Avatar className="h-9 w-9"><AvatarFallback>{(c.companyName||c.name||"C").slice(0,2).toUpperCase()}</AvatarFallback></Avatar><div><div className="font-medium">{c.companyName || c.name}</div><div className="text-xs text-muted-foreground">{c.contactPerson || "Контакт не вказано"}</div></div></div></TableCell><TableCell><Badge variant="outline">{statusLabels[normalizeStatus(c.status)]}</Badge></TableCell><TableCell><div className="text-sm">{c.email || "—"}</div><div className="text-xs text-muted-foreground">{c.phone || "—"}</div></TableCell><TableCell>{c.country || "—"}</TableCell><TableCell><div className="text-sm">Усього: {c.totalProjects || 0}</div><div className="text-xs text-muted-foreground">Активні: {c.activeProjects || 0}</div></TableCell><TableCell className="text-right">{money(c.totalRevenue || 0)}</TableCell><TableCell className="text-right">{money(c.totalCost || 0)}</TableCell><TableCell className={`text-right font-medium ${profit<0?"text-destructive":"text-emerald-600"}`}>{money(profit)}</TableCell><TableCell className="text-right"><Badge variant={margin<0?"destructive":margin>30?"default":"secondary"}>{margin.toFixed(1)}%</Badge></TableCell><TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={()=>setViewClient(c)}><Eye className="size-4 mr-2"/>Деталі</DropdownMenuItem><DropdownMenuItem onClick={()=>{setEditingClient(c); setFormData({ companyName:c.companyName||"", contactPerson:c.contactPerson||"", email:c.email||"", phone:c.phone||"", country:c.country||"", notes:c.notes||"", status:normalizeStatus(c.status) }); setHasSubmitted(false); setTouchedFields({}); setFormErrors({}); setIsAddDialogOpen(true)}}><Pencil className="size-4 mr-2"/>Редагувати</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={() => openDeleteFlow(c)}><Trash2 className="size-4 mr-2"/>Видалити</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>})}</TableBody>
         </Table>
       </CardContent>
     </Card>
@@ -253,26 +281,27 @@ export default function ClientsPage() {
         </DialogHeader>
         <div className="grid gap-3">
           <Label>Назва компанії *</Label>
-          <Input placeholder="Наприклад: Acme Inc." value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} />
+          <Input placeholder="Наприклад: Acme Inc." value={formData.companyName} onChange={(e) => updateFormField("companyName", e.target.value)} onBlur={() => onFieldBlur("companyName")} />
           {formErrors.companyName && <p className="text-xs text-destructive">{formErrors.companyName}</p>}
           <Label>Контактна особа *</Label>
-          <Input placeholder="Наприклад: Іван Петренко" value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} />
+          <Input placeholder="Наприклад: Іван Петренко" value={formData.contactPerson} onChange={(e) => updateFormField("contactPerson", e.target.value)} onBlur={() => onFieldBlur("contactPerson")} />
           {formErrors.contactPerson && <p className="text-xs text-destructive">{formErrors.contactPerson}</p>}
           <Label>Email</Label>
-          <Input type="email" placeholder="Наприклад: contact@acme.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+          <Input type="email" placeholder="Наприклад: contact@acme.com" value={formData.email} onChange={(e) => updateFormField("email", e.target.value)} onBlur={() => onFieldBlur("email")} />
           {formErrors.email && <p className="text-xs text-destructive">{formErrors.email}</p>}
           <Label>Телефон</Label>
           {!hasSubmitted && <p className="text-xs text-muted-foreground">Вкажіть хоча б один спосіб зв’язку</p>}
-          <Input placeholder="Наприклад: +380 67 123 45 67" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+          <Input placeholder="Наприклад: +380 67 123 45 67" value={formData.phone} onChange={(e) => updateFormField("phone", e.target.value)} onBlur={() => onFieldBlur("phone")} />
           {formErrors.phone && <p className="text-xs text-destructive">{formErrors.phone}</p>}
+          {formErrors.contact && <p className="text-xs text-destructive">{formErrors.contact}</p>}
           <Label>Країна</Label>
-          <Select value={formData.country || "none"} onValueChange={(v) => setFormData({ ...formData, country: v === "none" ? "" : v })}>
+          <Select value={formData.country || "none"} onValueChange={(v) => updateFormField("country", v === "none" ? "" : v)}>
             <SelectTrigger><SelectValue placeholder="Оберіть країну" /></SelectTrigger>
             <SelectContent><SelectItem value="none">Оберіть країну</SelectItem>{countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
           {formErrors.country && <p className="text-xs text-destructive">{formErrors.country}</p>}
           <Label>Статус *</Label>
-          <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v as Client["status"] })}>
+          <Select value={formData.status} onValueChange={(v) => updateFormField("status", v as Client["status"])}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="lead">Потенційний</SelectItem>
@@ -284,11 +313,11 @@ export default function ClientsPage() {
           </Select>
           {formErrors.status && <p className="text-xs text-destructive">{formErrors.status}</p>}
           <Label>Нотатки</Label>
-          <Textarea placeholder="Додайте внутрішні нотатки про клієнта…" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
+          <Textarea placeholder="Додайте внутрішні нотатки про клієнта…" value={formData.notes} onChange={(e) => updateFormField("notes", e.target.value)} onBlur={() => onFieldBlur("notes")} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Скасувати</Button>
-          <Button onClick={onSave} disabled={isSubmitting || (hasSubmitted && Object.keys(formErrors).length > 0)}>{isSubmitting ? "Збереження..." : "Зберегти"}</Button>
+          <Button onClick={onSave} disabled={isSubmitting || !isFormValid}>{isSubmitting ? "Збереження..." : "Зберегти"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
