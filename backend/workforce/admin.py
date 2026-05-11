@@ -24,9 +24,9 @@ class TeamMembershipAdmin(admin.ModelAdmin):
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
-    list_display = ('name', 'company', 'email', 'country', 'is_active', 'created_by')
-    list_filter = ('is_active', 'country')
-    search_fields = ('name', 'company', 'email', 'contact_person')
+    list_display = ('name', 'company_name', 'email', 'country', 'status', 'created_by')
+    list_filter = ('status', 'country')
+    search_fields = ('name', 'company_name', 'email', 'contact_person')
 
 
 @admin.register(Project)
