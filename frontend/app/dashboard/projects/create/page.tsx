@@ -168,10 +168,15 @@ export default function CreateProjectPage() {
   const estimatedMonthlyCost = formData.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
   const directExpensesTotal = formData.directExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
   const bufferAmount = totalContractValue * (parseFloat(formData.bufferPercent) || 0) / 100
+  const showTeamCostInPreview = currentStep >= 3
+  const showStep4FinanceInPreview = currentStep >= 4
+  const effectiveLaborCost = showTeamCostInPreview ? estimatedMonthlyCost : 0
+  const effectiveDirectExpenses = showStep4FinanceInPreview ? directExpensesTotal : 0
+  const effectiveBufferAmount = showStep4FinanceInPreview ? bufferAmount : 0
   
   const projectedProfit = formData.billingModel === "fixed"
-    ? totalContractValue - estimatedMonthlyCost - directExpensesTotal - bufferAmount
-    : (parseFloat(formData.clientHourlyRate) || 0) * (parseFloat(formData.monthlyCap) || 160) - estimatedMonthlyCost
+    ? totalContractValue - effectiveLaborCost - effectiveDirectExpenses - effectiveBufferAmount
+    : (parseFloat(formData.clientHourlyRate) || 0) * (parseFloat(formData.monthlyCap) || 160) - effectiveLaborCost
   
   const projectedMargin = totalContractValue > 0 
     ? (projectedProfit / totalContractValue) * 100 
@@ -895,43 +900,52 @@ export default function CreateProjectPage() {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Вартість команди за місяць:</span>
-                  <span className="font-medium text-destructive">-{formatCurrency(estimatedMonthlyCost)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Прямі витрати:</span>
-                  <span className="font-medium text-destructive">-{formatCurrency(directExpensesTotal)}</span>
-                </div>
-                {bufferAmount > 0 && (
+              {showTeamCostInPreview && (
+                <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Резерв ({formData.bufferPercent}%):</span>
-                    <span className="font-medium text-destructive">-{formatCurrency(bufferAmount)}</span>
+                    <span className="text-muted-foreground">Вартість команди за місяць:</span>
+                    <span className="font-medium text-destructive">-{formatCurrency(estimatedMonthlyCost)}</span>
                   </div>
-                )}
-              </div>
-
-              <Separator />
-
-              <div className="p-3 rounded-lg bg-muted/50 space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-medium">Очікувана маржинальність:</span>
-                  <span className={`font-bold ${projectedMargin >= 20 ? "text-emerald-600" : projectedMargin >= 0 ? "text-amber-600" : "text-destructive"}`}>
-                    {projectedMargin.toFixed(1)}%
-                  </span>
                 </div>
-                {formData.billingModel === "fixed" && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Очікуваний прибуток:</span>
-                    <span className={`font-semibold ${projectedProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                      {formatCurrency(projectedProfit)}
-                    </span>
-                  </div>
-                )}
-              </div>
+              )}
 
-              {projectedMargin < 20 && projectedMargin !== 0 && (
+              {showStep4FinanceInPreview && (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Прямі витрати:</span>
+                      <span className="font-medium text-destructive">-{formatCurrency(directExpensesTotal)}</span>
+                    </div>
+                    {bufferAmount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Резерв ({formData.bufferPercent}%):</span>
+                        <span className="font-medium text-destructive">-{formatCurrency(bufferAmount)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Очікувана маржинальність:</span>
+                      <span className={`font-bold ${projectedMargin >= 20 ? "text-emerald-600" : projectedMargin >= 0 ? "text-amber-600" : "text-destructive"}`}>
+                        {projectedMargin.toFixed(1)}%
+                      </span>
+                    </div>
+                    {formData.billingModel === "fixed" && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Очікуваний прибуток:</span>
+                        <span className={`font-semibold ${projectedProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                          {formatCurrency(projectedProfit)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {showStep4FinanceInPreview && projectedMargin < 20 && projectedMargin !== 0 && (
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                   <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
                   <div>
