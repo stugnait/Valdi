@@ -153,12 +153,20 @@ export default function ProjectsHubPage() {
       maximumFractionDigits: 0,
     }).format(value)
   }
+  const getPlannedFinance = (project: Project) => {
+    const plannedRevenue = project.totalContractValue || 0
+    const plannedBuffer = plannedRevenue * ((project.bufferPercent || 0) / 100)
+    const plannedCost = project.laborCost + project.directOverheads + plannedBuffer
+    const plannedProfit = plannedRevenue - plannedCost
+    const plannedMargin = plannedRevenue > 0 ? (plannedProfit / plannedRevenue) * 100 : 0
+    return { plannedRevenue, plannedCost, plannedProfit, plannedMargin }
+  }
 
   // Header stats
   const activeProjects = projects.filter(p => p.status === "active")
   const totalPipelineValue = activeProjects.reduce((sum, p) => sum + (p.totalContractValue || 0), 0)
   const avgMargin = activeProjects.length > 0
-    ? activeProjects.reduce((sum, p) => sum + p.profitMargin, 0) / activeProjects.length
+    ? activeProjects.reduce((sum, p) => sum + getPlannedFinance(p).plannedMargin, 0) / activeProjects.length
     : 0
   const activeTeamsCount = new Set(activeProjects.map((p) => p.teamId).filter(Boolean)).size
 
@@ -289,8 +297,9 @@ export default function ProjectsHubPage() {
       {/* Projects Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredProjects.map((project) => {
-          const healthColor = getBudgetHealthColor(project.budgetUsedPercent, project.netProfit)
-          const isUnprofitable = project.netProfit < 0
+          const { plannedProfit, plannedMargin } = getPlannedFinance(project)
+          const healthColor = getBudgetHealthColor(project.budgetUsedPercent, plannedProfit)
+          const isUnprofitable = plannedProfit < 0
 
           return (
             <Card 
@@ -389,12 +398,12 @@ export default function ProjectsHubPage() {
 
                 {/* Profitability */}
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Чистий прибуток</span>
+                  <span className="text-sm text-muted-foreground">Очікуваний прибуток</span>
                   <div className="flex items-center gap-2">
                     <span className={`font-semibold ${isUnprofitable ? "text-destructive" : "text-emerald-600"}`}>
-                      {formatCurrency(project.netProfit)}
+                      {formatCurrency(plannedProfit)}
                     </span>
-                    {project.profitMargin !== 0 && (
+                    {plannedMargin !== 0 && (
                       <Badge 
                         variant="outline"
                         className={`text-xs ${
@@ -403,7 +412,7 @@ export default function ProjectsHubPage() {
                         }`}
                       >
                         <TrendingUp className="mr-1 size-3" />
-                        {project.profitMargin.toFixed(1)}%
+                        {plannedMargin.toFixed(1)}%
                       </Badge>
                     )}
                   </div>

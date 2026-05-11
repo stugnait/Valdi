@@ -695,6 +695,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   // Calculations
   const { totalRevenue, totalLaborCost, totalExpenses, netProfit, profitMargin } = calculateRuntimeFinancials(project)
+  const plannedRevenue = project.totalContractValue || 0
+  const plannedBuffer = plannedRevenue * ((project.bufferPercent || 0) / 100)
+  const plannedCost = project.laborCost + project.directOverheads + plannedBuffer
+  const plannedProfit = plannedRevenue - plannedCost
+  const plannedMargin = plannedRevenue > 0 ? (plannedProfit / plannedRevenue) * 100 : 0
 
   // Cost estimator
   const estimatedMonthlyCost = project.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
@@ -751,49 +756,49 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Дохід</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Плановий дохід</CardTitle>
             <DollarSign className="size-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{formatCurrency(totalRevenue)}</div>
+            <div className="text-2xl font-bold text-emerald-600">{formatCurrency(plannedRevenue)}</div>
+            <p className="text-xs text-muted-foreground">вартість контракту</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Фактичний дохід</CardTitle>
+            <Users className="size-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
             <p className="text-xs text-muted-foreground">оплачені інвойси</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Вартість команди</CardTitle>
-            <Users className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalLaborCost)}</div>
-            <p className="text-xs text-muted-foreground">вартість команди</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Накладні витрати</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Планові витрати</CardTitle>
             <Receipt className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div>
-            <p className="text-xs text-muted-foreground">прямі витрати</p>
+            <div className="text-2xl font-bold">{formatCurrency(plannedCost)}</div>
+            <p className="text-xs text-muted-foreground">команда + прямі + резерв</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Чистий прибуток</CardTitle>
-            {netProfit >= 0 ? (
+            <CardTitle className="text-sm font-medium text-muted-foreground">Очікуваний прибуток</CardTitle>
+            {plannedProfit >= 0 ? (
               <TrendingUp className="size-4 text-emerald-500" />
             ) : (
               <TrendingDown className="size-4 text-destructive" />
             )}
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-              {formatCurrency(netProfit)}
+            <div className={`text-2xl font-bold ${plannedProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+              {formatCurrency(plannedProfit)}
             </div>
             <p className="text-xs text-muted-foreground">
-              маржа {profitMargin.toFixed(1)}%
+              очікувана маржинальність {plannedMargin.toFixed(1)}%
             </p>
           </CardContent>
         </Card>
@@ -813,30 +818,34 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             {/* P&L Breakdown */}
             <Card>
               <CardHeader>
-                <CardTitle>Розрахунок прибутку та збитків</CardTitle>
-                <CardDescription>Розрахунок прибутку проєкту</CardDescription>
+                <CardTitle>План vs Факт</CardTitle>
+                <CardDescription>Планові та фактичні фінансові показники проєкту</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-muted-foreground">Дохід (Оплачені інвойси)</span>
-                    <span className="font-semibold text-emerald-600">+{formatCurrency(totalRevenue)}</span>
+                    <span className="text-muted-foreground">Плановий дохід</span>
+                    <span className="font-semibold text-emerald-600">+{formatCurrency(plannedRevenue)}</span>
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-muted-foreground">Вартість команди (Команда)</span>
-                    <span className="font-semibold text-destructive">-{formatCurrency(totalLaborCost)}</span>
+                    <span className="text-muted-foreground">Планові витрати</span>
+                    <span className="font-semibold text-destructive">-{formatCurrency(plannedCost)}</span>
                   </div>
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-muted-foreground">Накладні витрати (Витрати)</span>
-                    <span className="font-semibold text-destructive">-{formatCurrency(totalExpenses)}</span>
+                    <span className="text-muted-foreground">Фактичні витрати</span>
+                    <span className="font-semibold text-destructive">-{formatCurrency(totalLaborCost + totalExpenses)}</span>
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3 -mx-3">
-                    <span className="font-semibold">Чистий прибуток</span>
-                    <span className={`text-xl font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                      {formatCurrency(netProfit)}
+                    <span className="font-semibold">Очікуваний прибуток</span>
+                    <span className={`text-xl font-bold ${plannedProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                      {formatCurrency(plannedProfit)}
                     </span>
+                  </div>
+                  <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3 -mx-3">
+                    <span className="font-semibold">Фактичний прибуток</span>
+                    <span className={`text-xl font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>{formatCurrency(netProfit)}</span>
                   </div>
                 </div>
 
