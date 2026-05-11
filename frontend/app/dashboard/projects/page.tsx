@@ -54,7 +54,7 @@ const statusFilters: ProjectStatus[] = ["lead", "active", "finished", "paused"]
 export default function ProjectsHubPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus[]>(["active", "lead"])
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus[]>(["lead", "active", "finished", "paused"])
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)

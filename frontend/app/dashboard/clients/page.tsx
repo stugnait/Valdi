@@ -39,7 +39,7 @@ export default function ClientsPage() {
   const [deleteBlocked, setDeleteBlocked] = useState(false)
 
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("default")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
   const [countryFilter, setCountryFilter] = useState<string>("all")
   const [profitFilter, setProfitFilter] = useState<string>("all")
 
@@ -82,7 +82,7 @@ export default function ClientsPage() {
     const q = search.toLowerCase().trim()
     const text = [c.companyName, c.contactPerson, c.email, c.phone, c.country].join(" ").toLowerCase()
     const searchMatch = !q || text.includes(q)
-    const statusMatch = statusFilter === "default" ? c.status !== "archived" : statusFilter === "all" ? true : c.status === statusFilter
+    const statusMatch = statusFilter === "all" ? true : c.status === statusFilter
     const countryMatch = countryFilter === "all" ? true : c.country === countryFilter
     const p = c.profit || 0
     const profitMatch = profitFilter === "all" ? true : profitFilter === "profit" ? p > 0 : profitFilter === "break" ? p === 0 : p < 0
@@ -205,7 +205,7 @@ export default function ClientsPage() {
       <CardContent className="space-y-3">
         <div className="grid gap-2 md:grid-cols-4">
           <Input placeholder="Пошук за назвою, контактом, email, телефоном, країною" value={search} onChange={(e)=>setSearch(e.target.value)} />
-          <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger><SelectValue placeholder="Статус"/></SelectTrigger><SelectContent><SelectItem value="default">Стандартний список</SelectItem><SelectItem value="all">Усі</SelectItem><SelectItem value="lead">Потенційні</SelectItem><SelectItem value="active">Активні</SelectItem><SelectItem value="paused">Призупинені</SelectItem><SelectItem value="completed">Завершені</SelectItem><SelectItem value="archived">Архівні</SelectItem></SelectContent></Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger><SelectValue placeholder="Статус"/></SelectTrigger><SelectContent><SelectItem value="all">Усі</SelectItem><SelectItem value="lead">Потенційні</SelectItem><SelectItem value="active">Активні</SelectItem><SelectItem value="paused">Призупинені</SelectItem><SelectItem value="completed">Завершені</SelectItem><SelectItem value="archived">Архівні</SelectItem></SelectContent></Select>
           <Select value={countryFilter} onValueChange={setCountryFilter}><SelectTrigger><SelectValue placeholder="Країна"/></SelectTrigger><SelectContent><SelectItem value="all">Усі країни</SelectItem>{countries.map((c)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
           <Select value={profitFilter} onValueChange={setProfitFilter}><SelectTrigger><SelectValue placeholder="Прибутковість"/></SelectTrigger><SelectContent><SelectItem value="all">Усі</SelectItem><SelectItem value="profit">Прибуткові</SelectItem><SelectItem value="break">Беззбиткові</SelectItem><SelectItem value="loss">Збиткові</SelectItem></SelectContent></Select>
         </div>
