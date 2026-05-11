@@ -80,6 +80,7 @@ export default function ProjectsHubPage() {
         createdAt: apiProject.created_at,
         totalДохід: 0,
         activeProjects: 0,
+        status: "lead",
       },
       status: apiProject.status,
       startDate: apiProject.start_date,
