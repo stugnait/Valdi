@@ -23,7 +23,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Separator } from "@/components/ui/separator"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Select,
   SelectContent,
@@ -33,12 +32,13 @@ import {
 } from "@/components/ui/select"
 import { mockTags, type ProjectTag, type Milestone, type ResourceAllocation } from "@/lib/types/projects"
 import { ApiClient, ApiDeveloper, ApiTeam, workforceApi } from "@/lib/api/workforce"
+import { sharedExpenseCategories } from "@/lib/constants/expense-categories"
 
 const steps = [
-  { id: 1, name: "Basics", description: "Базова інформація" },
-  { id: 2, name: "Business Model", description: "Модель монетизації" },
-  { id: 3, name: "Resources", description: "Команда та ресурси" },
-  { id: 4, name: "Buffers", description: "Додаткові витрати" },
+  { id: 1, name: "Базова інформація", description: "Базова інформація" },
+  { id: 2, name: "Модель монетизації", description: "Модель монетизації" },
+  { id: 3, name: "Команда та ресурси", description: "Команда та ресурси" },
+  { id: 4, name: "Додаткові витрати", description: "Додаткові витрати" },
 ]
 
 type BillingModel = "fixed" | "time-materials"
@@ -60,18 +60,18 @@ interface FormData {
   // Fixed
   totalContractValue: string
   milestones: Milestone[]
-  taxReservePercent: string
   // T&M
   clientHourlyRate: string
   monthlyCap: string
   billingCycle: BillingCycle
   
   // Step 3
+  selectedTeamId: string
   allocations: ResourceAllocation[]
   
   // Step 4
   bufferPercent: string
-  directExpenses: { name: string; amount: string; category: string }[]
+  directExpenses: { name: string; amount: string; category: string; expenseType: "irregular" | "recurring"; cycle: "monthly" | "quarterly" | "yearly"; date: string }[]
 }
 
 const initialFormData: FormData = {
@@ -85,14 +85,14 @@ const initialFormData: FormData = {
   currency: "USD",
   totalContractValue: "",
   milestones: [
-    { id: "m1", name: "Prepayment", percentage: 30, amount: 0 },
-    { id: "m2", name: "Milestone 1", percentage: 40, amount: 0 },
-    { id: "m3", name: "Final Delivery", percentage: 30, amount: 0 },
+    { id: "m1", name: "Передоплата", percentage: 30, amount: 0 },
+    { id: "m2", name: "Етап 1", percentage: 40, amount: 0 },
+    { id: "m3", name: "Фінальна здача", percentage: 30, amount: 0 },
   ],
-  taxReservePercent: "5",
   clientHourlyRate: "",
   monthlyCap: "",
   billingCycle: "monthly",
+  selectedTeamId: "",
   allocations: [],
   bufferPercent: "10",
   directExpenses: [],
@@ -107,6 +107,13 @@ export default function CreateProjectPage() {
   const [teams, setTeams] = useState<ApiTeam[]>([])
   const [developers, setDevelopers] = useState<ApiDeveloper[]>([])
   const [isLoadingData, setIsLoadingData] = useState(true)
+
+  const getClientOptionLabel = (client: ApiClient) => {
+    const clientName = (client.company_name || client.name || "").trim()
+    const contactPerson = (client.contact_person || "").trim()
+    if (!contactPerson || contactPerson.toLowerCase() === clientName.toLowerCase()) return clientName
+    return `${clientName} — ${contactPerson}`
+  }
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -119,25 +126,9 @@ export default function CreateProjectPage() {
     [developers]
   )
 
-  const allMembers = useMemo(
-    () =>
-      teams.flatMap((team) =>
-        team.memberships.map((membership) => {
-          const hourlyRate = developerRateById[membership.developer] || 0
-          const developerRole = developers.find((developer) => developer.id === membership.developer)?.role || "Developer"
-          return {
-            id: `${team.id}-${membership.developer}`,
-            developerId: membership.developer,
-            name: membership.developer_name || `Developer #${membership.developer}`,
-            role: developerRole,
-            teamId: team.id.toString(),
-            teamName: team.name,
-            baseRate: hourlyRate * 160,
-            defaultAllocation: membership.allocation || 100,
-          }
-        })
-      ),
-    [teams, developers, developerRateById]
+  const selectedTeam = useMemo(
+    () => teams.find((team) => team.id.toString() === formData.selectedTeamId),
+    [teams, formData.selectedTeamId]
   )
 
   const loadData = async () => {
@@ -177,10 +168,15 @@ export default function CreateProjectPage() {
   const estimatedMonthlyCost = formData.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
   const directExpensesTotal = formData.directExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
   const bufferAmount = totalContractValue * (parseFloat(formData.bufferPercent) || 0) / 100
+  const showTeamCostInPreview = currentStep >= 3
+  const showStep4FinanceInPreview = currentStep >= 4
+  const effectiveLaborCost = showTeamCostInPreview ? estimatedMonthlyCost : 0
+  const effectiveDirectExpenses = showStep4FinanceInPreview ? directExpensesTotal : 0
+  const effectiveBufferAmount = showStep4FinanceInPreview ? bufferAmount : 0
   
   const projectedProfit = formData.billingModel === "fixed"
-    ? totalContractValue - estimatedMonthlyCost - directExpensesTotal - bufferAmount
-    : (parseFloat(formData.clientHourlyRate) || 0) * (parseFloat(formData.monthlyCap) || 160) - estimatedMonthlyCost
+    ? totalContractValue - effectiveLaborCost - effectiveDirectExpenses - effectiveBufferAmount
+    : (parseFloat(formData.clientHourlyRate) || 0) * (parseFloat(formData.monthlyCap) || 160) - effectiveLaborCost
   
   const projectedMargin = totalContractValue > 0 
     ? (projectedProfit / totalContractValue) * 100 
@@ -238,50 +234,34 @@ export default function CreateProjectPage() {
     }
   }
 
-  const addAllocation = (memberId: string) => {
-    const member = allMembers.find(m => m.id === memberId)
-    if (!member) return
-    
-    const allocation: ResourceAllocation = {
-      id: `alloc-${Date.now()}`,
-      memberId: member.id,
-      memberName: member.name,
-      memberRole: member.role,
-      teamId: member.teamId,
-      teamName: member.teamName,
-      allocation: member.defaultAllocation,
-      monthlyCost: member.baseRate * (member.defaultAllocation / 100),
-    }
-    
-    setFormData({
-      ...formData,
-      allocations: [...formData.allocations, allocation],
+  const assignTeam = (teamId: string) => {
+    const team = teams.find((item) => item.id.toString() === teamId)
+    const teamAllocations = (team?.memberships || []).map((membership) => {
+      const hourlyRate = developerRateById[membership.developer] || 0
+      const role = developers.find((developer) => developer.id === membership.developer)?.role || "Розробник"
+      return {
+        id: `alloc-${teamId}-${membership.developer}`,
+        memberId: `${teamId}-${membership.developer}`,
+        memberName: membership.developer_name || `Розробник #${membership.developer}`,
+        memberRole: role,
+        teamId: teamId,
+        teamName: team?.name || "Команда",
+        allocation: membership.allocation || 100,
+        monthlyCost: (hourlyRate * 160) * ((membership.allocation || 100) / 100),
+      }
     })
-  }
 
-  const updateAllocation = (id: string, allocation: number) => {
     setFormData({
       ...formData,
-      allocations: formData.allocations.map(a => {
-        if (a.id !== id) return a
-        const member = allMembers.find(m => m.id === a.memberId)
-        const monthlyCost = (member?.baseRate || 0) * (allocation / 100)
-        return { ...a, allocation, monthlyCost }
-      }),
-    })
-  }
-
-  const removeAllocation = (id: string) => {
-    setFormData({
-      ...formData,
-      allocations: formData.allocations.filter(a => a.id !== id),
+      selectedTeamId: teamId,
+      allocations: teamAllocations,
     })
   }
 
   const addDirectExpense = () => {
     setFormData({
       ...formData,
-      directExpenses: [...formData.directExpenses, { name: "", amount: "", category: "" }],
+      directExpenses: [...formData.directExpenses, { name: "", amount: "", category: "", expenseType: "irregular", cycle: "monthly", date: new Date().toISOString().split("T")[0] }],
     })
   }
 
@@ -310,7 +290,7 @@ export default function CreateProjectPage() {
       if (isCreatingClient && formData.newClientName.trim()) {
         const createdClient = await workforceApi.createClient({
           name: formData.newClientName.trim(),
-          company: formData.newClientName.trim(),
+          company_name: formData.newClientName.trim(),
         })
         selectedClientId = createdClient.id.toString()
       }
@@ -336,12 +316,48 @@ export default function CreateProjectPage() {
         labor_cost: estimatedMonthlyCost.toFixed(2),
         direct_overheads: directExpensesTotal.toFixed(2),
         buffer_percent: formData.bufferPercent || "0",
-        tax_reserve_percent: formData.billingModel === "fixed" && formData.taxReservePercent ? formData.taxReservePercent : null,
+        team: formData.selectedTeamId ? Number(formData.selectedTeamId) : null,
       })
 
-      if (typeof window !== "undefined") {
-        localStorage.setItem(`project_allocations_${createdProject.id}`, JSON.stringify(formData.allocations))
-      }
+      const projectExpenseDrafts = formData.directExpenses
+        .map((expense) => ({
+          ...expense,
+          amount: parseFloat(expense.amount) || 0,
+        }))
+        .filter((expense) => expense.name.trim() && expense.amount > 0 && expense.category)
+
+      await Promise.all(
+        projectExpenseDrafts.map((expense) => {
+          if (expense.expenseType === "recurring") {
+            return workforceApi.createRecurringExpense({
+              name: expense.name.trim(),
+              amount: expense.amount.toString(),
+              currency: formData.currency,
+              cycle: expense.cycle,
+              category: expense.category,
+              source: "cash",
+              allocation_type: "project",
+              project: Number(createdProject.id),
+              status: "pending",
+              last_paid_date: expense.date,
+              next_payment_date: expense.date,
+              description: "",
+            })
+          }
+
+          return workforceApi.createVariableExpense({
+            name: expense.name.trim(),
+            amount: expense.amount.toString(),
+            currency: formData.currency,
+            category: expense.category,
+            source: "cash",
+            expense_date: expense.date,
+            allocation_type: "project",
+            project: Number(createdProject.id),
+            description: "",
+          })
+        })
+      )
 
       router.push("/dashboard/projects")
     } catch (submitError) {
@@ -379,8 +395,8 @@ export default function CreateProjectPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Create Project</h1>
-          <p className="text-sm text-muted-foreground">Створення нового проекту</p>
+          <h1 className="text-2xl font-bold text-foreground">Створення проєкту</h1>
+          <p className="text-sm text-muted-foreground">Створення нового проєкту</p>
         </div>
       </div>
 
@@ -422,16 +438,16 @@ export default function CreateProjectPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Form */}
         <div className="lg:col-span-2">
-          {/* Step 1: Basics */}
+          {/* Step 1: Базова інформація */}
           {currentStep === 1 && (
             <Card>
               <CardHeader>
                 <CardTitle>Базова інформація</CardTitle>
-                <CardDescription>Основні дані про проект та клієнта</CardDescription>
+                <CardDescription>Основні дані про проєкт та клієнта</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label>Назва проекту</Label>
+                  <Label>Назва проєкту</Label>
                   <Input
                     placeholder="напр. E-commerce App Redesign"
                     value={formData.name}
@@ -471,7 +487,7 @@ export default function CreateProjectPage() {
                         <SelectContent>
                           {clients.map(client => (
                             <SelectItem key={client.id} value={client.id.toString()}>
-                              {client.name} {client.company && `(${client.company})`}
+                              {getClientOptionLabel(client)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -531,7 +547,7 @@ export default function CreateProjectPage() {
             </Card>
           )}
 
-          {/* Step 2: Business Model */}
+          {/* Step 2: Модель монетизації */}
           {currentStep === 2 && (
             <Card>
               <CardHeader>
@@ -554,7 +570,7 @@ export default function CreateProjectPage() {
                         <DollarSign className="size-5 text-primary" />
                       </div>
                       <div>
-                        <p className="font-semibold">Fixed Price</p>
+                        <p className="font-semibold">Фіксована ціна</p>
                         <p className="text-xs text-muted-foreground">Фіксований бюджет</p>
                       </div>
                     </div>
@@ -572,7 +588,7 @@ export default function CreateProjectPage() {
                         <Clock className="size-5 text-primary" />
                       </div>
                       <div>
-                        <p className="font-semibold">Time & Materials</p>
+                        <p className="font-semibold">Погодинна оплата</p>
                         <p className="text-xs text-muted-foreground">Погодинна оплата</p>
                       </div>
                     </div>
@@ -581,7 +597,7 @@ export default function CreateProjectPage() {
 
                 <Separator />
 
-                {/* Fixed Price Options */}
+                {/* Фіксована ціна Options */}
                 {formData.billingModel === "fixed" && (
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
@@ -614,7 +630,7 @@ export default function CreateProjectPage() {
 
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <Label>Payment Schedule (Milestones)</Label>
+                        <Label>Графік оплат (Етапи оплати)</Label>
                         <Button variant="outline" size="sm" onClick={addMilestone}>
                           <Plus className="size-4 mr-1" />
                           Додати
@@ -665,32 +681,6 @@ export default function CreateProjectPage() {
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="taxReserve"
-                          checked={!!formData.taxReservePercent}
-                          onChange={(e) => setFormData({ 
-                            ...formData, 
-                            taxReservePercent: e.target.checked ? "5" : "" 
-                          })}
-                          className="rounded border-input"
-                        />
-                        <Label htmlFor="taxReserve">Відкладати податковий резерв</Label>
-                      </div>
-                      {formData.taxReservePercent && (
-                        <div className="flex items-center gap-2 ml-6">
-                          <Input
-                            type="number"
-                            value={formData.taxReservePercent}
-                            onChange={(e) => setFormData({ ...formData, taxReservePercent: e.target.value })}
-                            className="w-20"
-                          />
-                          <span className="text-sm text-muted-foreground">% від кожного платежу</span>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 )}
 
@@ -760,48 +750,54 @@ export default function CreateProjectPage() {
             </Card>
           )}
 
-          {/* Step 3: Resources */}
+          {/* Step 3: Команда та ресурси */}
           {currentStep === 3 && (
             <Card>
               <CardHeader>
                 <CardTitle>Команда та ресурси</CardTitle>
-                <CardDescription>Додайте людей та бачте математику в реальному часі</CardDescription>
+                <CardDescription>Привʼяжіть існуючу команду. Залученість редагується лише на сторінці Команди.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label>Додати члена команди</Label>
-                  <Select onValueChange={addAllocation}>
+                  <Label>Оберіть команду</Label>
+                  <Select value={formData.selectedTeamId} onValueChange={assignTeam}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Оберіть спеціаліста..." />
+                      <SelectValue placeholder="Оберіть команду..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {allMembers
-                        .filter(m => !formData.allocations.some(a => a.memberId === m.id))
-                        .map(member => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.name} — {member.role} ({member.teamName})
-                          </SelectItem>
-                        ))
-                      }
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id.toString()}>
+                          {team.name} · {team.memberships.length} учасн.
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {formData.allocations.length === 0 ? (
+                {!selectedTeam ? (
                   <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
                     <Users className="size-12 mx-auto mb-3 opacity-50" />
-                    <p>Ще не додано жодного члена команди</p>
-                    <p className="text-sm mt-1">Оберіть спеціалістів з селектора вище</p>
+                    <p>Команду ще не призначено</p>
+                    <p className="text-sm mt-1">Оберіть команду з селектора вище</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">Команда</p>
+                        <p className="font-semibold">{selectedTeam.name}</p>
+                      </div>
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">Учасників</p>
+                        <p className="font-semibold">{selectedTeam.memberships.length}</p>
+                      </div>
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">Вартість / місяць</p>
+                        <p className="font-semibold">{formatCurrency(estimatedMonthlyCost)}</p>
+                      </div>
+                    </div>
                     {formData.allocations.map(allocation => (
                       <div key={allocation.id} className="flex items-center gap-4 p-4 rounded-lg border bg-card">
-                        <Avatar className="h-10 w-10">
-                          <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                            {allocation.memberName.split(" ").map(n => n[0]).join("")}
-                          </AvatarFallback>
-                        </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <p className="font-medium">{allocation.memberName}</p>
@@ -812,29 +808,16 @@ export default function CreateProjectPage() {
                         <div className="flex items-center gap-4">
                           <div className="w-32">
                             <div className="flex justify-between text-xs mb-1">
-                              <span>Allocation</span>
+                              <span>Залученість</span>
                               <span className="font-medium">{allocation.allocation}%</span>
                             </div>
-                            <Slider
-                              value={[allocation.allocation]}
-                              onValueChange={([v]) => updateAllocation(allocation.id, v)}
-                              max={100}
-                              min={10}
-                              step={10}
-                            />
+                            <p className="text-xs text-muted-foreground">Редагується на сторінці Команди</p>
                           </div>
                           <div className="text-right w-24">
                             <p className="font-semibold">{formatCurrency(allocation.monthlyCost)}</p>
                             <p className="text-xs text-muted-foreground">/міс</p>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => removeAllocation(allocation.id)}
-                          >
-                            <X className="size-4" />
-                          </Button>
+                          <Badge variant="outline" className="text-xs">Командне налаштування</Badge>
                         </div>
                       </div>
                     ))}
@@ -844,17 +827,17 @@ export default function CreateProjectPage() {
             </Card>
           )}
 
-          {/* Step 4: Buffers */}
+          {/* Step 4: Додаткові витрати */}
           {currentStep === 4 && (
             <Card>
               <CardHeader>
                 <CardTitle>Додаткові витрати</CardTitle>
-                <CardDescription>Buffer та прямі проектні витрати</CardDescription>
+                <CardDescription>Резерв та прямі проєктні витрати</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <Label>Buffer / Contingency</Label>
+                    <Label>Резерв</Label>
                     <span className="text-sm font-medium">{formData.bufferPercent}%</span>
                   </div>
                   <Slider
@@ -873,14 +856,14 @@ export default function CreateProjectPage() {
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label>Direct Project Expenses</Label>
+                    <Label>Прямі витрати проєкту</Label>
                     <Button variant="outline" size="sm" onClick={addDirectExpense}>
                       <Plus className="size-4 mr-1" />
                       Додати
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Витрати суто під цей проект (сервери, API, ліцензії тощо)
+                    Витрати суто під цей проєкт (сервери, API, ліцензії тощо)
                   </p>
 
                   {formData.directExpenses.length === 0 ? (
@@ -891,12 +874,12 @@ export default function CreateProjectPage() {
                     <div className="space-y-3">
                       {formData.directExpenses.map((expense, idx) => (
                         <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                          <Input
-                            placeholder="Назва витрати"
-                            value={expense.name}
-                            onChange={(e) => updateDirectExpense(idx, "name", e.target.value)}
-                            className="flex-1"
-                          />
+                        <Input
+                          placeholder="Назва витрати"
+                          value={expense.name}
+                          onChange={(e) => updateDirectExpense(idx, "name", e.target.value)}
+                          className="flex-1"
+                        />
                           <Input
                             type="number"
                             placeholder="Сума"
@@ -904,21 +887,54 @@ export default function CreateProjectPage() {
                             onChange={(e) => updateDirectExpense(idx, "amount", e.target.value)}
                             className="w-28"
                           />
-                          <Select
-                            value={expense.category}
-                            onValueChange={(v) => updateDirectExpense(idx, "category", v)}
-                          >
+                        <Select
+                          value={expense.category}
+                          onValueChange={(v) => updateDirectExpense(idx, "category", v)}
+                        >
                             <SelectTrigger className="w-36">
                               <SelectValue placeholder="Категорія" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Infrastructure">Infrastructure</SelectItem>
-                              <SelectItem value="Software">Software</SelectItem>
-                              <SelectItem value="API">API</SelectItem>
-                              <SelectItem value="Assets">Assets</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
+                              {sharedExpenseCategories.map((category) => (
+                                <SelectItem key={category.value} value={category.value}>
+                                  {category.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                        </Select>
+                        <Select
+                          value={expense.expenseType}
+                          onValueChange={(v) => updateDirectExpense(idx, "expenseType", v)}
+                        >
+                          <SelectTrigger className="w-44">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="irregular">Нерегулярна</SelectItem>
+                            <SelectItem value="recurring">Регулярна</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {expense.expenseType === "recurring" && (
+                          <Select
+                            value={expense.cycle}
+                            onValueChange={(v) => updateDirectExpense(idx, "cycle", v)}
+                          >
+                            <SelectTrigger className="w-36">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="monthly">Щомісяця</SelectItem>
+                              <SelectItem value="quarterly">Щокварталу</SelectItem>
+                              <SelectItem value="yearly">Щороку</SelectItem>
                             </SelectContent>
                           </Select>
+                        )}
+                        <Input
+                          type="date"
+                          value={expense.date}
+                          onChange={(e) => updateDirectExpense(idx, "date", e.target.value)}
+                          className="w-44"
+                        />
                           <Button
                             variant="ghost"
                             size="icon"
@@ -937,13 +953,13 @@ export default function CreateProjectPage() {
           )}
         </div>
 
-        {/* Sidebar - Pre-flight Calculator */}
+        {/* Sidebar - Попередній розрахунок */}
         <div className="space-y-4">
           <Card className="sticky top-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calculator className="size-5" />
-                Pre-flight Calculator
+                Попередній розрахунок
               </CardTitle>
               <CardDescription>Калькулятор прибутковості</CardDescription>
             </CardHeader>
@@ -951,49 +967,58 @@ export default function CreateProjectPage() {
               {formData.billingModel === "fixed" && totalContractValue > 0 && (
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Contract Value:</span>
+                    <span className="text-muted-foreground">Вартість контракту:</span>
                     <span className="font-medium">{formatCurrency(totalContractValue)}</span>
                   </div>
                 </div>
               )}
 
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Monthly Labor Cost:</span>
-                  <span className="font-medium text-destructive">-{formatCurrency(estimatedMonthlyCost)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Direct Expenses:</span>
-                  <span className="font-medium text-destructive">-{formatCurrency(directExpensesTotal)}</span>
-                </div>
-                {bufferAmount > 0 && (
+              {showTeamCostInPreview && (
+                <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Buffer ({formData.bufferPercent}%):</span>
-                    <span className="font-medium text-destructive">-{formatCurrency(bufferAmount)}</span>
+                    <span className="text-muted-foreground">Вартість команди за місяць:</span>
+                    <span className="font-medium text-destructive">-{formatCurrency(estimatedMonthlyCost)}</span>
                   </div>
-                )}
-              </div>
-
-              <Separator />
-
-              <div className="p-3 rounded-lg bg-muted/50 space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-medium">Expected Net Margin:</span>
-                  <span className={`font-bold ${projectedMargin >= 20 ? "text-emerald-600" : projectedMargin >= 0 ? "text-amber-600" : "text-destructive"}`}>
-                    {projectedMargin.toFixed(1)}%
-                  </span>
                 </div>
-                {formData.billingModel === "fixed" && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Projected Profit:</span>
-                    <span className={`font-semibold ${projectedProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                      {formatCurrency(projectedProfit)}
-                    </span>
-                  </div>
-                )}
-              </div>
+              )}
 
-              {projectedMargin < 20 && projectedMargin !== 0 && (
+              {showStep4FinanceInPreview && (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Прямі витрати:</span>
+                      <span className="font-medium text-destructive">-{formatCurrency(directExpensesTotal)}</span>
+                    </div>
+                    {bufferAmount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Резерв ({formData.bufferPercent}%):</span>
+                        <span className="font-medium text-destructive">-{formatCurrency(bufferAmount)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Очікувана маржинальність:</span>
+                      <span className={`font-bold ${projectedMargin >= 20 ? "text-emerald-600" : projectedMargin >= 0 ? "text-amber-600" : "text-destructive"}`}>
+                        {projectedMargin.toFixed(1)}%
+                      </span>
+                    </div>
+                    {formData.billingModel === "fixed" && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Очікуваний прибуток:</span>
+                        <span className={`font-semibold ${projectedProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                          {formatCurrency(projectedProfit)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {showStep4FinanceInPreview && projectedMargin < 20 && projectedMargin !== 0 && (
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                   <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
                   <div>
@@ -1009,7 +1034,7 @@ export default function CreateProjectPage() {
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Users className="size-4" />
-                <span>{formData.allocations.length} членів команди</span>
+                <span>{selectedTeam ? `${selectedTeam.name} · ${selectedTeam.memberships.length} учасники` : "Команду ще не призначено"}</span>
               </div>
               {formData.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
@@ -1058,7 +1083,7 @@ export default function CreateProjectPage() {
         ) : (
           <Button onClick={handleSubmit} disabled={!canProceed() || isSubmitting || isLoadingData}>
             <Check className="size-4 mr-2" />
-            {isSubmitting ? "Зберігаємо..." : "Створити проект"}
+            {isSubmitting ? "Зберігаємо..." : "Створити проєкт"}
           </Button>
         )}
       </div>

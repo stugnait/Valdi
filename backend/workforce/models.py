@@ -75,15 +75,23 @@ class TeamMembership(models.Model):
 
 
 class Client(models.Model):
+    class Status(models.TextChoices):
+        LEAD = 'lead', 'Lead'
+        ACTIVE = 'active', 'Active'
+        PAUSED = 'paused', 'Paused'
+        COMPLETED = 'completed', 'Completed'
+        ARCHIVED = 'archived', 'Archived'
+
     name = models.CharField(max_length=150)
-    company = models.CharField(max_length=180, blank=True)
-    email = models.EmailField(blank=True)
+    company_name = models.CharField(max_length=180, blank=True)
     contact_person = models.CharField(max_length=150, blank=True)
+    email = models.EmailField(blank=True)
     phone = models.CharField(max_length=64, blank=True)
     country = models.CharField(max_length=120, blank=True)
+    website = models.URLField(blank=True)
     notes = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.LEAD)
     total_revenue = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -127,7 +135,7 @@ class Project(models.Model):
         MONTHLY = 'monthly', 'Monthly'
 
     name = models.CharField(max_length=180)
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='projects')
+    client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name='projects')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.LEAD)
     start_date = models.DateField()
     end_date = models.DateField()
@@ -151,6 +159,13 @@ class Project(models.Model):
     direct_overheads = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     buffer_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     tax_reserve_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.SET_NULL,
+        related_name='projects',
+        null=True,
+        blank=True,
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
