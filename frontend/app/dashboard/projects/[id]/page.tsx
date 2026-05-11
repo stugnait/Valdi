@@ -193,14 +193,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const buildDefaultAllocationsFromTeams = (
     availableTeams: ApiTeam[],
-    availableDevelopers: ApiDeveloper[]
+    availableDevelopers: ApiDeveloper[],
+    selectedTeamId?: string
   ): ResourceAllocation[] => {
     const developerRateById = availableDevelopers.reduce<Record<number, number>>((acc, developer) => {
       acc[developer.id] = Number(developer.hourly_rate || 0)
       return acc
     }, {})
 
-    return availableTeams.flatMap((team) =>
+    const scopedTeams = selectedTeamId
+      ? availableTeams.filter((team) => String(team.id) === selectedTeamId)
+      : availableTeams
+
+    return scopedTeams.flatMap((team) =>
       team.memberships.map((membership) => {
         const hourlyRate = developerRateById[membership.developer] || 0
         const memberRole = availableDevelopers.find((developer) => developer.id === membership.developer)?.role || "Розробник"
@@ -256,8 +261,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           }
         }
 
-        const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse)
-        const initialAllocations = persistedAllocations.length > 0 ? persistedAllocations : fallbackAllocations
+        const scopedPersistedAllocations = mappedProject.teamId
+          ? persistedAllocations.filter((allocation) => allocation.teamId === mappedProject.teamId)
+          : persistedAllocations
+        const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse, mappedProject.teamId)
+        const initialAllocations = scopedPersistedAllocations.length > 0 ? scopedPersistedAllocations : fallbackAllocations
 
         const projectIrregularExpenses: ProjectExpense[] = variableExpenses
           .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
@@ -643,7 +651,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       ])
       const mappedProject = mapApiProject(apiProject)
       const projectInvoices = allInvoices.filter(invoice => String(invoice.project) === id).map(mapApiInvoice)
-      const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse)
+      const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse, mappedProject.teamId)
       const irregular = variableExpenses
         .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
         .map((expense) => ({
