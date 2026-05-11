@@ -80,6 +80,7 @@ export default function ProjectsHubPage() {
         createdAt: apiProject.created_at,
         totalRevenue: 0,
         activeProjects: 0,
+        status: "lead",
       },
       status: apiProject.status,
       startDate: apiProject.start_date,
@@ -434,17 +435,16 @@ export default function ProjectsHubPage() {
         })}
 
         {/* Add New Project Card */}
-        <Card 
-          className="flex cursor-pointer items-center justify-center border-dashed transition-colors hover:border-primary hover:bg-muted/50"
-          onClick={() => window.location.href = "/dashboard/projects/create"}
-        >
-          <CardContent className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed">
-              <Plus className="size-6" />
-            </div>
-            <span className="text-sm font-medium">Створити проєкт</span>
-          </CardContent>
-        </Card>
+        <Link href="/dashboard/projects/create" className="block">
+          <Card className="flex cursor-pointer items-center justify-center border-dashed transition-colors hover:border-primary hover:bg-muted/50">
+            <CardContent className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed">
+                <Plus className="size-6" />
+              </div>
+              <span className="text-sm font-medium">Створити проєкт</span>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Empty State */}
