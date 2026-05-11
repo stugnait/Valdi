@@ -80,6 +80,7 @@ export default function ProjectsHubPage() {
         createdAt: apiProject.created_at,
         totalRevenue: 0,
         activeProjects: 0,
+        status: "lead",
       },
       status: apiProject.status,
       startDate: apiProject.start_date,
@@ -97,6 +98,8 @@ export default function ProjectsHubPage() {
       directOverheads,
       bufferPercent: Number(apiProject.buffer_percent || 0),
       allocations: [],
+      teamId: apiProject.team ? apiProject.team.toString() : undefined,
+      teamName: apiProject.team_name || undefined,
       invoices: [],
       expenses: [],
       budgetUsedPercent,
@@ -157,9 +160,7 @@ export default function ProjectsHubPage() {
   const avgMargin = activeProjects.length > 0
     ? activeProjects.reduce((sum, p) => sum + p.profitMargin, 0) / activeProjects.length
     : 0
-  const activeTeamsCount = new Set(
-    activeProjects.flatMap(p => p.allocations.map(a => a.teamId))
-  ).size
+  const activeTeamsCount = new Set(activeProjects.map((p) => p.teamId).filter(Boolean)).size
 
   const toggleStatusFilter = (status: ProjectStatus) => {
     setStatusFilter(prev => 
@@ -412,7 +413,9 @@ export default function ProjectsHubPage() {
                 <div className="flex items-center justify-between pt-2 border-t">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Users className="size-3.5" />
-                    <span>{project.allocations.length} членів</span>
+                    <span>
+                      {project.teamName ? `${project.teamName} · команда` : "Команду ще не призначено"}
+                    </span>
                   </div>
                   {project.totalContractValue && (
                     <span className="text-sm font-medium">
@@ -434,17 +437,16 @@ export default function ProjectsHubPage() {
         })}
 
         {/* Add New Project Card */}
-        <Card 
-          className="flex cursor-pointer items-center justify-center border-dashed transition-colors hover:border-primary hover:bg-muted/50"
-          onClick={() => window.location.href = "/dashboard/projects/create"}
-        >
-          <CardContent className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed">
-              <Plus className="size-6" />
-            </div>
-            <span className="text-sm font-medium">Створити проєкт</span>
-          </CardContent>
-        </Card>
+        <Link href="/dashboard/projects/create" className="block">
+          <Card className="flex cursor-pointer items-center justify-center border-dashed transition-colors hover:border-primary hover:bg-muted/50">
+            <CardContent className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed">
+                <Plus className="size-6" />
+              </div>
+              <span className="text-sm font-medium">Створити проєкт</span>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Empty State */}
