@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type WheelEvent } from "react"
 import { Archive, Check, ChevronsUpDown, Eye, MoreHorizontal, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -347,6 +347,29 @@ type CountrySelectProps = {
 }
 
 function CountrySelect({ open, onOpenChange, value, onSelect }: CountrySelectProps) {
+  const listRef = useRef<HTMLDivElement | null>(null)
+
+  const handleListWheel = (event: WheelEvent<HTMLDivElement>) => {
+    const list = listRef.current
+    if (!list) return
+
+    const { deltaY } = event
+    const isScrollable = list.scrollHeight > list.clientHeight
+    if (!isScrollable) return
+
+    const atTop = list.scrollTop <= 0
+    const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1
+    const scrollingDown = deltaY > 0
+    const scrollingUp = deltaY < 0
+    const canScrollInside = (scrollingDown && !atBottom) || (scrollingUp && !atTop)
+
+    if (canScrollInside) {
+      event.preventDefault()
+      event.stopPropagation()
+      list.scrollTop += deltaY
+    }
+  }
+
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
@@ -358,7 +381,7 @@ function CountrySelect({ open, onOpenChange, value, onSelect }: CountrySelectPro
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
         <Command>
           <CommandInput placeholder="Пошук країни…" />
-          <CommandList className="max-h-64">
+          <CommandList ref={listRef} onWheel={handleListWheel} className="max-h-64 overscroll-contain">
             <CommandEmpty>Країну не знайдено</CommandEmpty>
             <CommandItem value="none" onSelect={() => { onSelect(""); onOpenChange(false) }}>
               <Check className={cn("mr-2 size-4", !value ? "opacity-100" : "opacity-0")} />
