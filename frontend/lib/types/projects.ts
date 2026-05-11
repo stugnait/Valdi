@@ -410,7 +410,9 @@ export interface SubscriptionPayment {
   paymentDate: string
   dueDate: string
   invoiceNumber?: string
+  website?: string
   notes?: string
+  status: "lead" | "active" | "paused" | "completed" | "archived"
 }
 
 export interface ClientSubscription {
