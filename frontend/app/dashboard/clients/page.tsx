@@ -1,709 +1,296 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { 
-  Plus, 
-  Search, 
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  Building2,
-  Mail,
-  Phone,
-  Globe,
-  User,
-  DollarSign,
-  FolderKanban,
-  Calendar,
-  ExternalLink
-} from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { Archive, Eye, MoreHorizontal, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Client } from "@/lib/types/projects"
 import { ApiClient, ApiProject, workforceApi } from "@/lib/api/workforce"
+import { toast } from "@/hooks/use-toast"
 
-const countries = [
-  "USA", "Ukraine", "Germany", "UK", "Canada", "Sweden", "Netherlands",
-  "Poland", "Hong Kong", "Singapore", "Australia", "France", "Spain", "Italy"
-]
-
-const countryLabels: Record<string, string> = {
-  USA: "США",
-  Ukraine: "Україна",
-  Germany: "Німеччина",
-  UK: "Велика Британія",
-  Canada: "Канада",
-  Sweden: "Швеція",
-  Netherlands: "Нідерланди",
-  Poland: "Польща",
-  "Hong Kong": "Гонконг",
-  Singapore: "Сінгапур",
-  Australia: "Австралія",
-  France: "Франція",
-  Spain: "Іспанія",
-  Italy: "Італія",
-}
+const countries = ["Україна", "Польща", "Німеччина", "Велика Британія", "США", "Канада", "Франція", "Іспанія", "Італія"]
+const statusLabels: Record<Client["status"], string> = { lead: "Потенційний", active: "Активний", paused: "Призупинений", completed: "Завершений", archived: "Архівний" }
+const normalizeStatus = (status?: string | null): Client["status"] => (status && ["lead", "active", "paused", "completed", "archived"].includes(status) ? status : "lead") as Client["status"]
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<ApiProject[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [countryFilter, setCountryFilter] = useState<string>("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [editingClient, setEditingClient] = useState<Client | null>(null)
-  const [deleteClient, setDeleteClient] = useState<Client | null>(null)
   const [viewClient, setViewClient] = useState<Client | null>(null)
-  
-  // Form state
-  const [formData, setFormData] = useState({
-    name: "",
-    company: "",
-    email: "",
-    contactPerson: "",
-    phone: "",
-    country: "",
-    notes: "",
-  })
+  const [editingClient, setEditingClient] = useState<Client | null>(null)
+  const [pendingDeleteClient, setPendingDeleteClient] = useState<Client | null>(null)
+  const [deleteBlocked, setDeleteBlocked] = useState(false)
 
-  // Stats
-  const totalRevenue = clients.reduce((sum, c) => sum + c.totalRevenue, 0)
-  const activeClients = clients.filter(c => c.activeProjects > 0).length
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("default")
+  const [countryFilter, setCountryFilter] = useState<string>("all")
+  const [profitFilter, setProfitFilter] = useState<string>("all")
 
-  // Filtered clients
-  const filteredClients = clients.filter(client => {
-    const matchesSearch = 
-      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.contactPerson?.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCountry = countryFilter === "all" || client.country === countryFilter
-    return matchesSearch && matchesCountry
-  })
+  const [formData, setFormData] = useState({ companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", website: "", notes: "", status: "lead" as Client["status"] })
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
   const mapApiClient = (apiClient: ApiClient): Client => ({
     id: apiClient.id.toString(),
-    name: apiClient.name,
-    company: apiClient.company || undefined,
-    email: apiClient.email || undefined,
+    name: apiClient.company_name || apiClient.name,
+    companyName: apiClient.company_name || apiClient.company || apiClient.name || undefined,
     contactPerson: apiClient.contact_person || undefined,
+    email: apiClient.email || undefined,
     phone: apiClient.phone || undefined,
     country: apiClient.country || undefined,
+    website: apiClient.website || undefined,
     notes: apiClient.notes || undefined,
+    status: normalizeStatus(apiClient.status),
     createdAt: apiClient.created_at,
-    totalRevenue: Number(apiClient.total_revenue || 0),
+    totalRevenue: Number(apiClient.total_revenue_computed ?? apiClient.total_revenue ?? 0),
     activeProjects: apiClient.active_projects ?? 0,
+    totalProjects: apiClient.total_projects ?? 0,
+    totalCost: Number(apiClient.total_cost ?? 0),
+    profit: Number(apiClient.profit ?? 0),
+    marginPercent: Number(apiClient.margin_percent ?? 0),
   })
 
   const loadData = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const [clientsResponse, projectsResponse] = await Promise.all([
-        workforceApi.listClients(),
-        workforceApi.listProjects(),
-      ])
-      setClients(clientsResponse.map(mapApiClient))
-      setProjects(projectsResponse)
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити клієнтів")
-    } finally {
-      setIsLoading(false)
+    const [c, p] = await Promise.all([workforceApi.listClients(), workforceApi.listProjects()])
+    setClients(c.map(mapApiClient))
+    setProjects(p)
+  }
+
+  useEffect(() => { void loadData().catch((e) => setError(e instanceof Error ? e.message : "Не вдалося завантажити клієнтів")) }, [])
+
+  const filteredClients = useMemo(() => clients.filter((c) => {
+    const q = search.toLowerCase().trim()
+    const text = [c.companyName, c.contactPerson, c.email, c.phone, c.country].join(" ").toLowerCase()
+    const searchMatch = !q || text.includes(q)
+    const statusMatch = statusFilter === "default" ? c.status !== "archived" : statusFilter === "all" ? true : c.status === statusFilter
+    const countryMatch = countryFilter === "all" ? true : c.country === countryFilter
+    const p = c.profit || 0
+    const profitMatch = profitFilter === "all" ? true : profitFilter === "profit" ? p > 0 : profitFilter === "break" ? p === 0 : p < 0
+    return searchMatch && statusMatch && countryMatch && profitMatch
+  }), [clients, search, statusFilter, countryFilter, profitFilter])
+
+
+  const canDeleteClient = (c: Client) => (c.totalProjects || 0) === 0 && (c.totalRevenue || 0) === 0 && (c.totalCost || 0) === 0
+
+  const openDeleteFlow = (c: Client) => {
+    setPendingDeleteClient(c)
+    setDeleteBlocked(!canDeleteClient(c))
+  }
+
+  const confirmDeleteOrArchive = async () => {
+    if (!pendingDeleteClient) return
+    if (deleteBlocked) {
+      await workforceApi.updateClient(pendingDeleteClient.id, { status: "archived" })
+      toast({ title: "Клієнта архівовано", description: "Клієнт успішно перенесений в архів." })
+    } else {
+      await workforceApi.deleteClient(pendingDeleteClient.id)
     }
+    setPendingDeleteClient(null)
+    await loadData()
   }
 
-  useEffect(() => {
-    void loadData()
-  }, [])
+  const totalClients = filteredClients.length
+  const activeClients = filteredClients.filter((c) => (c.activeProjects || 0) > 0).length
+  const totalRevenue = filteredClients.reduce((s, c) => s + (c.totalRevenue || 0), 0)
+  const totalCost = filteredClients.reduce((s, c) => s + (c.totalCost || 0), 0)
+  const totalProfit = filteredClients.reduce((s, c) => s + (c.profit || 0), 0)
+  const avgMargin = filteredClients.length ? filteredClients.reduce((s, c) => s + (c.marginPercent || 0), 0) / filteredClients.length : 0
+  const money = (n: number) => new Intl.NumberFormat("uk-UA", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      company: "",
-      email: "",
-      contactPerson: "",
-      phone: "",
-      country: "",
-      notes: "",
-    })
-    setEditingClient(null)
-  }
 
-  const handleOpenAdd = () => {
-    resetForm()
-    setIsAddDialogOpen(true)
-  }
-
-  const handleOpenEdit = (client: Client) => {
-    setFormData({
-      name: client.name,
-      company: client.company || "",
-      email: client.email || "",
-      contactPerson: client.contactPerson || "",
-      phone: client.phone || "",
-      country: client.country || "",
-      notes: client.notes || "",
-    })
-    setEditingClient(client)
-    setIsAddDialogOpen(true)
-  }
-
-  const handleSave = async () => {
-    if (!formData.name.trim()) return
-    try {
-      setError(null)
-      const payload = {
-        name: formData.name.trim(),
-        company: formData.company.trim(),
-        email: formData.email.trim(),
-        contact_person: formData.contactPerson.trim(),
-        phone: formData.phone.trim(),
-        country: formData.country.trim(),
-        notes: formData.notes.trim(),
-      }
-
-      if (editingClient) {
-        await workforceApi.updateClient(editingClient.id, payload)
-      } else {
-        await workforceApi.createClient(payload)
-      }
-
-      await loadData()
-      setIsAddDialogOpen(false)
-      resetForm()
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Не вдалося зберегти клієнта")
-    }
-  }
-
-  const handleDelete = async () => {
-    if (deleteClient) {
+  const validateClientForm = () => {
+    const errors: Record<string, string> = {}
+    if (!formData.companyName.trim()) errors.companyName = "Введіть назву клієнта"
+    if (!formData.contactPerson.trim()) errors.contactPerson = "Введіть контактну особу"
+    if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) errors.email = "Введіть коректний Email"
+    if (!formData.phone.trim()) errors.phone = "Введіть номер телефону"
+    else if (!/^\+?[1-9]\d{7,14}$/.test(formData.phone.replace(/[\s()-]/g, ""))) errors.phone = "Введіть коректний номер телефону"
+    if (!formData.country.trim()) errors.country = "Оберіть країну"
+    if (!formData.website.trim()) errors.website = "Введіть вебсайт"
+    else {
       try {
-        setError(null)
-        await workforceApi.deleteClient(deleteClient.id)
-        await loadData()
-        setDeleteClient(null)
-      } catch (deleteError) {
-        setError(deleteError instanceof Error ? deleteError.message : "Не вдалося видалити клієнта")
+        const url = new URL(formData.website.trim())
+        if (!["http:", "https:"].includes(url.protocol)) errors.website = "Введіть коректний URL"
+      } catch {
+        errors.website = "Введіть коректний URL"
       }
     }
+    if (!formData.status) errors.status = "Оберіть статус"
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
-  // Get projects for a client
-  const getClientProjects = (clientId: string) => {
-    return projects.filter((project) => project.client.toString() === clientId)
+  const onSave = async () => {
+    if (!validateClientForm()) return
+    const payload = { name: formData.companyName.trim(), company_name: formData.companyName.trim(), contact_person: formData.contactPerson.trim(), email: formData.email.trim(), phone: formData.phone.trim(), country: formData.country.trim(), website: formData.website.trim(), notes: formData.notes.trim(), status: formData.status }
+    try {
+      if (editingClient) await workforceApi.updateClient(editingClient.id, payload)
+      else await workforceApi.createClient(payload)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Не вдалося зберегти клієнта"
+      setError(msg.includes("400") ? "Перевірте коректність заповнення полів" : msg)
+      return
+    }
+    setIsAddDialogOpen(false); setEditingClient(null)
+    setFormErrors({})
+    setFormData({ companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", website: "", notes: "", status: "lead" })
+    await loadData()
   }
 
-  const getCountryLabel = (country?: string) => {
-    if (!country) return ""
-    return countryLabels[country] || country
-  }
+  return <div className="space-y-5">
+    <div className="flex items-center justify-between"><h1 className="text-2xl font-semibold">Клієнти</h1><Button onClick={() => setIsAddDialogOpen(true)}><Plus className="size-4 mr-2"/>Додати клієнта</Button></div>
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Клієнти</h1>
-          <p className="text-sm text-muted-foreground">
-            Керуйте клієнтськими контактами та взаємовідносинами
-          </p>
+    <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Усього клієнтів</div><div className="text-xl font-semibold">{totalClients}</div></CardContent></Card>
+      <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Активні клієнти</div><div className="text-xl font-semibold">{activeClients}</div></CardContent></Card>
+      <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Загальний дохід</div><div className="text-xl font-semibold">{money(totalRevenue)}</div></CardContent></Card>
+      <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Загальні витрати</div><div className="text-xl font-semibold">{money(totalCost)}</div></CardContent></Card>
+      <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Загальний прибуток</div><div className={`text-xl font-semibold ${totalProfit<0?"text-destructive":"text-emerald-600"}`}>{money(totalProfit)}</div></CardContent></Card>
+      <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Середня маржинальність</div><div className={`text-xl font-semibold ${avgMargin<0?"text-destructive":"text-emerald-600"}`}>{avgMargin.toFixed(1)}%</div></CardContent></Card>
+    </div>
+
+    <Card>
+      <CardHeader className="pb-3"><CardTitle className="text-base">Портфель замовників</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid gap-2 md:grid-cols-4">
+          <Input placeholder="Пошук за назвою, контактом, email, телефоном, країною" value={search} onChange={(e)=>setSearch(e.target.value)} />
+          <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger><SelectValue placeholder="Статус"/></SelectTrigger><SelectContent><SelectItem value="default">Стандартний список</SelectItem><SelectItem value="all">Усі</SelectItem><SelectItem value="lead">Потенційні</SelectItem><SelectItem value="active">Активні</SelectItem><SelectItem value="paused">Призупинені</SelectItem><SelectItem value="completed">Завершені</SelectItem><SelectItem value="archived">Архівні</SelectItem></SelectContent></Select>
+          <Select value={countryFilter} onValueChange={setCountryFilter}><SelectTrigger><SelectValue placeholder="Країна"/></SelectTrigger><SelectContent><SelectItem value="all">Усі країни</SelectItem>{countries.map((c)=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
+          <Select value={profitFilter} onValueChange={setProfitFilter}><SelectTrigger><SelectValue placeholder="Прибутковість"/></SelectTrigger><SelectContent><SelectItem value="all">Усі</SelectItem><SelectItem value="profit">Прибуткові</SelectItem><SelectItem value="break">Беззбиткові</SelectItem><SelectItem value="loss">Збиткові</SelectItem></SelectContent></Select>
         </div>
-        <Button onClick={handleOpenAdd} className="gap-2">
-          <Plus className="size-4" />
-          Додати клієнта
-        </Button>
-      </div>
 
-      {error && (
-        <Card className="border-destructive/40">
-          <CardContent className="pt-6 text-sm text-destructive">{error}</CardContent>
-        </Card>
-      )}
-
-      {isLoading && (
-        <Card>
-          <CardContent className="pt-6 text-sm text-muted-foreground">Завантажуємо клієнтів…</CardContent>
-        </Card>
-      )}
-
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Усього клієнтів</CardTitle>
-            <Building2 className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{clients.length}</div>
-            <p className="text-xs text-muted-foreground">З активними проєктами: {activeClients}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Загальний дохід</CardTitle>
-            <DollarSign className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${totalRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">За весь час від усіх клієнтів</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Країни</CardTitle>
-            <Globe className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {new Set(clients.map(c => c.country).filter(Boolean)).size}
-            </div>
-            <p className="text-xs text-muted-foreground">Географія клієнтів</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Пошук клієнтів…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={countryFilter} onValueChange={setCountryFilter}>
-          <SelectTrigger className="w-[180px]">
-            <Globe className="size-4 mr-2" />
-            <SelectValue placeholder="Країна" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Усі країни</SelectItem>
-            {Array.from(new Set(clients.map(c => c.country).filter(Boolean))).map(country => (
-              <SelectItem key={country} value={country!}>{getCountryLabel(country || "")}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Clients Table */}
-      <Card>
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Клієнт</TableHead>
-              <TableHead>Контакт</TableHead>
-              <TableHead>Країна</TableHead>
-              <TableHead className="text-right">Дохід</TableHead>
-              <TableHead className="text-center">Проєкти</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredClients.map((client) => (
-              <TableRow key={client.id} className="cursor-pointer" onClick={() => setViewClient(client)}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="size-10">
-                      <AvatarFallback className="bg-primary/10 text-primary">
-                        {client.name.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-medium">{client.name}</div>
-                      {client.company && (
-                        <div className="text-sm text-muted-foreground">{client.company}</div>
-                      )}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {client.contactPerson && (
-                    <div className="text-sm">{client.contactPerson}</div>
-                  )}
-                  {client.email && (
-                    <div className="text-sm text-muted-foreground">{client.email}</div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {client.country && (
-                    <Badge variant="outline">{getCountryLabel(client.country)}</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right font-medium">
-                  ${client.totalRevenue.toLocaleString()}
-                </TableCell>
-                <TableCell className="text-center">
-                  {client.activeProjects > 0 ? (
-                    <Badge>{client.activeProjects} активних</Badge>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">-</span>
-                  )}
-                </TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setViewClient(client)}>
-                        <ExternalLink className="size-4 mr-2" />
-                        Деталі
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleOpenEdit(client)}>
-                        <Pencil className="size-4 mr-2" />
-                        Редагувати
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        className="text-destructive"
-                        onClick={() => setDeleteClient(client)}
-                      >
-                        <Trash2 className="size-4 mr-2" />
-                        Видалити
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filteredClients.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                  Клієнтів не знайдено
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
+          <TableHeader><TableRow><TableHead>Клієнт</TableHead><TableHead>Статус</TableHead><TableHead>Контакти</TableHead><TableHead>Країна</TableHead><TableHead>Проєкти</TableHead><TableHead className="text-right">Дохід</TableHead><TableHead className="text-right">Витрати</TableHead><TableHead className="text-right">Прибуток</TableHead><TableHead className="text-right">Маржинальність</TableHead><TableHead className="text-right">Дії</TableHead></TableRow></TableHeader>
+          <TableBody>{filteredClients.map((c)=>{ const margin=c.marginPercent||0; const profit=c.profit||0; return <TableRow key={c.id} className="hover:bg-muted/40"><TableCell><div className="flex items-center gap-3"><Avatar className="h-9 w-9"><AvatarFallback>{(c.companyName||c.name||"C").slice(0,2).toUpperCase()}</AvatarFallback></Avatar><div><div className="font-medium">{c.companyName || c.name}</div><div className="text-xs text-muted-foreground">{c.contactPerson || "Контакт не вказано"}</div></div></div></TableCell><TableCell><Badge variant="outline">{statusLabels[normalizeStatus(c.status)]}</Badge></TableCell><TableCell><div className="text-sm">{c.email || "—"}</div><div className="text-xs text-muted-foreground">{c.phone || "—"}</div></TableCell><TableCell>{c.country || "—"}</TableCell><TableCell><div className="text-sm">Усього: {c.totalProjects || 0}</div><div className="text-xs text-muted-foreground">Активні: {c.activeProjects || 0}</div></TableCell><TableCell className="text-right">{money(c.totalRevenue || 0)}</TableCell><TableCell className="text-right">{money(c.totalCost || 0)}</TableCell><TableCell className={`text-right font-medium ${profit<0?"text-destructive":"text-emerald-600"}`}>{money(profit)}</TableCell><TableCell className="text-right"><Badge variant={margin<0?"destructive":margin>30?"default":"secondary"}>{margin.toFixed(1)}%</Badge></TableCell><TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={()=>setViewClient(c)}><Eye className="size-4 mr-2"/>Деталі</DropdownMenuItem><DropdownMenuItem onClick={()=>{setEditingClient(c); setFormData({ companyName:c.companyName||"", contactPerson:c.contactPerson||"", email:c.email||"", phone:c.phone||"", country:c.country||"Україна", website:c.website||"", notes:c.notes||"", status:normalizeStatus(c.status) }); setIsAddDialogOpen(true)}}><Pencil className="size-4 mr-2"/>Редагувати</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={() => openDeleteFlow(c)}><Trash2 className="size-4 mr-2"/>Видалити</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>})}</TableBody>
         </Table>
-      </Card>
+      </CardContent>
+    </Card>
 
-      {/* View Client Dialog */}
-      <Dialog open={!!viewClient} onOpenChange={() => setViewClient(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <Avatar className="size-12">
-                <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                  {viewClient?.name.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <div>{viewClient?.name}</div>
-                {viewClient?.company && (
-                  <div className="text-sm font-normal text-muted-foreground">{viewClient.company}</div>
-                )}
-              </div>
-            </DialogTitle>
-          </DialogHeader>
+    <Dialog open={!!viewClient} onOpenChange={()=>setViewClient(null)}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{viewClient?.companyName || viewClient?.name}</DialogTitle>
+          <DialogDescription>CRM-картка клієнта</DialogDescription>
+        </DialogHeader>
 
-          {viewClient && (
-            <div className="space-y-6 py-4">
-              {/* Contact Info */}
-              <div className="grid grid-cols-2 gap-4">
-                {viewClient.contactPerson && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <User className="size-4 text-muted-foreground" />
-                    <span>{viewClient.contactPerson}</span>
-                  </div>
-                )}
-                {viewClient.email && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="size-4 text-muted-foreground" />
-                    <a href={`mailto:${viewClient.email}`} className="text-primary hover:underline">
-                      {viewClient.email}
-                    </a>
-                  </div>
-                )}
-                {viewClient.phone && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="size-4 text-muted-foreground" />
-                    <span>{viewClient.phone}</span>
-                  </div>
-                )}
-                {viewClient.country && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Globe className="size-4 text-muted-foreground" />
-                    <span>{getCountryLabel(viewClient.country)}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-4">
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="text-2xl font-bold">${viewClient.totalRevenue.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">Загальний дохід</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="text-2xl font-bold">{getClientProjects(viewClient.id).length}</div>
-                    <div className="text-xs text-muted-foreground">Усього проєктів</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="text-2xl font-bold">
-                      {new Date(viewClient.createdAt).toLocaleDateString("uk-UA", { month: "short", year: "numeric" })}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Клієнт з</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Projects */}
-              <div>
-                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                  <FolderKanban className="size-4" />
-                  Проєкти
-                </h4>
-                <div className="space-y-2">
-                  {getClientProjects(viewClient.id).map(project => (
-                    <div key={project.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <div className="font-medium">{project.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {project.start_date} - {project.end_date}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant={project.status === "active" ? "default" : project.status === "finished" ? "outline" : "secondary"}>
-                          {project.status === "active"
-                            ? "Активний"
-                            : project.status === "finished"
-                              ? "Завершений"
-                              : project.status === "lead"
-                                ? "Лід"
-                                : "Призупинений"}
-                        </Badge>
-                        <div className="text-sm font-medium mt-1">
-                          ${Number(project.revenue || 0).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {getClientProjects(viewClient.id).length === 0 && (
-                    <div className="text-center py-4 text-muted-foreground text-sm">
-                      Проєктів поки немає
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Notes */}
-              {viewClient.notes && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Нотатки</h4>
-                  <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                    {viewClient.notes}
-                  </p>
-                </div>
-              )}
+        {viewClient && (() => {
+          const clientProjects = projects.filter((p)=>p.client.toString()===viewClient.id)
+          const activeCount = clientProjects.filter((p)=>p.status==="active").length
+          const completedCount = clientProjects.filter((p)=>p.status==="finished").length
+          const projectRevenue = clientProjects.reduce((s,p)=>s+Number(p.revenue||0),0)
+          const projectCosts = clientProjects.reduce((s,p)=>s+Number(p.labor_cost||0)+Number(p.direct_overheads||0),0)
+          const projectProfit = projectRevenue - projectCosts
+          const projectMargin = projectRevenue ? (projectProfit/projectRevenue)*100 : 0
+          const fmtMoney = (n:number)=>new Intl.NumberFormat("uk-UA",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(n)
+          const fmtDate = (d?:string)=>d ? new Date(d).toLocaleDateString("uk-UA") : "—"
+          return <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Card><CardContent className="pt-4 space-y-2"><div className="text-sm font-medium">Загальна інформація</div><div className="text-sm">Статус: <Badge variant="outline">{statusLabels[normalizeStatus(viewClient.status)]}</Badge></div><div className="text-sm">Країна: {viewClient.country || "Не вказано"}</div><div className="text-sm">Вебсайт: {viewClient.website ? <a className="text-primary underline" href={viewClient.website} target="_blank">{viewClient.website}</a> : "Не вказано"}</div><div className="text-sm">Створено: {fmtDate(viewClient.createdAt)}</div><div className="text-sm">Нотатки: {viewClient.notes || "Нотаток поки немає"}</div></CardContent></Card>
+              <Card><CardContent className="pt-4 space-y-2"><div className="text-sm font-medium">Контакти</div><div className="text-sm">Контактна особа: {viewClient.contactPerson || "Не вказано"}</div><div className="text-sm">Email: {viewClient.email || "Не вказано"}</div><div className="text-sm">Телефон: {viewClient.phone || "Не вказано"}</div></CardContent></Card>
             </div>
-          )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewClient(null)}>
-              Закрити
-            </Button>
-            <Button onClick={() => {
-              if (viewClient) {
-                handleOpenEdit(viewClient)
-                setViewClient(null)
-              }
-            }}>
-              <Pencil className="size-4 mr-2" />
-              Редагувати клієнта
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <Card><CardContent className="pt-4"><div className="text-sm font-medium mb-3">Фінансовий підсумок</div><div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6"><div><div className="text-xs text-muted-foreground">Загальний дохід</div><div className="font-semibold">{fmtMoney(viewClient.totalRevenue||projectRevenue)}</div></div><div><div className="text-xs text-muted-foreground">Загальні витрати</div><div className="font-semibold">{fmtMoney(viewClient.totalCost||projectCosts)}</div></div><div><div className="text-xs text-muted-foreground">Загальний прибуток</div><div className={`font-semibold ${(viewClient.profit||projectProfit)<0?"text-destructive":"text-emerald-600"}`}>{fmtMoney(viewClient.profit||projectProfit)}</div></div><div><div className="text-xs text-muted-foreground">Середня маржинальність</div><Badge variant={(viewClient.marginPercent||projectMargin)<0?"destructive":"secondary"}>{(viewClient.marginPercent||projectMargin).toFixed(1)}%</Badge></div><div><div className="text-xs text-muted-foreground">Активні проєкти</div><div className="font-semibold">{activeCount}</div></div><div><div className="text-xs text-muted-foreground">Завершені проєкти</div><div className="font-semibold">{completedCount}</div></div></div></CardContent></Card>
 
-      {/* Add/Edit Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingClient ? "Редагувати клієнта" : "Додати нового клієнта"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingClient ? "Оновіть інформацію про клієнта" : "Додайте нового клієнта до портфоліо"}
-            </DialogDescription>
-          </DialogHeader>
+            <Card><CardContent className="pt-4"><div className="text-sm font-medium mb-3">Проєкти клієнта</div>{clientProjects.length===0 ? <div className="text-sm text-muted-foreground">У цього клієнта ще немає проєктів.</div> : <div className="space-y-2">{clientProjects.map((p)=>{ const cost=Number(p.labor_cost||0)+Number(p.direct_overheads||0); const rev=Number(p.revenue||0); const prof=rev-cost; const margin=rev?prof/rev*100:0; return <div key={p.id} className="border rounded-lg p-3 hover:bg-muted/30"><div className="flex items-center justify-between"><div className="font-medium">{p.name}</div><Badge variant="outline">{p.status==="active"?"Активний":p.status==="finished"?"Завершений":p.status==="paused"?"Призупинений":"Лід"}</Badge></div><div className="mt-2 grid gap-2 md:grid-cols-4 text-sm"><div>Команда: Немає даних</div><div>Дохід: {fmtMoney(rev)}</div><div>Витрати: {fmtMoney(cost)}</div><div className={prof<0?"text-destructive":"text-emerald-600"}>Прибуток: {fmtMoney(prof)}</div><div>Маржинальність: <Badge variant={margin<0?"destructive":"secondary"}>{margin.toFixed(1)}%</Badge></div><div>Дати: {fmtDate(p.start_date)} — {fmtDate(p.end_date)}</div><div>Бюджет: {p.total_contract_value ? `${p.total_contract_value} ${p.currency}` : "Не вказано"}</div></div></div>})}</div>}</CardContent></Card>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <Label htmlFor="name">Ім’я клієнта *</Label>
-                <Input
-                  id="name"
-                  placeholder="Наприклад: Acme Inc"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </div>
-              
-              <div className="col-span-2">
-                <Label htmlFor="company">Компанія</Label>
-                <Input
-                  id="company"
-                  placeholder="Юридична назва компанії"
-                  value={formData.company}
-                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                />
-              </div>
+            <Card><CardContent className="pt-4"><div className="text-sm font-medium mb-3">Витрати по проєктах клієнта</div>{clientProjects.length===0 ? <div className="text-sm text-muted-foreground">Немає витрат, прив’язаних до проєктів цього клієнта.</div> : <div className="space-y-2">{clientProjects.map((p)=> <div key={`cost-${p.id}`} className="text-sm border rounded p-2"><div className="font-medium">{p.name}</div><div>Тип: Витрати проєкту</div><div>Категорія: Labor + Overheads</div><div>Сума: {fmtMoney(Number(p.labor_cost||0)+Number(p.direct_overheads||0))}</div><div>Дата: {fmtDate(p.end_date)}</div><div>Проєкт: {p.name}</div><div>Команда: Немає даних</div></div>)}</div>}</CardContent></Card>
+          </div>
+        })()}
+      </DialogContent>
+    </Dialog>
 
-              <div>
-                <Label htmlFor="contactPerson">Контактна особа</Label>
-                <Input
-                  id="contactPerson"
-                  placeholder="Імʼя та прізвище"
-                  value={formData.contactPerson}
-                  onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                />
-              </div>
 
-              <div>
-                <Label htmlFor="email">Електронна пошта</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="contact@company.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="phone">Телефон</Label>
-                <Input
-                  id="phone"
-                  placeholder="+1 555 123 4567"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="country">Країна</Label>
-                <Select 
-                  value={formData.country || "none"} 
-                  onValueChange={(v) => setFormData({ ...formData, country: v === "none" ? "" : v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Оберіть країну" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Не вказано</SelectItem>
-                    {countries.map(country => (
-                      <SelectItem key={country} value={country}>{getCountryLabel(country)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="col-span-2">
-                <Label htmlFor="notes">Нотатки</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Додаткова інформація…"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={3}
-                />
-              </div>
+    <Dialog open={!!pendingDeleteClient} onOpenChange={() => setPendingDeleteClient(null)}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">{deleteBlocked ? <><TriangleAlert className="size-5 text-amber-600" /> Неможливо видалити клієнта</> : "Видалити клієнта?"}</DialogTitle>
+          {!deleteBlocked && <DialogDescription>Клієнт буде повністю видалений без можливості відновлення.</DialogDescription>}
+        </DialogHeader>
+        {deleteBlocked && (
+          <div className="space-y-4 text-sm">
+            <div>
+              <p className="font-medium mb-1">Цей клієнт має:</p>
+              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                <li>пов’язані проєкти</li>
+                <li>витрати</li>
+                <li>фінансову історію</li>
+              </ul>
+              <p className="mt-2 text-muted-foreground">Щоб не втратити історичні дані, клієнта можна лише архівувати.</p>
+            </div>
+            <div className="rounded-md border p-3 bg-muted/40">
+              <p className="font-medium mb-1 flex items-center gap-2"><Archive className="size-4" /> Архівний клієнт:</p>
+              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                <li>зникне зі стандартного списку</li>
+                <li>збереже проєкти та фінансову історію</li>
+                <li>буде доступний через фільтр “Архівні”</li>
+              </ul>
             </div>
           </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setPendingDeleteClient(null)}>Скасувати</Button>
+          <Button variant={deleteBlocked ? "default" : "destructive"} onClick={confirmDeleteOrArchive}>{deleteBlocked ? "Архівувати" : "Видалити"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Скасувати
-            </Button>
-            <Button 
-              onClick={handleSave}
-              disabled={!formData.name.trim()}
-            >
-              {editingClient ? "Зберегти зміни" : "Додати клієнта"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteClient} onOpenChange={() => setDeleteClient(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Видалити клієнта</AlertDialogTitle>
-            <AlertDialogDescription>
-              Ви впевнені, що хочете видалити &quot;{deleteClient?.name}&quot;? Цю дію неможливо скасувати.
-              {deleteClient && getClientProjects(deleteClient.id).length > 0 && (
-                <span className="block mt-2 text-destructive">
-                  Увага: у цього клієнта є повʼязані проєкти ({getClientProjects(deleteClient.id).length}).
-                </span>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Скасувати</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Видалити
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  )
+    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{editingClient ? "Редагувати клієнта" : "Додати клієнта"}</DialogTitle>
+          <DialogDescription>Заповніть дані клієнта</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <Label>Назва компанії *</Label>
+          <Input value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} />
+          {formErrors.companyName && <p className="text-xs text-destructive">{formErrors.companyName}</p>}
+          <Label>Контактна особа *</Label>
+          <Input value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} />
+          {formErrors.contactPerson && <p className="text-xs text-destructive">{formErrors.contactPerson}</p>}
+          <Label>Email *</Label>
+          <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+          {formErrors.email && <p className="text-xs text-destructive">{formErrors.email}</p>}
+          <Label>Телефон *</Label>
+          <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+          {formErrors.phone && <p className="text-xs text-destructive">{formErrors.phone}</p>}
+          <Label>Країна *</Label>
+          <Select value={formData.country} onValueChange={(v) => setFormData({ ...formData, country: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+          </Select>
+          {formErrors.country && <p className="text-xs text-destructive">{formErrors.country}</p>}
+          <Label>Вебсайт *</Label>
+          <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} />
+          {formErrors.website && <p className="text-xs text-destructive">{formErrors.website}</p>}
+          <Label>Статус *</Label>
+          <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v as Client["status"] })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="lead">Потенційний</SelectItem>
+              <SelectItem value="active">Активний</SelectItem>
+              <SelectItem value="paused">Призупинений</SelectItem>
+              <SelectItem value="completed">Завершений</SelectItem>
+              <SelectItem value="archived">Архівний</SelectItem>
+            </SelectContent>
+          </Select>
+          {formErrors.status && <p className="text-xs text-destructive">{formErrors.status}</p>}
+          <Label>Нотатки</Label>
+          <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Скасувати</Button>
+          <Button onClick={onSave}>Зберегти</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </div>
 }
