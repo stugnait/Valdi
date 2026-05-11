@@ -729,10 +729,10 @@ export function getStatusBadgeVariant(status: ProjectStatus): "default" | "secon
 
 export function getStatusLabel(status: ProjectStatus): string {
   switch (status) {
-    case "active": return "Active"
-    case "lead": return "Lead"
-    case "finished": return "Finished"
-    case "paused": return "Paused"
+    case "active": return "Активний"
+    case "lead": return "Потенційний"
+    case "finished": return "Завершений"
+    case "paused": return "Призупинений"
     default: return status
   }
 }

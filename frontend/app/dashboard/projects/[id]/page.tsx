@@ -842,7 +842,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <span className="text-muted-foreground">Формула:</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 font-mono bg-muted/50 p-2 rounded">
-                    Profit = Дохід - (LaborCost + DirectНакладні витрати)
+                    Чистий прибуток = Дохід - (Вартість команди + Прямі витрати)
                   </p>
                 </div>
               </CardContent>

@@ -861,7 +861,7 @@ export default function CreateProjectPage() {
               <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <Label>Резерв / Contingency</Label>
+                    <Label>Резерв</Label>
                     <span className="text-sm font-medium">{formData.bufferPercent}%</span>
                   </div>
                   <Slider
