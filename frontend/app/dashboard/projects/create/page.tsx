@@ -107,6 +107,13 @@ export default function CreateProjectPage() {
   const [teams, setTeams] = useState<ApiTeam[]>([])
   const [developers, setDevelopers] = useState<ApiDeveloper[]>([])
   const [isLoadingData, setIsLoadingData] = useState(true)
+
+  const getClientOptionLabel = (client: ApiClient) => {
+    const clientName = (client.company_name || client.name || "").trim()
+    const contactPerson = (client.contact_person || "").trim()
+    if (!contactPerson || contactPerson.toLowerCase() === clientName.toLowerCase()) return clientName
+    return `${clientName} — ${contactPerson}`
+  }
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -471,7 +478,7 @@ export default function CreateProjectPage() {
                         <SelectContent>
                           {clients.map(client => (
                             <SelectItem key={client.id} value={client.id.toString()}>
-                              {client.name} {client.company_name && `(${client.company_name})`}
+                              {getClientOptionLabel(client)}
                             </SelectItem>
                           ))}
                         </SelectContent>
