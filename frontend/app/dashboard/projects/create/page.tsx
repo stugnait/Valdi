@@ -317,6 +317,17 @@ export default function CreateProjectPage() {
         team: formData.selectedTeamId ? Number(formData.selectedTeamId) : null,
       })
 
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          `project_planned_finance_${createdProject.id}`,
+          JSON.stringify({
+            laborCost: Number(estimatedMonthlyCost.toFixed(2)),
+            directOverheads: Number(directExpensesTotal.toFixed(2)),
+            bufferPercent: Number(formData.bufferPercent || "0"),
+          })
+        )
+      }
+
       router.push("/dashboard/projects")
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Не вдалося створити проєкт.")
