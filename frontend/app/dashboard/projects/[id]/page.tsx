@@ -76,6 +76,7 @@ import {
 } from "@/lib/types/projects"
 import { ApiInvoice, ApiProject, ApiRecurringExpense, ApiTeam, ApiDeveloper, workforceApi } from "@/lib/api/workforce"
 import { convertToBaseCurrency, getNbuRates, toMonthlyRecurringAmount } from "@/lib/utils/currency"
+import { getExpenseCategoryLabel, normalizeExpenseCategoryValue, sharedExpenseCategories } from "@/lib/constants/expense-categories"
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -677,7 +678,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     setExpenseForm({
       name: expense.name,
       amount: expense.amount.toString(),
-      category: expense.category,
+      category: normalizeExpenseCategoryValue(expense.category),
       date: expense.date,
       description: expense.description || "",
     })
@@ -876,7 +877,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         <div>
                           <p className="font-medium text-sm">{expense.name}</p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant="outline" className="text-xs">{expense.category}</Badge>
+                            <Badge variant="outline" className="text-xs">{getExpenseCategoryLabel(expense.category)}</Badge>
                             <Badge variant={expense.expenseType === "recurring" ? "secondary" : "default"} className="text-xs">
                               {expense.expenseType === "recurring" ? "Регулярні" : "Разові"}
                             </Badge>
@@ -1400,12 +1401,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <SelectValue placeholder="Оберіть..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Infrastructure">Інфраструктура</SelectItem>
-                    <SelectItem value="Software">Програмне забезпечення</SelectItem>
-                    <SelectItem value="Assets">Активи</SelectItem>
-                    <SelectItem value="API">API</SelectItem>
-                    <SelectItem value="Security">Безпека</SelectItem>
-                    <SelectItem value="Other">Інше</SelectItem>
+                    {sharedExpenseCategories.map((category) => (
+                      <SelectItem key={category.value} value={category.value}>
+                        {category.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

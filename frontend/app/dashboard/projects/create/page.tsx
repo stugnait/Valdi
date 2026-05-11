@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select"
 import { mockTags, type ProjectTag, type Milestone, type ResourceAllocation } from "@/lib/types/projects"
 import { ApiClient, ApiDeveloper, ApiTeam, workforceApi } from "@/lib/api/workforce"
+import { sharedExpenseCategories } from "@/lib/constants/expense-categories"
 
 const steps = [
   { id: 1, name: "Базова інформація", description: "Базова інформація" },
@@ -919,11 +920,11 @@ export default function CreateProjectPage() {
                               <SelectValue placeholder="Категорія" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Infrastructure">Інфраструктура</SelectItem>
-                              <SelectItem value="Software">Програмне забезпечення</SelectItem>
-                              <SelectItem value="API">API</SelectItem>
-                              <SelectItem value="Assets">Активи</SelectItem>
-                              <SelectItem value="Other">Інше</SelectItem>
+                              {sharedExpenseCategories.map((category) => (
+                                <SelectItem key={category.value} value={category.value}>
+                                  {category.label}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           <Button
