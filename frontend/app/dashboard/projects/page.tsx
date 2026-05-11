@@ -98,6 +98,8 @@ export default function ProjectsHubPage() {
       directOverheads,
       bufferPercent: Number(apiProject.buffer_percent || 0),
       allocations: [],
+      teamId: apiProject.team ? apiProject.team.toString() : undefined,
+      teamName: apiProject.team_name || undefined,
       invoices: [],
       expenses: [],
       budgetUsedPercent,
@@ -158,9 +160,7 @@ export default function ProjectsHubPage() {
   const avgMargin = activeProjects.length > 0
     ? activeProjects.reduce((sum, p) => sum + p.profitMargin, 0) / activeProjects.length
     : 0
-  const activeTeamsCount = new Set(
-    activeProjects.flatMap(p => p.allocations.map(a => a.teamId))
-  ).size
+  const activeTeamsCount = new Set(activeProjects.map((p) => p.teamId).filter(Boolean)).size
 
   const toggleStatusFilter = (status: ProjectStatus) => {
     setStatusFilter(prev => 
@@ -413,7 +413,9 @@ export default function ProjectsHubPage() {
                 <div className="flex items-center justify-between pt-2 border-t">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Users className="size-3.5" />
-                    <span>{project.allocations.length} членів</span>
+                    <span>
+                      {project.teamName ? `${project.teamName} · команда` : "Команду ще не призначено"}
+                    </span>
                   </div>
                   {project.totalContractValue && (
                     <span className="text-sm font-medium">

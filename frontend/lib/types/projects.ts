@@ -127,6 +127,8 @@ export interface Project {
   
   // Resources
   allocations: ResourceAllocation[]
+  teamId?: string
+  teamName?: string
   invoices: Invoice[]
   expenses: ProjectExpense[]
   

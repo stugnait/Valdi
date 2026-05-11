@@ -93,6 +93,8 @@ export interface ApiProject {
   direct_overheads: string
   buffer_percent: string
   tax_reserve_percent: string | null
+  team: number | null
+  team_name?: string
   created_at: string
   updated_at: string
 }

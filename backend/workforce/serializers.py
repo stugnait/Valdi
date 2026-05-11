@@ -217,6 +217,7 @@ class ClientSerializer(serializers.ModelSerializer):
 
 class ProjectSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.name', read_only=True)
+    team_name = serializers.CharField(source='team.name', read_only=True)
 
     class Meta:
         model = Project
@@ -239,15 +240,25 @@ class ProjectSerializer(serializers.ModelSerializer):
             'direct_overheads',
             'buffer_percent',
             'tax_reserve_percent',
+            'team',
+            'team_name',
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('id', 'created_at', 'updated_at', 'client_name')
+        read_only_fields = ('id', 'created_at', 'updated_at', 'client_name', 'team_name')
 
     def validate_client(self, value):
         user = self.context['request'].user
         if value.created_by_id != user.id:
             raise serializers.ValidationError('Не можна використовувати клієнта іншого користувача.')
+        return value
+
+    def validate_team(self, value):
+        if value is None:
+            return value
+        user = self.context['request'].user
+        if value.created_by_id != user.id:
+            raise serializers.ValidationError('Не можна використовувати команду іншого користувача.')
         return value
 
 

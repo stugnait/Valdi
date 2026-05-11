@@ -23,7 +23,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Separator } from "@/components/ui/separator"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Select,
   SelectContent,
@@ -68,6 +67,7 @@ interface FormData {
   billingCycle: BillingCycle
   
   // Step 3
+  selectedTeamId: string
   allocations: ResourceAllocation[]
   
   // Step 4
@@ -94,6 +94,7 @@ const initialFormData: FormData = {
   clientHourlyRate: "",
   monthlyCap: "",
   billingCycle: "monthly",
+  selectedTeamId: "",
   allocations: [],
   bufferPercent: "10",
   directExpenses: [],
@@ -127,25 +128,9 @@ export default function CreateProjectPage() {
     [developers]
   )
 
-  const allMembers = useMemo(
-    () =>
-      teams.flatMap((team) =>
-        team.memberships.map((membership) => {
-          const hourlyRate = developerRateById[membership.developer] || 0
-          const developerRole = developers.find((developer) => developer.id === membership.developer)?.role || "Розробник"
-          return {
-            id: `${team.id}-${membership.developer}`,
-            developerId: membership.developer,
-            name: membership.developer_name || `Розробник #${membership.developer}`,
-            role: developerRole,
-            teamId: team.id.toString(),
-            teamName: team.name,
-            baseRate: hourlyRate * 160,
-            defaultAllocation: membership.allocation || 100,
-          }
-        })
-      ),
-    [teams, developers, developerRateById]
+  const selectedTeam = useMemo(
+    () => teams.find((team) => team.id.toString() === formData.selectedTeamId),
+    [teams, formData.selectedTeamId]
   )
 
   const loadData = async () => {
@@ -246,43 +231,27 @@ export default function CreateProjectPage() {
     }
   }
 
-  const addAllocation = (memberId: string) => {
-    const member = allMembers.find(m => m.id === memberId)
-    if (!member) return
-    
-    const allocation: ResourceAllocation = {
-      id: `alloc-${Date.now()}`,
-      memberId: member.id,
-      memberName: member.name,
-      memberRole: member.role,
-      teamId: member.teamId,
-      teamName: member.teamName,
-      allocation: member.defaultAllocation,
-      monthlyCost: member.baseRate * (member.defaultAllocation / 100),
-    }
-    
-    setFormData({
-      ...formData,
-      allocations: [...formData.allocations, allocation],
+  const assignTeam = (teamId: string) => {
+    const team = teams.find((item) => item.id.toString() === teamId)
+    const teamAllocations = (team?.memberships || []).map((membership) => {
+      const hourlyRate = developerRateById[membership.developer] || 0
+      const role = developers.find((developer) => developer.id === membership.developer)?.role || "Розробник"
+      return {
+        id: `alloc-${teamId}-${membership.developer}`,
+        memberId: `${teamId}-${membership.developer}`,
+        memberName: membership.developer_name || `Розробник #${membership.developer}`,
+        memberRole: role,
+        teamId: teamId,
+        teamName: team?.name || "Команда",
+        allocation: membership.allocation || 100,
+        monthlyCost: (hourlyRate * 160) * ((membership.allocation || 100) / 100),
+      }
     })
-  }
 
-  const updateAllocation = (id: string, allocation: number) => {
     setFormData({
       ...formData,
-      allocations: formData.allocations.map(a => {
-        if (a.id !== id) return a
-        const member = allMembers.find(m => m.id === a.memberId)
-        const monthlyCost = (member?.baseRate || 0) * (allocation / 100)
-        return { ...a, allocation, monthlyCost }
-      }),
-    })
-  }
-
-  const removeAllocation = (id: string) => {
-    setFormData({
-      ...formData,
-      allocations: formData.allocations.filter(a => a.id !== id),
+      selectedTeamId: teamId,
+      allocations: teamAllocations,
     })
   }
 
@@ -345,11 +314,8 @@ export default function CreateProjectPage() {
         direct_overheads: directExpensesTotal.toFixed(2),
         buffer_percent: formData.bufferPercent || "0",
         tax_reserve_percent: formData.billingModel === "fixed" && formData.taxReservePercent ? formData.taxReservePercent : null,
+        team: formData.selectedTeamId ? Number(formData.selectedTeamId) : null,
       })
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem(`project_allocations_${createdProject.id}`, JSON.stringify(formData.allocations))
-      }
 
       router.push("/dashboard/projects")
     } catch (submitError) {
@@ -773,43 +739,49 @@ export default function CreateProjectPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Команда та ресурси</CardTitle>
-                <CardDescription>Додайте людей та бачте математику в реальному часі</CardDescription>
+                <CardDescription>Привʼяжіть існуючу команду. Залученість редагується лише на сторінці Команди.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label>Додати члена команди</Label>
-                  <Select onValueChange={addAllocation}>
+                  <Label>Оберіть команду</Label>
+                  <Select value={formData.selectedTeamId} onValueChange={assignTeam}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Оберіть спеціаліста..." />
+                      <SelectValue placeholder="Оберіть команду..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {allMembers
-                        .filter(m => !formData.allocations.some(a => a.memberId === m.id))
-                        .map(member => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.name} — {member.role} ({member.teamName})
-                          </SelectItem>
-                        ))
-                      }
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id.toString()}>
+                          {team.name} · {team.memberships.length} учасн.
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {formData.allocations.length === 0 ? (
+                {!selectedTeam ? (
                   <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
                     <Users className="size-12 mx-auto mb-3 opacity-50" />
-                    <p>Ще не додано жодного члена команди</p>
-                    <p className="text-sm mt-1">Оберіть спеціалістів з селектора вище</p>
+                    <p>Команду ще не призначено</p>
+                    <p className="text-sm mt-1">Оберіть команду з селектора вище</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">Команда</p>
+                        <p className="font-semibold">{selectedTeam.name}</p>
+                      </div>
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">Учасників</p>
+                        <p className="font-semibold">{selectedTeam.memberships.length}</p>
+                      </div>
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">Вартість / місяць</p>
+                        <p className="font-semibold">{formatCurrency(estimatedMonthlyCost)}</p>
+                      </div>
+                    </div>
                     {formData.allocations.map(allocation => (
                       <div key={allocation.id} className="flex items-center gap-4 p-4 rounded-lg border bg-card">
-                        <Avatar className="h-10 w-10">
-                          <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                            {allocation.memberName.split(" ").map(n => n[0]).join("")}
-                          </AvatarFallback>
-                        </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <p className="font-medium">{allocation.memberName}</p>
@@ -820,29 +792,16 @@ export default function CreateProjectPage() {
                         <div className="flex items-center gap-4">
                           <div className="w-32">
                             <div className="flex justify-between text-xs mb-1">
-                              <span>Allocation</span>
+                              <span>Залученість</span>
                               <span className="font-medium">{allocation.allocation}%</span>
                             </div>
-                            <Slider
-                              value={[allocation.allocation]}
-                              onValueChange={([v]) => updateAllocation(allocation.id, v)}
-                              max={100}
-                              min={10}
-                              step={10}
-                            />
+                            <p className="text-xs text-muted-foreground">Редагується на сторінці Команди</p>
                           </div>
                           <div className="text-right w-24">
                             <p className="font-semibold">{formatCurrency(allocation.monthlyCost)}</p>
                             <p className="text-xs text-muted-foreground">/міс</p>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => removeAllocation(allocation.id)}
-                          >
-                            <X className="size-4" />
-                          </Button>
+                          <Badge variant="outline" className="text-xs">Командне налаштування</Badge>
                         </div>
                       </div>
                     ))}
@@ -1017,7 +976,7 @@ export default function CreateProjectPage() {
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Users className="size-4" />
-                <span>{formData.allocations.length} членів команди</span>
+                <span>{selectedTeam ? `${selectedTeam.name} · ${selectedTeam.memberships.length} учасники` : "Команду ще не призначено"}</span>
               </div>
               {formData.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">

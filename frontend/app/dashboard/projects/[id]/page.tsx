@@ -156,6 +156,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       directOverheads,
       bufferPercent: Number(apiProject.buffer_percent || 0),
       allocations: [],
+      teamId: apiProject.team ? apiProject.team.toString() : undefined,
+      teamName: apiProject.team_name || undefined,
       invoices: [],
       expenses: [],
       budgetUsedPercent,
@@ -979,29 +981,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             {/* Team Selector */}
             <div className="md:col-span-2">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Team Allocation</CardTitle>
-                    <CardDescription>Члени команди на проєкті</CardDescription>
-                  </div>
-                  <Button onClick={() => setIsAllocationDialogOpen(true)}>
-                    <Plus className="mr-2 size-4" />
-                    Додати члена
-                  </Button>
+                <CardHeader>
+                  <CardTitle>Привʼязана команда</CardTitle>
+                  <CardDescription>Залученість учасників редагується на сторінці Команди.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {project.allocations.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                       <Users className="size-12 mx-auto mb-3 opacity-50" />
-                      <p>Ще немає призначених членів команди</p>
-                      <Button 
-                        variant="outline" 
-                        className="mt-4"
-                        onClick={() => setIsAllocationDialogOpen(true)}
-                      >
-                        <Plus className="mr-2 size-4" />
-                        Додати першого
-                      </Button>
+                      <p>Команду ще не призначено</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1035,30 +1023,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                               </div>
                             </div>
                           </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="size-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEditAllocation(allocation)}>
-                                <Pencil className="mr-2 size-4" />
-                                Редагувати
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setSelectedAllocation(allocation)
-                                  setIsDeleteAllocationOpen(true)
-                                }}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="mr-2 size-4" />
-                                Видалити
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <Badge variant="outline" className="text-xs">З Команди</Badge>
                         </div>
                       ))}
                     </div>

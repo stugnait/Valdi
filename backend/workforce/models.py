@@ -159,6 +159,13 @@ class Project(models.Model):
     direct_overheads = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     buffer_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     tax_reserve_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.SET_NULL,
+        related_name='projects',
+        null=True,
+        blank=True,
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
