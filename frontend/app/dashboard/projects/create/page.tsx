@@ -35,10 +35,10 @@ import { mockTags, type ProjectTag, type Milestone, type ResourceAllocation } fr
 import { ApiClient, ApiDeveloper, ApiTeam, workforceApi } from "@/lib/api/workforce"
 
 const steps = [
-  { id: 1, name: "Basics", description: "Базова інформація" },
-  { id: 2, name: "Business Model", description: "Модель монетизації" },
-  { id: 3, name: "Resources", description: "Команда та ресурси" },
-  { id: 4, name: "Buffers", description: "Додаткові витрати" },
+  { id: 1, name: "Базова інформація", description: "Базова інформація" },
+  { id: 2, name: "Модель монетизації", description: "Модель монетизації" },
+  { id: 3, name: "Команда та ресурси", description: "Команда та ресурси" },
+  { id: 4, name: "Додаткові витрати", description: "Додаткові витрати" },
 ]
 
 type BillingModel = "fixed" | "time-materials"
@@ -85,9 +85,9 @@ const initialFormData: FormData = {
   currency: "USD",
   totalContractValue: "",
   milestones: [
-    { id: "m1", name: "Prepayment", percentage: 30, amount: 0 },
-    { id: "m2", name: "Milestone 1", percentage: 40, amount: 0 },
-    { id: "m3", name: "Final Delivery", percentage: 30, amount: 0 },
+    { id: "m1", name: "Передоплата", percentage: 30, amount: 0 },
+    { id: "m2", name: "Етап 1", percentage: 40, amount: 0 },
+    { id: "m3", name: "Фінальна здача", percentage: 30, amount: 0 },
   ],
   taxReservePercent: "5",
   clientHourlyRate: "",
@@ -107,6 +107,13 @@ export default function CreateProjectPage() {
   const [teams, setTeams] = useState<ApiTeam[]>([])
   const [developers, setDevelopers] = useState<ApiDeveloper[]>([])
   const [isLoadingData, setIsLoadingData] = useState(true)
+
+  const getClientOptionLabel = (client: ApiClient) => {
+    const clientName = (client.company_name || client.name || "").trim()
+    const contactPerson = (client.contact_person || "").trim()
+    if (!contactPerson || contactPerson.toLowerCase() === clientName.toLowerCase()) return clientName
+    return `${clientName} — ${contactPerson}`
+  }
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -124,11 +131,11 @@ export default function CreateProjectPage() {
       teams.flatMap((team) =>
         team.memberships.map((membership) => {
           const hourlyRate = developerRateById[membership.developer] || 0
-          const developerRole = developers.find((developer) => developer.id === membership.developer)?.role || "Developer"
+          const developerRole = developers.find((developer) => developer.id === membership.developer)?.role || "Розробник"
           return {
             id: `${team.id}-${membership.developer}`,
             developerId: membership.developer,
-            name: membership.developer_name || `Developer #${membership.developer}`,
+            name: membership.developer_name || `Розробник #${membership.developer}`,
             role: developerRole,
             teamId: team.id.toString(),
             teamName: team.name,
@@ -310,7 +317,7 @@ export default function CreateProjectPage() {
       if (isCreatingClient && formData.newClientName.trim()) {
         const createdClient = await workforceApi.createClient({
           name: formData.newClientName.trim(),
-          company: formData.newClientName.trim(),
+          company_name: formData.newClientName.trim(),
         })
         selectedClientId = createdClient.id.toString()
       }
@@ -379,8 +386,8 @@ export default function CreateProjectPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Create Project</h1>
-          <p className="text-sm text-muted-foreground">Створення нового проекту</p>
+          <h1 className="text-2xl font-bold text-foreground">Створення проєкту</h1>
+          <p className="text-sm text-muted-foreground">Створення нового проєкту</p>
         </div>
       </div>
 
@@ -422,16 +429,16 @@ export default function CreateProjectPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Form */}
         <div className="lg:col-span-2">
-          {/* Step 1: Basics */}
+          {/* Step 1: Базова інформація */}
           {currentStep === 1 && (
             <Card>
               <CardHeader>
                 <CardTitle>Базова інформація</CardTitle>
-                <CardDescription>Основні дані про проект та клієнта</CardDescription>
+                <CardDescription>Основні дані про проєкт та клієнта</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label>Назва проекту</Label>
+                  <Label>Назва проєкту</Label>
                   <Input
                     placeholder="напр. E-commerce App Redesign"
                     value={formData.name}
@@ -471,7 +478,7 @@ export default function CreateProjectPage() {
                         <SelectContent>
                           {clients.map(client => (
                             <SelectItem key={client.id} value={client.id.toString()}>
-                              {client.name} {client.company && `(${client.company})`}
+                              {getClientOptionLabel(client)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -531,7 +538,7 @@ export default function CreateProjectPage() {
             </Card>
           )}
 
-          {/* Step 2: Business Model */}
+          {/* Step 2: Модель монетизації */}
           {currentStep === 2 && (
             <Card>
               <CardHeader>
@@ -554,7 +561,7 @@ export default function CreateProjectPage() {
                         <DollarSign className="size-5 text-primary" />
                       </div>
                       <div>
-                        <p className="font-semibold">Fixed Price</p>
+                        <p className="font-semibold">Фіксована ціна</p>
                         <p className="text-xs text-muted-foreground">Фіксований бюджет</p>
                       </div>
                     </div>
@@ -572,7 +579,7 @@ export default function CreateProjectPage() {
                         <Clock className="size-5 text-primary" />
                       </div>
                       <div>
-                        <p className="font-semibold">Time & Materials</p>
+                        <p className="font-semibold">Погодинна оплата</p>
                         <p className="text-xs text-muted-foreground">Погодинна оплата</p>
                       </div>
                     </div>
@@ -581,7 +588,7 @@ export default function CreateProjectPage() {
 
                 <Separator />
 
-                {/* Fixed Price Options */}
+                {/* Фіксована ціна Options */}
                 {formData.billingModel === "fixed" && (
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
@@ -614,7 +621,7 @@ export default function CreateProjectPage() {
 
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <Label>Payment Schedule (Milestones)</Label>
+                        <Label>Графік оплат (Етапи оплати)</Label>
                         <Button variant="outline" size="sm" onClick={addMilestone}>
                           <Plus className="size-4 mr-1" />
                           Додати
@@ -760,7 +767,7 @@ export default function CreateProjectPage() {
             </Card>
           )}
 
-          {/* Step 3: Resources */}
+          {/* Step 3: Команда та ресурси */}
           {currentStep === 3 && (
             <Card>
               <CardHeader>
@@ -844,17 +851,17 @@ export default function CreateProjectPage() {
             </Card>
           )}
 
-          {/* Step 4: Buffers */}
+          {/* Step 4: Додаткові витрати */}
           {currentStep === 4 && (
             <Card>
               <CardHeader>
                 <CardTitle>Додаткові витрати</CardTitle>
-                <CardDescription>Buffer та прямі проектні витрати</CardDescription>
+                <CardDescription>Резерв та прямі проєктні витрати</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <Label>Buffer / Contingency</Label>
+                    <Label>Резерв</Label>
                     <span className="text-sm font-medium">{formData.bufferPercent}%</span>
                   </div>
                   <Slider
@@ -873,14 +880,14 @@ export default function CreateProjectPage() {
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label>Direct Project Expenses</Label>
+                    <Label>Прямі витрати проєкту</Label>
                     <Button variant="outline" size="sm" onClick={addDirectExpense}>
                       <Plus className="size-4 mr-1" />
                       Додати
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Витрати суто під цей проект (сервери, API, ліцензії тощо)
+                    Витрати суто під цей проєкт (сервери, API, ліцензії тощо)
                   </p>
 
                   {formData.directExpenses.length === 0 ? (
@@ -912,11 +919,11 @@ export default function CreateProjectPage() {
                               <SelectValue placeholder="Категорія" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Infrastructure">Infrastructure</SelectItem>
-                              <SelectItem value="Software">Software</SelectItem>
+                              <SelectItem value="Infrastructure">Інфраструктура</SelectItem>
+                              <SelectItem value="Software">Програмне забезпечення</SelectItem>
                               <SelectItem value="API">API</SelectItem>
-                              <SelectItem value="Assets">Assets</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
+                              <SelectItem value="Assets">Активи</SelectItem>
+                              <SelectItem value="Other">Інше</SelectItem>
                             </SelectContent>
                           </Select>
                           <Button
@@ -937,13 +944,13 @@ export default function CreateProjectPage() {
           )}
         </div>
 
-        {/* Sidebar - Pre-flight Calculator */}
+        {/* Sidebar - Попередній розрахунок */}
         <div className="space-y-4">
           <Card className="sticky top-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calculator className="size-5" />
-                Pre-flight Calculator
+                Попередній розрахунок
               </CardTitle>
               <CardDescription>Калькулятор прибутковості</CardDescription>
             </CardHeader>
@@ -951,7 +958,7 @@ export default function CreateProjectPage() {
               {formData.billingModel === "fixed" && totalContractValue > 0 && (
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Contract Value:</span>
+                    <span className="text-muted-foreground">Вартість контракту:</span>
                     <span className="font-medium">{formatCurrency(totalContractValue)}</span>
                   </div>
                 </div>
@@ -959,16 +966,16 @@ export default function CreateProjectPage() {
 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Monthly Labor Cost:</span>
+                  <span className="text-muted-foreground">Вартість команди за місяць:</span>
                   <span className="font-medium text-destructive">-{formatCurrency(estimatedMonthlyCost)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Direct Expenses:</span>
+                  <span className="text-muted-foreground">Прямі витрати:</span>
                   <span className="font-medium text-destructive">-{formatCurrency(directExpensesTotal)}</span>
                 </div>
                 {bufferAmount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Buffer ({formData.bufferPercent}%):</span>
+                    <span className="text-muted-foreground">Резерв ({formData.bufferPercent}%):</span>
                     <span className="font-medium text-destructive">-{formatCurrency(bufferAmount)}</span>
                   </div>
                 )}
@@ -978,14 +985,14 @@ export default function CreateProjectPage() {
 
               <div className="p-3 rounded-lg bg-muted/50 space-y-2">
                 <div className="flex justify-between">
-                  <span className="font-medium">Expected Net Margin:</span>
+                  <span className="font-medium">Очікувана маржинальність:</span>
                   <span className={`font-bold ${projectedMargin >= 20 ? "text-emerald-600" : projectedMargin >= 0 ? "text-amber-600" : "text-destructive"}`}>
                     {projectedMargin.toFixed(1)}%
                   </span>
                 </div>
                 {formData.billingModel === "fixed" && (
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Projected Profit:</span>
+                    <span className="text-sm text-muted-foreground">Очікуваний прибуток:</span>
                     <span className={`font-semibold ${projectedProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
                       {formatCurrency(projectedProfit)}
                     </span>
@@ -1058,7 +1065,7 @@ export default function CreateProjectPage() {
         ) : (
           <Button onClick={handleSubmit} disabled={!canProceed() || isSubmitting || isLoadingData}>
             <Check className="size-4 mr-2" />
-            {isSubmitting ? "Зберігаємо..." : "Створити проект"}
+            {isSubmitting ? "Зберігаємо..." : "Створити проєкт"}
           </Button>
         )}
       </div>

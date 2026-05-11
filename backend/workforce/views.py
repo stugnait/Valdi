@@ -131,6 +131,19 @@ class ClientViewSet(SafeModelViewSet):
         serializer.save(created_by=self.request.user)
 
 
+    def perform_destroy(self, instance):
+        has_projects = instance.projects.exists()
+        has_financial_history = instance.invoices.exists() or instance.subscriptions.exists()
+
+        if has_projects:
+            raise ValidationError({'detail': 'Клієнт має пов’язані проєкти. Видалення заборонено. Використайте архівацію.'})
+
+        if has_financial_history:
+            raise ValidationError({'detail': 'Клієнт має фінансову історію. Видалення заборонено. Використайте архівацію.'})
+
+        instance.delete()
+
+
 class ProjectViewSet(SafeModelViewSet):
     serializer_class = workforce_serializers.ProjectSerializer
     permission_classes = (IsAuthenticated,)
