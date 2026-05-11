@@ -110,7 +110,7 @@ export default function ClientsPage() {
   }
 
   const totalClients = filteredClients.length
-  const activeClients = filteredClients.filter((c) => (c.activeProjects || 0) > 0).length
+  const activeClients = filteredClients.filter((c) => normalizeStatus(c.status) === "active" && normalizeStatus(c.status) !== "archived").length
   const totalRevenue = filteredClients.reduce((s, c) => s + (c.totalRevenue || 0), 0)
   const totalCost = filteredClients.reduce((s, c) => s + (c.totalCost || 0), 0)
   const totalProfit = filteredClients.reduce((s, c) => s + (c.profit || 0), 0)
