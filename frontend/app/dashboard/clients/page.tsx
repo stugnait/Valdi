@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Eye, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
+import { Archive, Eye, MoreHorizontal, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Client } from "@/lib/types/projects"
 import { ApiClient, ApiProject, workforceApi } from "@/lib/api/workforce"
+import { toast } from "@/hooks/use-toast"
 
 const countries = ["Україна", "Польща", "Німеччина", "Велика Британія", "США", "Канада", "Франція", "Іспанія", "Італія"]
 const statusLabels: Record<Client["status"], string> = { lead: "Потенційний", active: "Активний", paused: "Призупинений", completed: "Завершений", archived: "Архівний" }
@@ -88,6 +89,7 @@ export default function ClientsPage() {
     if (!pendingDeleteClient) return
     if (deleteBlocked) {
       await workforceApi.updateClient(pendingDeleteClient.id, { status: "archived" })
+      toast({ title: "Клієнта архівовано", description: "Клієнт успішно перенесений в архів." })
     } else {
       await workforceApi.deleteClient(pendingDeleteClient.id)
     }
@@ -178,11 +180,30 @@ export default function ClientsPage() {
     <Dialog open={!!pendingDeleteClient} onOpenChange={() => setPendingDeleteClient(null)}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{deleteBlocked ? "Неможливо видалити клієнта" : "Видалити клієнта?"}</DialogTitle>
-          <DialogDescription>
-            {deleteBlocked ? "Цей клієнт має пов’язані проєкти, витрати або фінансову історію. Щоб не втратити історичні дані, клієнта можна лише архівувати. Архівний клієнт зникне зі стандартного списку, але проєкти та фінансова історія збережуться. Його можна буде знайти через фільтр “Архівні”." : "Клієнт буде повністю видалений без можливості відновлення."}
-          </DialogDescription>
+          <DialogTitle className="flex items-center gap-2">{deleteBlocked ? <><TriangleAlert className="size-5 text-amber-600" /> Неможливо видалити клієнта</> : "Видалити клієнта?"}</DialogTitle>
+          {!deleteBlocked && <DialogDescription>Клієнт буде повністю видалений без можливості відновлення.</DialogDescription>}
         </DialogHeader>
+        {deleteBlocked && (
+          <div className="space-y-4 text-sm">
+            <div>
+              <p className="font-medium mb-1">Цей клієнт має:</p>
+              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                <li>пов’язані проєкти</li>
+                <li>витрати</li>
+                <li>фінансову історію</li>
+              </ul>
+              <p className="mt-2 text-muted-foreground">Щоб не втратити історичні дані, клієнта можна лише архівувати.</p>
+            </div>
+            <div className="rounded-md border p-3 bg-muted/40">
+              <p className="font-medium mb-1 flex items-center gap-2"><Archive className="size-4" /> Архівний клієнт:</p>
+              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                <li>зникне зі стандартного списку</li>
+                <li>збереже проєкти та фінансову історію</li>
+                <li>буде доступний через фільтр “Архівні”</li>
+              </ul>
+            </div>
+          </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => setPendingDeleteClient(null)}>Скасувати</Button>
           <Button variant={deleteBlocked ? "default" : "destructive"} onClick={confirmDeleteOrArchive}>{deleteBlocked ? "Архівувати" : "Видалити"}</Button>
