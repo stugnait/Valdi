@@ -99,19 +99,19 @@ export function formatCurrency(amount: number, currency: Currency = "USD", local
 
 // Categories
 export const expenseCategories = [
-  { id: "infrastructure", name: "Infrastructure", color: "#3B82F6" },
-  { id: "software", name: "Software", color: "#8B5CF6" },
-  { id: "office", name: "Office", color: "#F59E0B" },
-  { id: "legal", name: "Legal", color: "#EF4444" },
-  { id: "marketing", name: "Marketing", color: "#EC4899" },
-  { id: "equipment", name: "Equipment", color: "#10B981" },
-  { id: "food", name: "Food", color: "#F97316" },
-  { id: "travel", name: "Travel", color: "#06B6D4" },
-  { id: "education", name: "Education", color: "#6366F1" },
-  { id: "training", name: "Training", color: "#4F46E5" },
-  { id: "team-event", name: "Team Event", color: "#0EA5E9" },
-  { id: "emergency", name: "Emergency", color: "#DC2626" },
-  { id: "other", name: "Other", color: "#64748B" },
+  { id: "infrastructure", name: "Інфраструктура", color: "#3B82F6" },
+  { id: "software", name: "Програмне забезпечення", color: "#8B5CF6" },
+  { id: "office", name: "Офіс", color: "#F59E0B" },
+  { id: "legal", name: "Юридичні", color: "#EF4444" },
+  { id: "marketing", name: "Маркетинг", color: "#EC4899" },
+  { id: "equipment", name: "Обладнання", color: "#10B981" },
+  { id: "food", name: "Харчування", color: "#F97316" },
+  { id: "travel", name: "Подорожі", color: "#06B6D4" },
+  { id: "education", name: "Освіта", color: "#6366F1" },
+  { id: "training", name: "Тренінги", color: "#4F46E5" },
+  { id: "team-event", name: "Командні події", color: "#0EA5E9" },
+  { id: "emergency", name: "Надзвичайні", color: "#DC2626" },
+  { id: "other", name: "Інше", color: "#64748B" },
 ]
 
 // Mock recurring expenses

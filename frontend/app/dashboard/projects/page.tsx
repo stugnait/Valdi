@@ -54,7 +54,7 @@ const statusFilters: ProjectStatus[] = ["lead", "active", "finished", "paused"]
 export default function ProjectsHubPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus[]>(["active", "lead"])
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus[]>(["lead", "active", "finished", "paused"])
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -80,6 +80,7 @@ export default function ProjectsHubPage() {
         createdAt: apiProject.created_at,
         totalRevenue: 0,
         activeProjects: 0,
+        status: "lead",
       },
       status: apiProject.status,
       startDate: apiProject.start_date,
@@ -91,12 +92,13 @@ export default function ProjectsHubPage() {
       clientHourlyRate: apiProject.client_hourly_rate ? Number(apiProject.client_hourly_rate) : undefined,
       monthlyCap: apiProject.monthly_cap ?? undefined,
       billingCycle: apiProject.billing_cycle ?? undefined,
-      taxReservePercent: apiProject.tax_reserve_percent ? Number(apiProject.tax_reserve_percent) : undefined,
       revenue,
       laborCost,
       directOverheads,
       bufferPercent: Number(apiProject.buffer_percent || 0),
       allocations: [],
+      teamId: apiProject.team ? apiProject.team.toString() : undefined,
+      teamName: apiProject.team_name || undefined,
       invoices: [],
       expenses: [],
       budgetUsedPercent,
@@ -150,16 +152,22 @@ export default function ProjectsHubPage() {
       maximumFractionDigits: 0,
     }).format(value)
   }
+  const getPlannedFinance = (project: Project) => {
+    const plannedRevenue = project.totalContractValue || 0
+    const plannedBuffer = plannedRevenue * ((project.bufferPercent || 0) / 100)
+    const plannedCost = project.laborCost + project.directOverheads + plannedBuffer
+    const plannedProfit = plannedRevenue - plannedCost
+    const plannedMargin = plannedRevenue > 0 ? (plannedProfit / plannedRevenue) * 100 : 0
+    return { plannedRevenue, plannedCost, plannedProfit, plannedMargin }
+  }
 
   // Header stats
   const activeProjects = projects.filter(p => p.status === "active")
   const totalPipelineValue = activeProjects.reduce((sum, p) => sum + (p.totalContractValue || 0), 0)
   const avgMargin = activeProjects.length > 0
-    ? activeProjects.reduce((sum, p) => sum + p.profitMargin, 0) / activeProjects.length
+    ? activeProjects.reduce((sum, p) => sum + getPlannedFinance(p).plannedMargin, 0) / activeProjects.length
     : 0
-  const activeTeamsCount = new Set(
-    activeProjects.flatMap(p => p.allocations.map(a => a.teamId))
-  ).size
+  const activeTeamsCount = new Set(activeProjects.map((p) => p.teamId).filter(Boolean)).size
 
   const toggleStatusFilter = (status: ProjectStatus) => {
     setStatusFilter(prev => 
@@ -288,8 +296,9 @@ export default function ProjectsHubPage() {
       {/* Projects Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredProjects.map((project) => {
-          const healthColor = getBudgetHealthColor(project.budgetUsedPercent, project.netProfit)
-          const isUnprofitable = project.netProfit < 0
+          const { plannedProfit, plannedMargin } = getPlannedFinance(project)
+          const healthColor = getBudgetHealthColor(project.budgetUsedPercent, plannedProfit)
+          const isUnprofitable = plannedProfit < 0
 
           return (
             <Card 
@@ -388,12 +397,12 @@ export default function ProjectsHubPage() {
 
                 {/* Profitability */}
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Чистий прибуток</span>
+                  <span className="text-sm text-muted-foreground">Очікуваний прибуток</span>
                   <div className="flex items-center gap-2">
                     <span className={`font-semibold ${isUnprofitable ? "text-destructive" : "text-emerald-600"}`}>
-                      {formatCurrency(project.netProfit)}
+                      {formatCurrency(plannedProfit)}
                     </span>
-                    {project.profitMargin !== 0 && (
+                    {plannedMargin !== 0 && (
                       <Badge 
                         variant="outline"
                         className={`text-xs ${
@@ -402,7 +411,7 @@ export default function ProjectsHubPage() {
                         }`}
                       >
                         <TrendingUp className="mr-1 size-3" />
-                        {project.profitMargin.toFixed(1)}%
+                        {plannedMargin.toFixed(1)}%
                       </Badge>
                     )}
                   </div>
@@ -412,7 +421,9 @@ export default function ProjectsHubPage() {
                 <div className="flex items-center justify-between pt-2 border-t">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Users className="size-3.5" />
-                    <span>{project.allocations.length} членів</span>
+                    <span>
+                      {project.teamName ? `${project.teamName} · команда` : "Команду ще не призначено"}
+                    </span>
                   </div>
                   {project.totalContractValue && (
                     <span className="text-sm font-medium">
@@ -434,17 +445,16 @@ export default function ProjectsHubPage() {
         })}
 
         {/* Add New Project Card */}
-        <Card 
-          className="flex cursor-pointer items-center justify-center border-dashed transition-colors hover:border-primary hover:bg-muted/50"
-          onClick={() => window.location.href = "/dashboard/projects/create"}
-        >
-          <CardContent className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed">
-              <Plus className="size-6" />
-            </div>
-            <span className="text-sm font-medium">Створити проєкт</span>
-          </CardContent>
-        </Card>
+        <Link href="/dashboard/projects/create" className="block">
+          <Card className="flex cursor-pointer items-center justify-center border-dashed transition-colors hover:border-primary hover:bg-muted/50">
+            <CardContent className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed">
+                <Plus className="size-6" />
+              </div>
+              <span className="text-sm font-medium">Створити проєкт</span>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Empty State */}
