@@ -1,3 +1,6 @@
+from decimal import Decimal
+
+from django.db.models import Sum
 from rest_framework import serializers
 
 from .models import (
@@ -103,29 +106,114 @@ class DeveloperSerializer(serializers.ModelSerializer):
 
 class ClientSerializer(serializers.ModelSerializer):
     active_projects = serializers.SerializerMethodField()
+    total_projects = serializers.SerializerMethodField()
+    total_revenue_computed = serializers.SerializerMethodField()
+    total_cost = serializers.SerializerMethodField()
+    profit = serializers.SerializerMethodField()
+    margin_percent = serializers.SerializerMethodField()
 
     class Meta:
         model = Client
         fields = (
             'id',
             'name',
-            'company',
-            'email',
+            'company_name',
             'contact_person',
+            'email',
             'phone',
             'country',
+            'website',
             'notes',
+            'status',
             'total_revenue',
-            'is_active',
             'active_projects',
+            'total_projects',
+            'total_revenue_computed',
+            'total_cost',
+            'profit',
+            'margin_percent',
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('id', 'created_at', 'updated_at', 'active_projects')
+        read_only_fields = ('id', 'created_at', 'updated_at', 'active_projects', 'total_projects', 'total_revenue_computed', 'total_cost', 'profit', 'margin_percent')
 
     def get_active_projects(self, obj):
         return obj.projects.filter(status=Project.Status.ACTIVE).count()
 
+
+
+    def get_total_projects(self, obj):
+        return obj.projects.count()
+
+    def _project_finance(self, obj):
+        projects_qs = obj.projects.filter(created_by=obj.created_by)
+        project_sums = projects_qs.aggregate(
+            revenue=Sum('revenue'),
+            labor=Sum('labor_cost'),
+            overheads=Sum('direct_overheads'),
+        )
+        invoice_paid_sum = obj.invoices.filter(created_by=obj.created_by, status='paid').aggregate(total=Sum('amount'))['total']
+
+        project_revenue = project_sums.get('revenue') or Decimal('0')
+        total_revenue = invoice_paid_sum if invoice_paid_sum is not None else project_revenue
+        total_cost = (project_sums.get('labor') or Decimal('0')) + (project_sums.get('overheads') or Decimal('0'))
+        profit = total_revenue - total_cost
+        margin_percent = (profit / total_revenue * Decimal('100')) if total_revenue else Decimal('0')
+        return total_revenue, total_cost, profit, margin_percent
+
+    def get_total_revenue_computed(self, obj):
+        return self._project_finance(obj)[0]
+
+    def get_total_cost(self, obj):
+        return self._project_finance(obj)[1]
+
+    def get_profit(self, obj):
+        return self._project_finance(obj)[2]
+
+    def get_margin_percent(self, obj):
+        return round(float(self._project_finance(obj)[3]), 2)
+
+    def validate(self, attrs):
+        data = attrs.copy()
+        if self.instance:
+            for key in ('name', 'company_name', 'contact_person', 'email', 'phone', 'country', 'status'):
+                data[key] = data.get(key, getattr(self.instance, key, ''))
+
+        required_errors = {}
+        for key, message in {
+            'company_name': 'Введіть назву клієнта',
+            'contact_person': 'Введіть контактну особу',
+            'status': 'Оберіть статус',
+        }.items():
+            if not str(data.get(key, '')).strip():
+                required_errors[key] = message
+
+        if required_errors:
+            raise serializers.ValidationError(required_errors)
+
+
+        if not str(data.get('name', '')).strip():
+            company_name = str(data.get('company_name', '')).strip()
+            if company_name:
+                attrs['name'] = company_name
+
+        email = str(data.get('email', '')).strip()
+        phone = str(data.get('phone', '')).strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+        status_value = str(data.get('status', '')).strip()
+
+        import re
+        if email and not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+            raise serializers.ValidationError({'email': 'Введіть коректний Email'})
+        if phone and not re.match(r'^\+?[1-9]\d{7,14}$', phone):
+            raise serializers.ValidationError({'phone': 'Введіть коректний номер телефону'})
+        allowed_statuses = {choice[0] for choice in Client.Status.choices}
+        if status_value not in allowed_statuses:
+            raise serializers.ValidationError({'status': 'Оберіть статус'})
+
+        if not email and not phone:
+            raise serializers.ValidationError({'non_field_errors': 'Вкажіть хоча б один спосіб зв’язку'})
+
+        return attrs
 
 class ProjectSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.name', read_only=True)
@@ -196,6 +284,38 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'created_at', 'updated_at', 'client_name', 'project_name')
+
+
+    def get_total_projects(self, obj):
+        return obj.projects.count()
+
+    def _project_finance(self, obj):
+        projects_qs = obj.projects.filter(created_by=obj.created_by)
+        project_sums = projects_qs.aggregate(
+            revenue=Sum('revenue'),
+            labor=Sum('labor_cost'),
+            overheads=Sum('direct_overheads'),
+        )
+        invoice_paid_sum = obj.invoices.filter(created_by=obj.created_by, status='paid').aggregate(total=Sum('amount'))['total']
+
+        project_revenue = project_sums.get('revenue') or Decimal('0')
+        total_revenue = invoice_paid_sum if invoice_paid_sum is not None else project_revenue
+        total_cost = (project_sums.get('labor') or Decimal('0')) + (project_sums.get('overheads') or Decimal('0'))
+        profit = total_revenue - total_cost
+        margin_percent = (profit / total_revenue * Decimal('100')) if total_revenue else Decimal('0')
+        return total_revenue, total_cost, profit, margin_percent
+
+    def get_total_revenue_computed(self, obj):
+        return self._project_finance(obj)[0]
+
+    def get_total_cost(self, obj):
+        return self._project_finance(obj)[1]
+
+    def get_profit(self, obj):
+        return self._project_finance(obj)[2]
+
+    def get_margin_percent(self, obj):
+        return round(float(self._project_finance(obj)[3]), 2)
 
     def validate(self, attrs):
         user = self.context['request'].user
@@ -275,6 +395,38 @@ class InvoiceSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'created_at', 'updated_at', 'client_name', 'project_name')
+
+
+    def get_total_projects(self, obj):
+        return obj.projects.count()
+
+    def _project_finance(self, obj):
+        projects_qs = obj.projects.filter(created_by=obj.created_by)
+        project_sums = projects_qs.aggregate(
+            revenue=Sum('revenue'),
+            labor=Sum('labor_cost'),
+            overheads=Sum('direct_overheads'),
+        )
+        invoice_paid_sum = obj.invoices.filter(created_by=obj.created_by, status='paid').aggregate(total=Sum('amount'))['total']
+
+        project_revenue = project_sums.get('revenue') or Decimal('0')
+        total_revenue = invoice_paid_sum if invoice_paid_sum is not None else project_revenue
+        total_cost = (project_sums.get('labor') or Decimal('0')) + (project_sums.get('overheads') or Decimal('0'))
+        profit = total_revenue - total_cost
+        margin_percent = (profit / total_revenue * Decimal('100')) if total_revenue else Decimal('0')
+        return total_revenue, total_cost, profit, margin_percent
+
+    def get_total_revenue_computed(self, obj):
+        return self._project_finance(obj)[0]
+
+    def get_total_cost(self, obj):
+        return self._project_finance(obj)[1]
+
+    def get_profit(self, obj):
+        return self._project_finance(obj)[2]
+
+    def get_margin_percent(self, obj):
+        return round(float(self._project_finance(obj)[3]), 2)
 
     def validate(self, attrs):
         user = self.context['request'].user
@@ -413,6 +565,38 @@ class RecurringExpenseSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
 
+
+    def get_total_projects(self, obj):
+        return obj.projects.count()
+
+    def _project_finance(self, obj):
+        projects_qs = obj.projects.filter(created_by=obj.created_by)
+        project_sums = projects_qs.aggregate(
+            revenue=Sum('revenue'),
+            labor=Sum('labor_cost'),
+            overheads=Sum('direct_overheads'),
+        )
+        invoice_paid_sum = obj.invoices.filter(created_by=obj.created_by, status='paid').aggregate(total=Sum('amount'))['total']
+
+        project_revenue = project_sums.get('revenue') or Decimal('0')
+        total_revenue = invoice_paid_sum if invoice_paid_sum is not None else project_revenue
+        total_cost = (project_sums.get('labor') or Decimal('0')) + (project_sums.get('overheads') or Decimal('0'))
+        profit = total_revenue - total_cost
+        margin_percent = (profit / total_revenue * Decimal('100')) if total_revenue else Decimal('0')
+        return total_revenue, total_cost, profit, margin_percent
+
+    def get_total_revenue_computed(self, obj):
+        return self._project_finance(obj)[0]
+
+    def get_total_cost(self, obj):
+        return self._project_finance(obj)[1]
+
+    def get_profit(self, obj):
+        return self._project_finance(obj)[2]
+
+    def get_margin_percent(self, obj):
+        return round(float(self._project_finance(obj)[3]), 2)
+
     def validate(self, attrs):
         user = self.context['request'].user
         team = attrs.get('team') if 'team' in attrs else getattr(self.instance, 'team', None)
@@ -447,6 +631,38 @@ class VariableExpenseSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'external_tx_id', 'created_at', 'updated_at')
+
+
+    def get_total_projects(self, obj):
+        return obj.projects.count()
+
+    def _project_finance(self, obj):
+        projects_qs = obj.projects.filter(created_by=obj.created_by)
+        project_sums = projects_qs.aggregate(
+            revenue=Sum('revenue'),
+            labor=Sum('labor_cost'),
+            overheads=Sum('direct_overheads'),
+        )
+        invoice_paid_sum = obj.invoices.filter(created_by=obj.created_by, status='paid').aggregate(total=Sum('amount'))['total']
+
+        project_revenue = project_sums.get('revenue') or Decimal('0')
+        total_revenue = invoice_paid_sum if invoice_paid_sum is not None else project_revenue
+        total_cost = (project_sums.get('labor') or Decimal('0')) + (project_sums.get('overheads') or Decimal('0'))
+        profit = total_revenue - total_cost
+        margin_percent = (profit / total_revenue * Decimal('100')) if total_revenue else Decimal('0')
+        return total_revenue, total_cost, profit, margin_percent
+
+    def get_total_revenue_computed(self, obj):
+        return self._project_finance(obj)[0]
+
+    def get_total_cost(self, obj):
+        return self._project_finance(obj)[1]
+
+    def get_profit(self, obj):
+        return self._project_finance(obj)[2]
+
+    def get_margin_percent(self, obj):
+        return round(float(self._project_finance(obj)[3]), 2)
 
     def validate(self, attrs):
         user = self.context['request'].user
