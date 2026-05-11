@@ -36,8 +36,10 @@ export default function ClientsPage() {
   const [countryFilter, setCountryFilter] = useState<string>("all")
   const [profitFilter, setProfitFilter] = useState<string>("all")
 
-  const [formData, setFormData] = useState({ companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", notes: "", status: "lead" as Client["status"] })
+  const [formData, setFormData] = useState({ companyName: "", contactPerson: "", email: "", phone: "", country: "", notes: "", status: "lead" as Client["status"] })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [hasSubmitted, setHasSubmitted] = useState(false)
 
   const mapApiClient = (apiClient: ApiClient): Client => ({
     id: apiClient.id.toString(),
@@ -114,8 +116,8 @@ export default function ClientsPage() {
     const email = formData.email.trim()
     const phone = formData.phone.trim()
     if (!email && !phone) {
-      errors.email = "Вкажіть хоча б один спосіб зв’язку"
-      errors.phone = "Вкажіть хоча б один спосіб зв’язку"
+      errors.email = "Вкажіть Email або номер телефону"
+      errors.phone = "Вкажіть Email або номер телефону"
     }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Введіть коректний Email"
     if (phone && !/^\+?[1-9]\d{7,14}$/.test(phone.replace(/[\s()-]/g, ""))) errors.phone = "Введіть коректний номер телефону"
@@ -125,7 +127,9 @@ export default function ClientsPage() {
   }
 
   const onSave = async () => {
+    setHasSubmitted(true)
     if (!validateClientForm()) return
+    setIsSubmitting(true)
     const payload = { name: formData.companyName.trim(), company_name: formData.companyName.trim(), contact_person: formData.contactPerson.trim(), email: formData.email.trim(), phone: formData.phone.trim(), country: formData.country.trim(), notes: formData.notes.trim(), status: formData.status }
     try {
       if (editingClient) await workforceApi.updateClient(editingClient.id, payload)
@@ -133,16 +137,19 @@ export default function ClientsPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Не вдалося зберегти клієнта"
       setError(msg.includes("400") ? "Перевірте коректність заповнення полів" : msg)
+      setIsSubmitting(false)
       return
     }
     setIsAddDialogOpen(false); setEditingClient(null)
     setFormErrors({})
-    setFormData({ companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", notes: "", status: "lead" })
+    setHasSubmitted(false)
+    setFormData({ companyName: "", contactPerson: "", email: "", phone: "", country: "", notes: "", status: "lead" })
     await loadData()
+    setIsSubmitting(false)
   }
 
   return <div className="space-y-5">
-    <div className="flex items-center justify-between"><h1 className="text-2xl font-semibold">Клієнти</h1><Button onClick={() => setIsAddDialogOpen(true)}><Plus className="size-4 mr-2"/>Додати клієнта</Button></div>
+    <div className="flex items-center justify-between"><h1 className="text-2xl font-semibold">Клієнти</h1><Button onClick={() => { setHasSubmitted(false); setFormErrors({}); setIsAddDialogOpen(true) }}><Plus className="size-4 mr-2"/>Додати клієнта</Button></div>
 
     <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
       <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Усього клієнтів</div><div className="text-xl font-semibold">{totalClients}</div></CardContent></Card>
@@ -246,22 +253,22 @@ export default function ClientsPage() {
         </DialogHeader>
         <div className="grid gap-3">
           <Label>Назва компанії *</Label>
-          <Input value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} />
+          <Input placeholder="Наприклад: Acme Inc." value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} />
           {formErrors.companyName && <p className="text-xs text-destructive">{formErrors.companyName}</p>}
           <Label>Контактна особа *</Label>
-          <Input value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} />
+          <Input placeholder="Наприклад: Іван Петренко" value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} />
           {formErrors.contactPerson && <p className="text-xs text-destructive">{formErrors.contactPerson}</p>}
           <Label>Email</Label>
-          <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+          <Input type="email" placeholder="Наприклад: contact@acme.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
           {formErrors.email && <p className="text-xs text-destructive">{formErrors.email}</p>}
           <Label>Телефон</Label>
-          <p className="text-xs text-muted-foreground">Вкажіть хоча б один спосіб зв’язку</p>
-          <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+          {!hasSubmitted && <p className="text-xs text-muted-foreground">Вкажіть хоча б один спосіб зв’язку</p>}
+          <Input placeholder="Наприклад: +380 67 123 45 67" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
           {formErrors.phone && <p className="text-xs text-destructive">{formErrors.phone}</p>}
           <Label>Країна</Label>
-          <Select value={formData.country} onValueChange={(v) => setFormData({ ...formData, country: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+          <Select value={formData.country || "none"} onValueChange={(v) => setFormData({ ...formData, country: v === "none" ? "" : v })}>
+            <SelectTrigger><SelectValue placeholder="Оберіть країну" /></SelectTrigger>
+            <SelectContent><SelectItem value="none">Оберіть країну</SelectItem>{countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
           {formErrors.country && <p className="text-xs text-destructive">{formErrors.country}</p>}
           <Label>Статус *</Label>
@@ -277,11 +284,11 @@ export default function ClientsPage() {
           </Select>
           {formErrors.status && <p className="text-xs text-destructive">{formErrors.status}</p>}
           <Label>Нотатки</Label>
-          <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
+          <Textarea placeholder="Додайте внутрішні нотатки про клієнта…" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Скасувати</Button>
-          <Button onClick={onSave}>Зберегти</Button>
+          <Button onClick={onSave} disabled={isSubmitting || (hasSubmitted && Object.keys(formErrors).length > 0)}>{isSubmitting ? "Збереження..." : "Зберегти"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
