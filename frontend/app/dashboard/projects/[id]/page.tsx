@@ -698,7 +698,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   // Cost estimator
   const estimatedMonthlyCost = project.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
-  const breakEvenRevenue = estimatedMonthlyCost * 1.3 // 30% margin minimum
+  const breakEvenДохід = estimatedMonthlyCost * 1.3 // 30% margin minimum
 
   const getInvoiceStatusIcon = (status: InvoiceStatus) => {
     switch (status) {
@@ -1058,7 +1058,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <div className="p-3 rounded-lg bg-muted/50 space-y-2">
                   <p className="text-sm font-medium">Щоб бути в плюсі:</p>
                   <p className="text-lg font-bold text-primary">
-                    мін. {formatCurrency(breakEvenRevenue)}/міс
+                    мін. {formatCurrency(breakEvenДохід)}/міс
                   </p>
                   <p className="text-xs text-muted-foreground">
                     При маржі 30%
