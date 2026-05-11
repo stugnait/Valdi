@@ -60,7 +60,6 @@ interface FormData {
   // Fixed
   totalContractValue: string
   milestones: Milestone[]
-  taxReservePercent: string
   // T&M
   clientHourlyRate: string
   monthlyCap: string
@@ -90,7 +89,6 @@ const initialFormData: FormData = {
     { id: "m2", name: "Етап 1", percentage: 40, amount: 0 },
     { id: "m3", name: "Фінальна здача", percentage: 30, amount: 0 },
   ],
-  taxReservePercent: "5",
   clientHourlyRate: "",
   monthlyCap: "",
   billingCycle: "monthly",
@@ -313,7 +311,6 @@ export default function CreateProjectPage() {
         labor_cost: estimatedMonthlyCost.toFixed(2),
         direct_overheads: directExpensesTotal.toFixed(2),
         buffer_percent: formData.bufferPercent || "0",
-        tax_reserve_percent: formData.billingModel === "fixed" && formData.taxReservePercent ? formData.taxReservePercent : null,
         team: formData.selectedTeamId ? Number(formData.selectedTeamId) : null,
       })
 
@@ -639,32 +636,6 @@ export default function CreateProjectPage() {
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="taxReserve"
-                          checked={!!formData.taxReservePercent}
-                          onChange={(e) => setFormData({ 
-                            ...formData, 
-                            taxReservePercent: e.target.checked ? "5" : "" 
-                          })}
-                          className="rounded border-input"
-                        />
-                        <Label htmlFor="taxReserve">Відкладати податковий резерв</Label>
-                      </div>
-                      {formData.taxReservePercent && (
-                        <div className="flex items-center gap-2 ml-6">
-                          <Input
-                            type="number"
-                            value={formData.taxReservePercent}
-                            onChange={(e) => setFormData({ ...formData, taxReservePercent: e.target.value })}
-                            className="w-20"
-                          />
-                          <span className="text-sm text-muted-foreground">% від кожного платежу</span>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 )}
 

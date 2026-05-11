@@ -112,7 +112,6 @@ export interface Project {
   // Fixed Price specific
   totalContractValue?: number
   milestones?: Milestone[]
-  taxReservePercent?: number
   
   // T&M specific
   clientHourlyRate?: number
@@ -232,7 +231,6 @@ export const mockProjects: Project[] = [
       { id: "m2", name: "MVP Release", percentage: 40, amount: 34000 },
       { id: "m3", name: "Final Delivery", percentage: 30, amount: 25500 },
     ],
-    taxReservePercent: 5,
     revenue: 59500,
     laborCost: 32400,
     directOverheads: 2800,
@@ -308,7 +306,6 @@ export const mockProjects: Project[] = [
       { id: "m6", name: "Phase 2: Trading", percentage: 30, amount: 45000 },
       { id: "m7", name: "Final Launch", percentage: 20, amount: 30000 },
     ],
-    taxReservePercent: 5,
     revenue: 30000,
     laborCost: 42000,
     directOverheads: 5200,
@@ -345,7 +342,6 @@ export const mockProjects: Project[] = [
       { id: "m8", name: "Prepayment", percentage: 50, amount: 4000 },
       { id: "m9", name: "Delivery", percentage: 50, amount: 4000 },
     ],
-    taxReservePercent: 5,
     revenue: 8000,
     laborCost: 4200,
     directOverheads: 300,
@@ -382,7 +378,6 @@ export const mockProjects: Project[] = [
       { id: "m12", name: "Development", percentage: 35, amount: 22750 },
       { id: "m13", name: "Launch", percentage: 15, amount: 9750 },
     ],
-    taxReservePercent: 5,
     revenue: 0,
     laborCost: 0,
     directOverheads: 0,

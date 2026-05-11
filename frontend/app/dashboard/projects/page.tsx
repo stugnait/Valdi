@@ -92,7 +92,6 @@ export default function ProjectsHubPage() {
       clientHourlyRate: apiProject.client_hourly_rate ? Number(apiProject.client_hourly_rate) : undefined,
       monthlyCap: apiProject.monthly_cap ?? undefined,
       billingCycle: apiProject.billing_cycle ?? undefined,
-      taxReservePercent: apiProject.tax_reserve_percent ? Number(apiProject.tax_reserve_percent) : undefined,
       revenue,
       laborCost,
       directOverheads,
