@@ -89,21 +89,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const getProjectAllocationsStorageKey = (projectId: string) => `project_allocations_${projectId}`
 
   const calculateRuntimeFinancials = (currentProject: Project) => {
-    const totalRevenue = currentProject.invoices.length > 0
-      ? currentProject.invoices
-        .filter(i => i.status === "paid")
-        .reduce((sum, i) => sum + i.amount, 0)
-      : currentProject.revenue
+    const totalRevenue = currentProject.invoices
+      .filter(i => i.status === "paid")
+      .reduce((sum, i) => sum + i.amount, 0)
 
-    const totalLaborCost = currentProject.allocations.length > 0
-      ? currentProject.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
-      : currentProject.laborCost
+    // Фактична праця має рахуватись лише з recorded actuals (payroll/worklogs/time tracking).
+    // Прив'язка команди та allocation — це план, а не факт.
+    const totalLaborCost = 0
 
-    const totalExpenses = currentProject.expenses.length > 0
-      ? currentProject.expenses
-        .filter((expense) => expense.impactProjectProfitability ?? true)
-        .reduce((sum, e) => sum + (e.amountUsd ?? e.amount), 0)
-      : currentProject.directOverheads
+    // Фактичні витрати: лише реально зафіксовані витрати проєкту.
+    const totalExpenses = currentProject.expenses
+      .filter((expense) => expense.impactProjectProfitability ?? true)
+      .reduce((sum, e) => sum + (e.amountUsd ?? e.amount), 0)
 
     const netProfit = totalRevenue - totalLaborCost - totalExpenses
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
