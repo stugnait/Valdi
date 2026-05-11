@@ -185,14 +185,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     return availableTeams.flatMap((team) =>
       team.memberships.map((membership) => {
         const hourlyRate = developerRateById[membership.developer] || 0
-        const memberRole = availableDevelopers.find((developer) => developer.id === membership.developer)?.role || "Developer"
+        const memberRole = availableDevelopers.find((developer) => developer.id === membership.developer)?.role || "Розробник"
         const defaultAllocation = membership.allocation || 100
         const monthlyCost = hourlyRate * 160 * (defaultAllocation / 100)
 
         return {
           id: `alloc-${team.id}-${membership.developer}`,
           memberId: `${team.id}-${membership.developer}`,
-          memberName: membership.developer_name || `Developer #${membership.developer}`,
+          memberName: membership.developer_name || `Розробник #${membership.developer}`,
           memberRole,
           teamId: String(team.id),
           teamName: team.name,
@@ -278,7 +278,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         setProject({ ...mappedProject, invoices: projectInvoices, allocations: initialAllocations, expenses: projectDirectExpenses })
       } catch (loadError) {
         setProject(null)
-        setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проект")
+        setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проєкт")
       } finally {
         setIsLoading(false)
       }
@@ -341,7 +341,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     description: "",
   })
 
-  // Resource Allocation CRUD
+  // Розподіл ресурсів CRUD
   const [isAllocationDialogOpen, setIsAllocationDialogOpen] = useState(false)
   const [isDeleteAllocationOpen, setIsDeleteAllocationOpen] = useState(false)
   const [selectedAllocation, setSelectedAllocation] = useState<ResourceAllocation | null>(null)
@@ -377,11 +377,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       teams.flatMap((team) =>
         team.memberships.map((membership) => {
           const hourlyRate = developerRateById[membership.developer] || 0
-          const developerRole = developers.find((developer) => developer.id === membership.developer)?.role || "Developer"
+          const developerRole = developers.find((developer) => developer.id === membership.developer)?.role || "Розробник"
           return {
             id: `${team.id}-${membership.developer}`,
             developerId: membership.developer,
-            name: membership.developer_name || `Developer #${membership.developer}`,
+            name: membership.developer_name || `Розробник #${membership.developer}`,
             role: developerRole,
             teamId: team.id.toString(),
             teamName: team.name,
@@ -395,7 +395,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-muted-foreground">Завантаження проекту...</p>
+        <p className="text-muted-foreground">Завантаження проєкту...</p>
       </div>
     )
   }
@@ -403,9 +403,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   if (!project) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-muted-foreground">{error || "Проект не знайдено"}</p>
+        <p className="text-muted-foreground">{error || "Проєкт не знайдено"}</p>
         <Button variant="outline" className="mt-4" asChild>
-          <Link href="/dashboard/projects">Повернутися до Project Hub</Link>
+          <Link href="/dashboard/projects">Повернутися до портфеля проєктів</Link>
         </Button>
       </div>
     )
@@ -695,7 +695,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   // Cost estimator
   const estimatedMonthlyCost = project.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
-  const breakEvenRevenue = estimatedMonthlyCost * 1.3 // 30% margin minimum
+  const breakEvenДохід = estimatedMonthlyCost * 1.3 // 30% margin minimum
 
   const getInvoiceStatusIcon = (status: InvoiceStatus) => {
     switch (status) {
@@ -748,7 +748,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Дохід</CardTitle>
             <DollarSign className="size-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
@@ -758,7 +758,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Labor Cost</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Вартість команди</CardTitle>
             <Users className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -768,7 +768,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Overheads</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Накладні витрати</CardTitle>
             <Receipt className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -778,7 +778,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Net Profit</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Чистий прибуток</CardTitle>
             {netProfit >= 0 ? (
               <TrendingUp className="size-4 text-emerald-500" />
             ) : (
@@ -799,38 +799,38 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       {/* Tabs */}
       <Tabs defaultValue="financials" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="financials">Financial P&L</TabsTrigger>
-          <TabsTrigger value="resources">Resource Allocation</TabsTrigger>
-          <TabsTrigger value="invoices">Invoicing & Payments</TabsTrigger>
+          <TabsTrigger value="financials">Фінанси проєкту</TabsTrigger>
+          <TabsTrigger value="resources">Розподіл ресурсів</TabsTrigger>
+          <TabsTrigger value="invoices">Інвойси та оплати</TabsTrigger>
         </TabsList>
 
-        {/* Tab A: Financial P&L */}
+        {/* Tab A: Фінанси проєкту */}
         <TabsContent value="financials" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             {/* P&L Breakdown */}
             <Card>
               <CardHeader>
-                <CardTitle>Profit & Loss Statement</CardTitle>
-                <CardDescription>Розрахунок прибутку проекту</CardDescription>
+                <CardTitle>Розрахунок прибутку та збитків</CardTitle>
+                <CardDescription>Розрахунок прибутку проєкту</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-muted-foreground">Revenue (Оплачені інвойси)</span>
+                    <span className="text-muted-foreground">Дохід (Оплачені інвойси)</span>
                     <span className="font-semibold text-emerald-600">+{formatCurrency(totalRevenue)}</span>
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-muted-foreground">Labor Cost (Команда)</span>
+                    <span className="text-muted-foreground">Вартість команди (Команда)</span>
                     <span className="font-semibold text-destructive">-{formatCurrency(totalLaborCost)}</span>
                   </div>
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-muted-foreground">Direct Overheads (Витрати)</span>
+                    <span className="text-muted-foreground">Накладні витрати (Витрати)</span>
                     <span className="font-semibold text-destructive">-{formatCurrency(totalExpenses)}</span>
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3 -mx-3">
-                    <span className="font-semibold">Net Profit</span>
+                    <span className="font-semibold">Чистий прибуток</span>
                     <span className={`text-xl font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
                       {formatCurrency(netProfit)}
                     </span>
@@ -842,13 +842,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <span className="text-muted-foreground">Формула:</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 font-mono bg-muted/50 p-2 rounded">
-                    Profit = Revenue - (LaborCost + DirectOverheads)
+                    Profit = Дохід - (LaborCost + DirectНакладні витрати)
                   </p>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Direct Expenses */}
+            {/* Прямі витрати */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -878,7 +878,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           <div className="flex items-center gap-2 mt-0.5">
                             <Badge variant="outline" className="text-xs">{expense.category}</Badge>
                             <Badge variant={expense.expenseType === "recurring" ? "secondary" : "default"} className="text-xs">
-                              {expense.expenseType === "recurring" ? "Regular" : "Irregular"}
+                              {expense.expenseType === "recurring" ? "Регулярні" : "Разові"}
                             </Badge>
                             <span className="text-xs text-muted-foreground">{formatDate(expense.date)}</span>
                           </div>
@@ -938,7 +938,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           {project.billingModel === "fixed" && project.milestones && (
             <Card>
               <CardHeader>
-                <CardTitle>Contract Milestones</CardTitle>
+                <CardTitle>Contract Етапи оплати</CardTitle>
                 <CardDescription>
                   Загальна вартість контракту: {formatCurrency(project.totalContractValue || 0)}
                 </CardDescription>
@@ -972,7 +972,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           )}
         </TabsContent>
 
-        {/* Tab B: Resource Allocation */}
+        {/* Tab B: Розподіл ресурсів */}
         <TabsContent value="resources" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             {/* Team Selector */}
@@ -981,7 +981,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
                     <CardTitle>Team Allocation</CardTitle>
-                    <CardDescription>Члени команди на проекті</CardDescription>
+                    <CardDescription>Члени команди на проєкті</CardDescription>
                   </div>
                   <Button onClick={() => setIsAllocationDialogOpen(true)}>
                     <Plus className="mr-2 size-4" />
@@ -1025,7 +1025,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                             <div className="flex items-center gap-3">
                               <div>
                                 <p className="text-sm font-medium">{allocation.allocation}%</p>
-                                <p className="text-xs text-muted-foreground">allocation</p>
+                                <p className="text-xs text-muted-foreground">залучення</p>
                               </div>
                               <Separator orientation="vertical" className="h-8" />
                               <div>
@@ -1092,7 +1092,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <div className="p-3 rounded-lg bg-muted/50 space-y-2">
                   <p className="text-sm font-medium">Щоб бути в плюсі:</p>
                   <p className="text-lg font-bold text-primary">
-                    мін. {formatCurrency(breakEvenRevenue)}/міс
+                    мін. {formatCurrency(breakEvenДохід)}/міс
                   </p>
                   <p className="text-xs text-muted-foreground">
                     При маржі 30%
@@ -1114,7 +1114,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </TabsContent>
 
-        {/* Tab C: Invoicing & Payments */}
+        {/* Tab C: Інвойси та оплати */}
         <TabsContent value="invoices" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -1250,7 +1250,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <div className="space-y-2">
               <Label>Назва</Label>
               <Input 
-                placeholder="напр. Prepayment 50%" 
+                placeholder="напр. Передоплата 50%" 
                 value={invoiceForm.name}
                 onChange={(e) => setInvoiceForm({ ...invoiceForm, name: e.target.value })}
               />
@@ -1305,7 +1305,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       <Dialog open={isAllocationDialogOpen} onOpenChange={setIsAllocationDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedAllocation ? "Редагувати allocation" : "Додати члена команди"}</DialogTitle>
+            <DialogTitle>{selectedAllocation ? "Редагувати залучення" : "Додати члена команди"}</DialogTitle>
             <DialogDescription>Виберіть члена команди та вкажіть відсоток часу</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1340,7 +1340,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 step={10}
               />
               <p className="text-xs text-muted-foreground">
-                Скільки часу цей спеціаліст витрачатиме на проект
+                Скільки часу цей спеціаліст витрачатиме на проєкт
               </p>
             </div>
             {allocationForm.memberId && (
@@ -1369,7 +1369,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{selectedExpense ? "Редагувати витрату" : "Нова витрата"}</DialogTitle>
-            <DialogDescription>Додайте пряму витрату проекту</DialogDescription>
+            <DialogDescription>Додайте пряму витрату проєкту</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -1400,12 +1400,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <SelectValue placeholder="Оберіть..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Infrastructure">Infrastructure</SelectItem>
-                    <SelectItem value="Software">Software</SelectItem>
-                    <SelectItem value="Assets">Assets</SelectItem>
+                    <SelectItem value="Infrastructure">Інфраструктура</SelectItem>
+                    <SelectItem value="Software">Програмне забезпечення</SelectItem>
+                    <SelectItem value="Assets">Активи</SelectItem>
                     <SelectItem value="API">API</SelectItem>
-                    <SelectItem value="Security">Security</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                    <SelectItem value="Security">Безпека</SelectItem>
+                    <SelectItem value="Other">Інше</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1449,9 +1449,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       <AlertDialog open={isDeleteAllocationOpen} onOpenChange={setIsDeleteAllocationOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Видалити з проекту?</AlertDialogTitle>
+            <AlertDialogTitle>Видалити з проєкту?</AlertDialogTitle>
             <AlertDialogDescription>
-              Ви впевнені, що хочете видалити {selectedAllocation?.memberName} з проекту?
+              Ви впевнені, що хочете видалити {selectedAllocation?.memberName} з проєкту?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
