@@ -299,8 +299,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     const shouldUpdateLocalProject = (
       Math.abs(totalRevenue - project.revenue) > 0.01 ||
-      Math.abs(totalLaborCost - project.laborCost) > 0.01 ||
-      Math.abs(totalExpenses - project.directOverheads) > 0.01 ||
       Math.abs(netProfit - project.netProfit) > 0.01 ||
       Math.abs(profitMargin - project.profitMargin) > 0.01
     )
@@ -309,8 +307,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       setProject(prev => prev ? {
         ...prev,
         revenue: totalRevenue,
-        laborCost: totalLaborCost,
-        directOverheads: totalExpenses,
         netProfit,
         profitMargin,
       } : prev)
@@ -322,8 +318,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     void workforceApi.updateProject(project.id, {
       revenue: totalRevenue.toFixed(2),
-      labor_cost: totalLaborCost.toFixed(2),
-      direct_overheads: totalExpenses.toFixed(2),
     }).catch(() => {
       setError("Дані змінено локально, але не вдалося зберегти на сервері.")
     })
