@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Archive, Eye, MoreHorizontal, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react"
+import { Archive, Check, ChevronsUpDown, Eye, MoreHorizontal, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -16,8 +18,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Client } from "@/lib/types/projects"
 import { ApiClient, ApiProject, workforceApi } from "@/lib/api/workforce"
 import { toast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
-const countries = ["Україна", "Польща", "Німеччина", "Велика Британія", "США", "Канада", "Франція", "Іспанія", "Італія"]
+const regionCodes = ["AF","AX","AL","DZ","AS","AD","AO","AI","AQ","AG","AR","AM","AW","AU","AT","AZ","BS","BH","BD","BB","BY","BE","BZ","BJ","BM","BT","BO","BQ","BA","BW","BV","BR","IO","BN","BG","BF","BI","CV","KH","CM","CA","KY","CF","TD","CL","CN","CX","CC","CO","KM","CG","CD","CK","CR","CI","HR","CU","CW","CY","CZ","DK","DJ","DM","DO","EC","EG","SV","GQ","ER","EE","SZ","ET","FK","FO","FJ","FI","FR","GF","PF","TF","GA","GM","GE","DE","GH","GI","GR","GL","GD","GP","GU","GT","GG","GN","GW","GY","HT","HM","VA","HN","HK","HU","IS","IN","ID","IR","IQ","IE","IM","IL","IT","JM","JP","JE","JO","KZ","KE","KI","KP","KR","KW","KG","LA","LV","LB","LS","LR","LY","LI","LT","LU","MO","MG","MW","MY","MV","ML","MT","MH","MQ","MR","MU","YT","MX","FM","MD","MC","MN","ME","MS","MA","MZ","MM","NA","NR","NP","NL","NC","NZ","NI","NE","NG","NU","NF","MK","MP","NO","OM","PK","PW","PS","PA","PG","PY","PE","PH","PN","PL","PT","PR","QA","RE","RO","RU","RW","BL","SH","KN","LC","MF","PM","VC","WS","SM","ST","SA","SN","RS","SC","SL","SG","SX","SK","SI","SB","SO","ZA","GS","SS","ES","LK","SD","SR","SJ","SE","CH","SY","TW","TJ","TZ","TH","TL","TG","TK","TO","TT","TN","TR","TM","TC","TV","UG","UA","AE","GB","US","UM","UY","UZ","VU","VE","VN","VG","VI","WF","EH","YE","ZM","ZW"] as const
+const countries = (() => {
+  const display = new Intl.DisplayNames(["uk"], { type: "region" })
+  return [...new Set(regionCodes.map((code) => display.of(code)).filter((name): name is string => Boolean(name)))].sort((a, b) => a.localeCompare(b, "uk"))
+})()
 const statusLabels: Record<Client["status"], string> = { lead: "Потенційний", active: "Активний", paused: "Призупинений", completed: "Завершений", archived: "Архівний" }
 const normalizeStatus = (status?: string | null): Client["status"] => (status && ["lead", "active", "paused", "completed", "archived"].includes(status) ? status : "lead") as Client["status"]
 
@@ -41,6 +48,7 @@ export default function ClientsPage() {
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false)
 
   const mapApiClient = (apiClient: ApiClient): Client => ({
     id: apiClient.id.toString(),
@@ -295,10 +303,12 @@ export default function ClientsPage() {
           {formErrors.phone && <p className="text-xs text-destructive">{formErrors.phone}</p>}
           {formErrors.contact && <p className="text-xs text-destructive">{formErrors.contact}</p>}
           <Label>Країна</Label>
-          <Select value={formData.country || "none"} onValueChange={(v) => updateFormField("country", v === "none" ? "" : v)}>
-            <SelectTrigger><SelectValue placeholder="Оберіть країну" /></SelectTrigger>
-            <SelectContent><SelectItem value="none">Оберіть країну</SelectItem>{countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-          </Select>
+          <CountrySelect
+            open={countryDropdownOpen}
+            onOpenChange={setCountryDropdownOpen}
+            value={formData.country}
+            onSelect={(country) => updateFormField("country", country)}
+          />
           {formErrors.country && <p className="text-xs text-destructive">{formErrors.country}</p>}
           <Label>Статус *</Label>
           <Select value={formData.status} onValueChange={(v) => updateFormField("status", v as Client["status"])}>
@@ -322,4 +332,43 @@ export default function ClientsPage() {
       </DialogContent>
     </Dialog>
   </div>
+}
+
+
+type CountrySelectProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  value: string
+  onSelect: (country: string) => void
+}
+
+function CountrySelect({ open, onOpenChange, value, onSelect }: CountrySelectProps) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between font-normal">
+          {value || "Оберіть країну"}
+          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+        <Command>
+          <CommandInput placeholder="Пошук країни…" />
+          <CommandList className="max-h-64">
+            <CommandEmpty>Країну не знайдено</CommandEmpty>
+            <CommandItem value="none" onSelect={() => { onSelect(""); onOpenChange(false) }}>
+              <Check className={cn("mr-2 size-4", !value ? "opacity-100" : "opacity-0")} />
+              Оберіть країну
+            </CommandItem>
+            {countries.map((country) => (
+              <CommandItem key={country} value={country} onSelect={(selected) => { onSelect(selected); onOpenChange(false) }}>
+                <Check className={cn("mr-2 size-4", value === country ? "opacity-100" : "opacity-0")} />
+                {country}
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
 }
