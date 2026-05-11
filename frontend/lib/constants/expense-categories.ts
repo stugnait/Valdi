@@ -1,21 +1,5 @@
 import { expenseCategories } from "@/lib/types/spendings"
 
-const expenseCategoryLabelsUk: Record<string, string> = {
-  infrastructure: "Інфраструктура",
-  software: "Програмне забезпечення",
-  office: "Офіс",
-  legal: "Юридичні",
-  marketing: "Маркетинг",
-  equipment: "Обладнання",
-  food: "Харчування",
-  travel: "Подорожі",
-  education: "Освіта",
-  training: "Тренінги",
-  "team-event": "Командні події",
-  emergency: "Надзвичайні",
-  other: "Інше",
-}
-
 const legacyToId: Record<string, string> = {
   Infrastructure: "infrastructure",
   Software: "software",
@@ -37,13 +21,13 @@ const legacyToId: Record<string, string> = {
 
 export const sharedExpenseCategories = expenseCategories.map((category) => ({
   value: category.id,
-  label: expenseCategoryLabelsUk[category.id] || category.name,
+  label: category.name,
 }))
 
 export const getExpenseCategoryLabel = (rawCategory?: string | null) => {
   if (!rawCategory) return "—"
   const normalized = legacyToId[rawCategory] || rawCategory.toLowerCase()
-  return expenseCategoryLabelsUk[normalized] || rawCategory
+  return sharedExpenseCategories.find((category) => category.value === normalized)?.label || rawCategory
 }
 
 export const normalizeExpenseCategoryValue = (rawCategory?: string | null) => {
