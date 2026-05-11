@@ -36,7 +36,7 @@ export default function ClientsPage() {
   const [countryFilter, setCountryFilter] = useState<string>("all")
   const [profitFilter, setProfitFilter] = useState<string>("all")
 
-  const [formData, setFormData] = useState({ companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", website: "", notes: "", status: "lead" as Client["status"] })
+  const [formData, setFormData] = useState({ companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", notes: "", status: "lead" as Client["status"] })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
   const mapApiClient = (apiClient: ApiClient): Client => ({
@@ -111,19 +111,14 @@ export default function ClientsPage() {
     const errors: Record<string, string> = {}
     if (!formData.companyName.trim()) errors.companyName = "Введіть назву клієнта"
     if (!formData.contactPerson.trim()) errors.contactPerson = "Введіть контактну особу"
-    if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) errors.email = "Введіть коректний Email"
-    if (!formData.phone.trim()) errors.phone = "Введіть номер телефону"
-    else if (!/^\+?[1-9]\d{7,14}$/.test(formData.phone.replace(/[\s()-]/g, ""))) errors.phone = "Введіть коректний номер телефону"
-    if (!formData.country.trim()) errors.country = "Оберіть країну"
-    if (!formData.website.trim()) errors.website = "Введіть вебсайт"
-    else {
-      try {
-        const url = new URL(formData.website.trim())
-        if (!["http:", "https:"].includes(url.protocol)) errors.website = "Введіть коректний URL"
-      } catch {
-        errors.website = "Введіть коректний URL"
-      }
+    const email = formData.email.trim()
+    const phone = formData.phone.trim()
+    if (!email && !phone) {
+      errors.email = "Вкажіть хоча б один спосіб зв’язку"
+      errors.phone = "Вкажіть хоча б один спосіб зв’язку"
     }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Введіть коректний Email"
+    if (phone && !/^\+?[1-9]\d{7,14}$/.test(phone.replace(/[\s()-]/g, ""))) errors.phone = "Введіть коректний номер телефону"
     if (!formData.status) errors.status = "Оберіть статус"
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -131,7 +126,7 @@ export default function ClientsPage() {
 
   const onSave = async () => {
     if (!validateClientForm()) return
-    const payload = { name: formData.companyName.trim(), company_name: formData.companyName.trim(), contact_person: formData.contactPerson.trim(), email: formData.email.trim(), phone: formData.phone.trim(), country: formData.country.trim(), website: formData.website.trim(), notes: formData.notes.trim(), status: formData.status }
+    const payload = { name: formData.companyName.trim(), company_name: formData.companyName.trim(), contact_person: formData.contactPerson.trim(), email: formData.email.trim(), phone: formData.phone.trim(), country: formData.country.trim(), notes: formData.notes.trim(), status: formData.status }
     try {
       if (editingClient) await workforceApi.updateClient(editingClient.id, payload)
       else await workforceApi.createClient(payload)
@@ -142,7 +137,7 @@ export default function ClientsPage() {
     }
     setIsAddDialogOpen(false); setEditingClient(null)
     setFormErrors({})
-    setFormData({ companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", website: "", notes: "", status: "lead" })
+    setFormData({ companyName: "", contactPerson: "", email: "", phone: "", country: "Україна", notes: "", status: "lead" })
     await loadData()
   }
 
@@ -170,7 +165,7 @@ export default function ClientsPage() {
 
         <Table>
           <TableHeader><TableRow><TableHead>Клієнт</TableHead><TableHead>Статус</TableHead><TableHead>Контакти</TableHead><TableHead>Країна</TableHead><TableHead>Проєкти</TableHead><TableHead className="text-right">Дохід</TableHead><TableHead className="text-right">Витрати</TableHead><TableHead className="text-right">Прибуток</TableHead><TableHead className="text-right">Маржинальність</TableHead><TableHead className="text-right">Дії</TableHead></TableRow></TableHeader>
-          <TableBody>{filteredClients.map((c)=>{ const margin=c.marginPercent||0; const profit=c.profit||0; return <TableRow key={c.id} className="hover:bg-muted/40"><TableCell><div className="flex items-center gap-3"><Avatar className="h-9 w-9"><AvatarFallback>{(c.companyName||c.name||"C").slice(0,2).toUpperCase()}</AvatarFallback></Avatar><div><div className="font-medium">{c.companyName || c.name}</div><div className="text-xs text-muted-foreground">{c.contactPerson || "Контакт не вказано"}</div></div></div></TableCell><TableCell><Badge variant="outline">{statusLabels[normalizeStatus(c.status)]}</Badge></TableCell><TableCell><div className="text-sm">{c.email || "—"}</div><div className="text-xs text-muted-foreground">{c.phone || "—"}</div></TableCell><TableCell>{c.country || "—"}</TableCell><TableCell><div className="text-sm">Усього: {c.totalProjects || 0}</div><div className="text-xs text-muted-foreground">Активні: {c.activeProjects || 0}</div></TableCell><TableCell className="text-right">{money(c.totalRevenue || 0)}</TableCell><TableCell className="text-right">{money(c.totalCost || 0)}</TableCell><TableCell className={`text-right font-medium ${profit<0?"text-destructive":"text-emerald-600"}`}>{money(profit)}</TableCell><TableCell className="text-right"><Badge variant={margin<0?"destructive":margin>30?"default":"secondary"}>{margin.toFixed(1)}%</Badge></TableCell><TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={()=>setViewClient(c)}><Eye className="size-4 mr-2"/>Деталі</DropdownMenuItem><DropdownMenuItem onClick={()=>{setEditingClient(c); setFormData({ companyName:c.companyName||"", contactPerson:c.contactPerson||"", email:c.email||"", phone:c.phone||"", country:c.country||"Україна", website:c.website||"", notes:c.notes||"", status:normalizeStatus(c.status) }); setIsAddDialogOpen(true)}}><Pencil className="size-4 mr-2"/>Редагувати</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={() => openDeleteFlow(c)}><Trash2 className="size-4 mr-2"/>Видалити</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>})}</TableBody>
+          <TableBody>{filteredClients.map((c)=>{ const margin=c.marginPercent||0; const profit=c.profit||0; return <TableRow key={c.id} className="hover:bg-muted/40"><TableCell><div className="flex items-center gap-3"><Avatar className="h-9 w-9"><AvatarFallback>{(c.companyName||c.name||"C").slice(0,2).toUpperCase()}</AvatarFallback></Avatar><div><div className="font-medium">{c.companyName || c.name}</div><div className="text-xs text-muted-foreground">{c.contactPerson || "Контакт не вказано"}</div></div></div></TableCell><TableCell><Badge variant="outline">{statusLabels[normalizeStatus(c.status)]}</Badge></TableCell><TableCell><div className="text-sm">{c.email || "—"}</div><div className="text-xs text-muted-foreground">{c.phone || "—"}</div></TableCell><TableCell>{c.country || "—"}</TableCell><TableCell><div className="text-sm">Усього: {c.totalProjects || 0}</div><div className="text-xs text-muted-foreground">Активні: {c.activeProjects || 0}</div></TableCell><TableCell className="text-right">{money(c.totalRevenue || 0)}</TableCell><TableCell className="text-right">{money(c.totalCost || 0)}</TableCell><TableCell className={`text-right font-medium ${profit<0?"text-destructive":"text-emerald-600"}`}>{money(profit)}</TableCell><TableCell className="text-right"><Badge variant={margin<0?"destructive":margin>30?"default":"secondary"}>{margin.toFixed(1)}%</Badge></TableCell><TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={()=>setViewClient(c)}><Eye className="size-4 mr-2"/>Деталі</DropdownMenuItem><DropdownMenuItem onClick={()=>{setEditingClient(c); setFormData({ companyName:c.companyName||"", contactPerson:c.contactPerson||"", email:c.email||"", phone:c.phone||"", country:c.country||"Україна", notes:c.notes||"", status:normalizeStatus(c.status) }); setIsAddDialogOpen(true)}}><Pencil className="size-4 mr-2"/>Редагувати</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={() => openDeleteFlow(c)}><Trash2 className="size-4 mr-2"/>Видалити</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>})}</TableBody>
         </Table>
       </CardContent>
     </Card>
@@ -256,21 +251,19 @@ export default function ClientsPage() {
           <Label>Контактна особа *</Label>
           <Input value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} />
           {formErrors.contactPerson && <p className="text-xs text-destructive">{formErrors.contactPerson}</p>}
-          <Label>Email *</Label>
+          <Label>Email</Label>
           <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
           {formErrors.email && <p className="text-xs text-destructive">{formErrors.email}</p>}
-          <Label>Телефон *</Label>
+          <Label>Телефон</Label>
+          <p className="text-xs text-muted-foreground">Вкажіть хоча б один спосіб зв’язку</p>
           <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
           {formErrors.phone && <p className="text-xs text-destructive">{formErrors.phone}</p>}
-          <Label>Країна *</Label>
+          <Label>Країна</Label>
           <Select value={formData.country} onValueChange={(v) => setFormData({ ...formData, country: v })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
           {formErrors.country && <p className="text-xs text-destructive">{formErrors.country}</p>}
-          <Label>Вебсайт *</Label>
-          <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} />
-          {formErrors.website && <p className="text-xs text-destructive">{formErrors.website}</p>}
           <Label>Статус *</Label>
           <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v as Client["status"] })}>
             <SelectTrigger><SelectValue /></SelectTrigger>

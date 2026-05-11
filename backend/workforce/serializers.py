@@ -176,15 +176,13 @@ class ClientSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         data = attrs.copy()
         if self.instance:
-            for key in ('name', 'company_name', 'email', 'phone', 'country', 'website', 'status'):
+            for key in ('name', 'company_name', 'contact_person', 'email', 'phone', 'country', 'status'):
                 data[key] = data.get(key, getattr(self.instance, key, ''))
 
         required_errors = {}
         for key, message in {
-            'company_name': 'Введіть назву компанії',
-            'email': 'Введіть коректний Email',
-            'phone': 'Введіть номер телефону',
-            'country': 'Оберіть країну',
+            'company_name': 'Введіть назву клієнта',
+            'contact_person': 'Введіть контактну особу',
             'status': 'Оберіть статус',
         }.items():
             if not str(data.get(key, '')).strip():
@@ -204,13 +202,16 @@ class ClientSerializer(serializers.ModelSerializer):
         status_value = str(data.get('status', '')).strip()
 
         import re
-        if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+        if email and not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
             raise serializers.ValidationError({'email': 'Введіть коректний Email'})
-        if not re.match(r'^\+?[1-9]\d{7,14}$', phone):
+        if phone and not re.match(r'^\+?[1-9]\d{7,14}$', phone):
             raise serializers.ValidationError({'phone': 'Введіть коректний номер телефону'})
         allowed_statuses = {choice[0] for choice in Client.Status.choices}
         if status_value not in allowed_statuses:
             raise serializers.ValidationError({'status': 'Оберіть статус'})
+
+        if not email and not phone:
+            raise serializers.ValidationError({'non_field_errors': 'Вкажіть хоча б один спосіб зв’язку'})
 
         return attrs
 
