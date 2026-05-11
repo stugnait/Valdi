@@ -159,6 +159,10 @@ export default function ClientsPage() {
     })
   }
 
+  const showFieldError = (field: keyof typeof formErrors) => Boolean(formErrors[field]) && (hasSubmitted || Boolean(touchedFields[field]))
+  const contactGroupTouched = Boolean(touchedFields.email) && Boolean(touchedFields.phone)
+  const showContactError = Boolean(formErrors.contact) && (hasSubmitted || contactGroupTouched)
+
   const isFormValid = useMemo(() => Object.keys(getClientFormErrors(formData)).length === 0, [formData])
 
   const onSave = async () => {
@@ -290,18 +294,18 @@ export default function ClientsPage() {
         <div className="grid gap-3">
           <Label>Назва компанії *</Label>
           <Input placeholder="Наприклад: Acme Inc." value={formData.companyName} onChange={(e) => updateFormField("companyName", e.target.value)} onBlur={() => onFieldBlur("companyName")} />
-          {formErrors.companyName && <p className="text-xs text-destructive">{formErrors.companyName}</p>}
+          {showFieldError("companyName") && <p className="text-xs text-destructive">{formErrors.companyName}</p>}
           <Label>Контактна особа *</Label>
           <Input placeholder="Наприклад: Іван Петренко" value={formData.contactPerson} onChange={(e) => updateFormField("contactPerson", e.target.value)} onBlur={() => onFieldBlur("contactPerson")} />
-          {formErrors.contactPerson && <p className="text-xs text-destructive">{formErrors.contactPerson}</p>}
+          {showFieldError("contactPerson") && <p className="text-xs text-destructive">{formErrors.contactPerson}</p>}
           <Label>Email</Label>
           <Input type="email" placeholder="Наприклад: contact@acme.com" value={formData.email} onChange={(e) => updateFormField("email", e.target.value)} onBlur={() => onFieldBlur("email")} />
-          {formErrors.email && <p className="text-xs text-destructive">{formErrors.email}</p>}
+          {showFieldError("email") && <p className="text-xs text-destructive">{formErrors.email}</p>}
           <Label>Телефон</Label>
-          {!hasSubmitted && <p className="text-xs text-muted-foreground">Вкажіть хоча б один спосіб зв’язку</p>}
+          {!showContactError && <p className="text-xs text-muted-foreground">Вкажіть хоча б один спосіб зв’язку</p>}
           <Input placeholder="Наприклад: +380 67 123 45 67" value={formData.phone} onChange={(e) => updateFormField("phone", e.target.value)} onBlur={() => onFieldBlur("phone")} />
-          {formErrors.phone && <p className="text-xs text-destructive">{formErrors.phone}</p>}
-          {formErrors.contact && <p className="text-xs text-destructive">{formErrors.contact}</p>}
+          {showFieldError("phone") && <p className="text-xs text-destructive">{formErrors.phone}</p>}
+          {showContactError && <p className="text-xs text-destructive">{formErrors.contact}</p>}
           <Label>Країна</Label>
           <CountrySelect
             open={countryDropdownOpen}
@@ -309,7 +313,7 @@ export default function ClientsPage() {
             value={formData.country}
             onSelect={(country) => updateFormField("country", country)}
           />
-          {formErrors.country && <p className="text-xs text-destructive">{formErrors.country}</p>}
+          {showFieldError("country") && <p className="text-xs text-destructive">{formErrors.country}</p>}
           <Label>Статус *</Label>
           <Select value={formData.status} onValueChange={(v) => updateFormField("status", v as Client["status"])}>
             <SelectTrigger><SelectValue /></SelectTrigger>
@@ -321,7 +325,7 @@ export default function ClientsPage() {
               <SelectItem value="archived">Архівний</SelectItem>
             </SelectContent>
           </Select>
-          {formErrors.status && <p className="text-xs text-destructive">{formErrors.status}</p>}
+          {showFieldError("status") && <p className="text-xs text-destructive">{formErrors.status}</p>}
           <Label>Нотатки</Label>
           <Textarea placeholder="Додайте внутрішні нотатки про клієнта…" value={formData.notes} onChange={(e) => updateFormField("notes", e.target.value)} onBlur={() => onFieldBlur("notes")} />
         </div>
