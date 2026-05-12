@@ -351,6 +351,7 @@ export default function CreateProjectPage() {
             currency: formData.currency,
             category: expense.category,
             source: "cash",
+            status: "pending",
             expense_date: expense.date,
             allocation_type: "project",
             project: Number(createdProject.id),

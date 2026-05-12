@@ -653,6 +653,7 @@ class VariableExpenseSerializer(serializers.ModelSerializer):
             'currency',
             'category',
             'source',
+            'status',
             'expense_date',
             'receipt_url',
             'external_tx_id',

@@ -566,6 +566,9 @@ class RecurringExpense(models.Model):
 
 
 class VariableExpense(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        PAID = 'paid', 'Paid'
     class Currency(models.TextChoices):
         USD = 'USD', 'USD'
         EUR = 'EUR', 'EUR'
@@ -589,6 +592,7 @@ class VariableExpense(models.Model):
     currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.USD)
     category = models.CharField(max_length=64, default='other')
     source = models.CharField(max_length=32, choices=Source.choices, default=Source.MONOBANK)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     expense_date = models.DateField()
     receipt_url = models.CharField(max_length=300, blank=True)
     external_tx_id = models.CharField(max_length=128, blank=True, db_index=True)

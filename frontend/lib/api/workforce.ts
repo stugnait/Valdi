@@ -202,6 +202,7 @@ export interface ApiVariableExpense {
   currency: "USD" | "EUR" | "UAH"
   category: string
   source: "monobank" | "privat24" | "cash" | "wise" | "payoneer"
+  status: "pending" | "paid"
   expense_date: string
   receipt_url: string
   description: string
