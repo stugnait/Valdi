@@ -906,6 +906,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 ) : (
                   <div className="space-y-2">
                     {project.expenses.map(expense => (
+                      (() => {
+                        const status = expense.status || "pending"
+                        const statusLabel = status === "paid" ? "Сплачено" : "Очікується"
+                        const statusClass = status === "paid"
+                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                          : "bg-amber-100 text-amber-700 hover:bg-amber-100"
+                        return (
                       <div 
                         key={expense.id}
                         className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
@@ -916,6 +923,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                             <Badge variant="outline" className="text-xs">{getExpenseCategoryLabel(expense.category)}</Badge>
                             <Badge variant={expense.expenseType === "recurring" ? "secondary" : "default"} className="text-xs">
                               {expense.expenseType === "recurring" ? "Регулярні" : "Разові"}
+                            </Badge>
+                            <Badge variant="secondary" className={`text-xs ${statusClass}`}>
+                              {statusLabel}
                             </Badge>
                             <span className="text-xs text-muted-foreground">{formatDate(expense.date)}</span>
                           </div>
@@ -964,6 +974,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           </DropdownMenu>
                         </div>
                       </div>
+                        )
+                      })()
                     ))}
                   </div>
                 )}
