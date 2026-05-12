@@ -384,6 +384,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     name: "",
     amount: "",
     category: "",
+    currency: "USD" as Currency,
+    source: "cash" as "cash" | "monobank" | "privat24" | "wise" | "payoneer",
     date: new Date().toISOString().split("T")[0],
     description: "",
   })
@@ -610,17 +612,66 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }
 
   // Expense handlers
-  const handleSaveExpense = () => {
+  const handleSaveExpense = async () => {
+    if (!project) return
+    const amount = parseFloat(expenseForm.amount) || 0
+    const { rates: loadedRates } = await getNbuRates()
+    const amountUsd = convertToBaseCurrency(amount, expenseForm.currency, loadedRates)
+
+    if (selectedExpense?.expenseType === "recurring" && selectedExpense.sourceId) {
+      await workforceApi.updateRecurringExpense(selectedExpense.sourceId, {
+        name: expenseForm.name,
+        amount: amount.toString(),
+        currency: expenseForm.currency,
+        category: expenseForm.category,
+        source: expenseForm.source,
+        description: expenseForm.description,
+        next_payment_date: expenseForm.date,
+      })
+    } else if (selectedExpense?.sourceId) {
+      await workforceApi.updateVariableExpense(selectedExpense.sourceId, {
+        name: expenseForm.name,
+        amount: amount.toString(),
+        currency: expenseForm.currency,
+        category: expenseForm.category,
+        source: expenseForm.source,
+        expense_date: expenseForm.date,
+        description: expenseForm.description,
+      })
+    } else {
+      await workforceApi.createVariableExpense({
+        name: expenseForm.name,
+        amount: amount.toString(),
+        currency: expenseForm.currency,
+        category: expenseForm.category,
+        source: expenseForm.source,
+        status: "pending",
+        expense_date: expenseForm.date,
+        allocation_type: "project",
+        project: Number(project.id),
+        description: expenseForm.description,
+        impact_flags: {
+          actualMonthlySpend: true,
+          cashFlow: true,
+          projectProfitability: true,
+          budgetDeviation: true,
+          teamCost: false,
+          companyBurnRate: true,
+        },
+      })
+    }
+
     const newExpense: ProjectExpense = {
       id: selectedExpense?.id || `exp-${Date.now()}`,
       name: expenseForm.name,
-      amount: parseFloat(expenseForm.amount) || 0,
-      currency: selectedExpense?.currency ?? "USD",
-      amountUsd: parseFloat(expenseForm.amount) || 0,
+      amount,
+      currency: expenseForm.currency,
+      amountUsd,
       category: expenseForm.category,
       date: expenseForm.date,
       description: expenseForm.description,
       impactProjectProfitability: selectedExpense?.impactProjectProfitability ?? true,
+      status: selectedExpense?.status ?? "pending",
     }
 
     if (selectedExpense) {
@@ -706,6 +757,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       name: expense.name,
       amount: expense.amount.toString(),
       category: normalizeExpenseCategoryValue(expense.category),
+      currency: expense.currency ?? "USD",
+      source: "cash",
       date: expense.date,
       description: expense.description || "",
     })
@@ -715,7 +768,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const closeExpenseDialog = () => {
     setIsExpenseDialogOpen(false)
     setSelectedExpense(null)
-    setExpenseForm({ name: "", amount: "", category: "", date: new Date().toISOString().split("T")[0], description: "" })
+    setExpenseForm({ name: "", amount: "", category: "", currency: "USD", source: "cash", date: new Date().toISOString().split("T")[0], description: "" })
   }
 
   // Calculations
@@ -1417,6 +1470,31 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         {category.label}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Валюта</Label>
+                <Select value={expenseForm.currency} onValueChange={(v) => setExpenseForm({ ...expenseForm, currency: v as Currency })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="UAH">UAH</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Спосіб оплати</Label>
+                <Select value={expenseForm.source} onValueChange={(v) => setExpenseForm({ ...expenseForm, source: v as "cash" | "monobank" | "privat24" | "wise" | "payoneer" })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Готівка</SelectItem>
+                    <SelectItem value="monobank">Картка</SelectItem>
+                    <SelectItem value="privat24">Банківський переказ</SelectItem>
+                    <SelectItem value="wise">Інше</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

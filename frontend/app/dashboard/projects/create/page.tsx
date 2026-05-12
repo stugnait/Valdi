@@ -71,7 +71,7 @@ interface FormData {
   
   // Step 4
   bufferPercent: string
-  directExpenses: { name: string; amount: string; category: string; expenseType: "irregular" | "recurring"; cycle: "monthly" | "quarterly" | "yearly"; date: string }[]
+  directExpenses: { name: string; amount: string; category: string; currency: Currency; source: "cash" | "monobank" | "privat24" | "wise" | "payoneer"; expenseType: "irregular" | "recurring"; cycle: "monthly" | "quarterly" | "yearly"; date: string }[]
 }
 
 const initialFormData: FormData = {
@@ -261,7 +261,7 @@ export default function CreateProjectPage() {
   const addDirectExpense = () => {
     setFormData({
       ...formData,
-      directExpenses: [...formData.directExpenses, { name: "", amount: "", category: "", expenseType: "irregular", cycle: "monthly", date: new Date().toISOString().split("T")[0] }],
+      directExpenses: [...formData.directExpenses, { name: "", amount: "", category: "", currency: formData.currency, source: "cash", expenseType: "irregular", cycle: "monthly", date: new Date().toISOString().split("T")[0] }],
     })
   }
 
@@ -332,10 +332,10 @@ export default function CreateProjectPage() {
             return workforceApi.createRecurringExpense({
               name: expense.name.trim(),
               amount: expense.amount.toString(),
-              currency: formData.currency,
+              currency: expense.currency,
               cycle: expense.cycle,
               category: expense.category,
-              source: "cash",
+              source: expense.source,
               allocation_type: "project",
               project: Number(createdProject.id),
               status: "pending",
@@ -348,9 +348,9 @@ export default function CreateProjectPage() {
           return workforceApi.createVariableExpense({
             name: expense.name.trim(),
             amount: expense.amount.toString(),
-            currency: formData.currency,
+            currency: expense.currency,
             category: expense.category,
-            source: "cash",
+            source: expense.source,
             status: "pending",
             expense_date: expense.date,
             allocation_type: "project",
@@ -889,6 +889,19 @@ export default function CreateProjectPage() {
                             className="w-28"
                           />
                         <Select
+                          value={expense.currency}
+                          onValueChange={(v) => updateDirectExpense(idx, "currency", v)}
+                        >
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USD">USD</SelectItem>
+                            <SelectItem value="EUR">EUR</SelectItem>
+                            <SelectItem value="UAH">UAH</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select
                           value={expense.category}
                           onValueChange={(v) => updateDirectExpense(idx, "category", v)}
                         >
@@ -913,6 +926,20 @@ export default function CreateProjectPage() {
                           <SelectContent>
                             <SelectItem value="irregular">Нерегулярна</SelectItem>
                             <SelectItem value="recurring">Регулярна</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={expense.source}
+                          onValueChange={(v) => updateDirectExpense(idx, "source", v)}
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cash">Готівка</SelectItem>
+                            <SelectItem value="monobank">Картка</SelectItem>
+                            <SelectItem value="privat24">Банківський переказ</SelectItem>
+                            <SelectItem value="wise">Інше</SelectItem>
                           </SelectContent>
                         </Select>
                         {expense.expenseType === "recurring" && (
