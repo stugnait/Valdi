@@ -90,6 +90,7 @@ export interface ProjectExpense {
   currency?: "USD" | "EUR" | "UAH"
   amountUsd?: number
   category: string
+  source?: "monobank" | "privat24" | "cash" | "wise" | "payoneer"
   date: string
   description?: string
   impactProjectProfitability?: boolean

@@ -77,6 +77,7 @@ import {
 import { ApiInvoice, ApiProject, ApiRecurringExpense, ApiTeam, ApiDeveloper, workforceApi } from "@/lib/api/workforce"
 import { convertToBaseCurrency, getNbuRates, toMonthlyRecurringAmount } from "@/lib/utils/currency"
 import { getExpenseCategoryLabel, normalizeExpenseCategoryValue, sharedExpenseCategories } from "@/lib/constants/expense-categories"
+import { paymentSourceOptions } from "@/lib/types/spendings"
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -282,6 +283,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             currency: expense.currency,
             amountUsd: convertToBaseCurrency(Number(expense.amount ?? 0), expense.currency, loadedRates),
             category: expense.category,
+            source: expense.source,
             date: expense.expense_date,
             description: expense.description || undefined,
             impactProjectProfitability: expense.impact_flags?.projectProfitability ?? true,
@@ -298,6 +300,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             currency: expense.currency,
             amountUsd: toRecurringMonthlyAmountInUsd(expense, loadedRates),
             category: expense.category,
+            source: expense.source,
             date: expense.next_payment_date,
             description: expense.description || undefined,
             impactProjectProfitability: true,
@@ -720,6 +723,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           currency: expense.currency,
           amountUsd: convertToBaseCurrency(Number(expense.amount ?? 0), expense.currency, loadedRates),
           category: expense.category,
+          source: expense.source,
           date: expense.expense_date,
           description: expense.description || undefined,
           impactProjectProfitability: expense.impact_flags?.projectProfitability ?? true,
@@ -736,6 +740,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           currency: expense.currency,
           amountUsd: toRecurringMonthlyAmountInUsd(expense, loadedRates),
           category: expense.category,
+          source: expense.source,
           date: expense.next_payment_date,
           description: expense.description || undefined,
           impactProjectProfitability: true,
@@ -758,7 +763,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       amount: expense.amount.toString(),
       category: normalizeExpenseCategoryValue(expense.category),
       currency: expense.currency ?? "USD",
-      source: "cash",
+      source: expense.source ?? "cash",
       date: expense.date,
       description: expense.description || "",
     })
@@ -980,6 +985,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                             <Badge variant="secondary" className={`text-xs ${statusClass}`}>
                               {statusLabel}
                             </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {paymentSourceOptions.find((source) => source.value === (expense.source ?? "cash"))?.label || "Готівка"}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">Проєкт</Badge>
                             <span className="text-xs text-muted-foreground">{formatDate(expense.date)}</span>
                           </div>
                         </div>
@@ -1491,10 +1500,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <Select value={expenseForm.source} onValueChange={(v) => setExpenseForm({ ...expenseForm, source: v as "cash" | "monobank" | "privat24" | "wise" | "payoneer" })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">Готівка</SelectItem>
-                    <SelectItem value="monobank">Картка</SelectItem>
-                    <SelectItem value="privat24">Банківський переказ</SelectItem>
-                    <SelectItem value="wise">Інше</SelectItem>
+                    {paymentSourceOptions.map((source) => (
+                      <SelectItem key={source.value} value={source.value}>{source.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

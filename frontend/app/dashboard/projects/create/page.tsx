@@ -33,6 +33,7 @@ import {
 import { mockTags, type ProjectTag, type Milestone, type ResourceAllocation } from "@/lib/types/projects"
 import { ApiClient, ApiDeveloper, ApiTeam, workforceApi } from "@/lib/api/workforce"
 import { sharedExpenseCategories } from "@/lib/constants/expense-categories"
+import { paymentSourceOptions } from "@/lib/types/spendings"
 
 const steps = [
   { id: 1, name: "Базова інформація", description: "Базова інформація" },
@@ -936,10 +937,9 @@ export default function CreateProjectPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="cash">Готівка</SelectItem>
-                            <SelectItem value="monobank">Картка</SelectItem>
-                            <SelectItem value="privat24">Банківський переказ</SelectItem>
-                            <SelectItem value="wise">Інше</SelectItem>
+                            {paymentSourceOptions.map((source) => (
+                              <SelectItem key={source.value} value={source.value}>{source.label}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         {expense.expenseType === "recurring" && (
