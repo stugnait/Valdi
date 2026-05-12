@@ -71,7 +71,7 @@ interface FormData {
   
   // Step 4
   bufferPercent: string
-  directExpenses: { name: string; amount: string; category: string }[]
+  directExpenses: { name: string; amount: string; category: string; expenseType: "irregular" | "recurring"; cycle: "monthly" | "quarterly" | "yearly"; date: string }[]
 }
 
 const initialFormData: FormData = {
@@ -261,7 +261,7 @@ export default function CreateProjectPage() {
   const addDirectExpense = () => {
     setFormData({
       ...formData,
-      directExpenses: [...formData.directExpenses, { name: "", amount: "", category: "" }],
+      directExpenses: [...formData.directExpenses, { name: "", amount: "", category: "", expenseType: "irregular", cycle: "monthly", date: new Date().toISOString().split("T")[0] }],
     })
   }
 
@@ -318,6 +318,46 @@ export default function CreateProjectPage() {
         buffer_percent: formData.bufferPercent || "0",
         team: formData.selectedTeamId ? Number(formData.selectedTeamId) : null,
       })
+
+      const projectExpenseDrafts = formData.directExpenses
+        .map((expense) => ({
+          ...expense,
+          amount: parseFloat(expense.amount) || 0,
+        }))
+        .filter((expense) => expense.name.trim() && expense.amount > 0 && expense.category)
+
+      await Promise.all(
+        projectExpenseDrafts.map((expense) => {
+          if (expense.expenseType === "recurring") {
+            return workforceApi.createRecurringExpense({
+              name: expense.name.trim(),
+              amount: expense.amount.toString(),
+              currency: formData.currency,
+              cycle: expense.cycle,
+              category: expense.category,
+              source: "cash",
+              allocation_type: "project",
+              project: Number(createdProject.id),
+              status: "pending",
+              last_paid_date: expense.date,
+              next_payment_date: expense.date,
+              description: "",
+            })
+          }
+
+          return workforceApi.createVariableExpense({
+            name: expense.name.trim(),
+            amount: expense.amount.toString(),
+            currency: formData.currency,
+            category: expense.category,
+            source: "cash",
+            expense_date: expense.date,
+            allocation_type: "project",
+            project: Number(createdProject.id),
+            description: "",
+          })
+        })
+      )
 
       router.push("/dashboard/projects")
     } catch (submitError) {
@@ -834,12 +874,12 @@ export default function CreateProjectPage() {
                     <div className="space-y-3">
                       {formData.directExpenses.map((expense, idx) => (
                         <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                          <Input
-                            placeholder="Назва витрати"
-                            value={expense.name}
-                            onChange={(e) => updateDirectExpense(idx, "name", e.target.value)}
-                            className="flex-1"
-                          />
+                        <Input
+                          placeholder="Назва витрати"
+                          value={expense.name}
+                          onChange={(e) => updateDirectExpense(idx, "name", e.target.value)}
+                          className="flex-1"
+                        />
                           <Input
                             type="number"
                             placeholder="Сума"
@@ -847,10 +887,10 @@ export default function CreateProjectPage() {
                             onChange={(e) => updateDirectExpense(idx, "amount", e.target.value)}
                             className="w-28"
                           />
-                          <Select
-                            value={expense.category}
-                            onValueChange={(v) => updateDirectExpense(idx, "category", v)}
-                          >
+                        <Select
+                          value={expense.category}
+                          onValueChange={(v) => updateDirectExpense(idx, "category", v)}
+                        >
                             <SelectTrigger className="w-36">
                               <SelectValue placeholder="Категорія" />
                             </SelectTrigger>
@@ -861,7 +901,40 @@ export default function CreateProjectPage() {
                                 </SelectItem>
                               ))}
                             </SelectContent>
+                        </Select>
+                        <Select
+                          value={expense.expenseType}
+                          onValueChange={(v) => updateDirectExpense(idx, "expenseType", v)}
+                        >
+                          <SelectTrigger className="w-44">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="irregular">Нерегулярна</SelectItem>
+                            <SelectItem value="recurring">Регулярна</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {expense.expenseType === "recurring" && (
+                          <Select
+                            value={expense.cycle}
+                            onValueChange={(v) => updateDirectExpense(idx, "cycle", v)}
+                          >
+                            <SelectTrigger className="w-36">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="monthly">Щомісяця</SelectItem>
+                              <SelectItem value="quarterly">Щокварталу</SelectItem>
+                              <SelectItem value="yearly">Щороку</SelectItem>
+                            </SelectContent>
                           </Select>
+                        )}
+                        <Input
+                          type="date"
+                          value={expense.date}
+                          onChange={(e) => updateDirectExpense(idx, "date", e.target.value)}
+                          className="w-44"
+                        />
                           <Button
                             variant="ghost"
                             size="icon"
