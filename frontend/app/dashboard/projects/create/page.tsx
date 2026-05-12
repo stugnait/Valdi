@@ -324,7 +324,7 @@ export default function CreateProjectPage() {
     });
   };
 
-  const toggleDirectExpenseCollapsed = (index: number) => {
+  const markAllDirectExpenseFieldsTouched = () => {
     setFormData({
       ...formData,
       directExpenses: [
@@ -350,7 +350,7 @@ export default function CreateProjectPage() {
     });
   };
 
-  const markDirectExpenseFieldTouched = (index: number, field: "name" | "amount" | "category") => {
+  const toggleDirectExpenseCollapsed = (index: number) => {
     setFormData({
       ...formData,
       directExpenses: formData.directExpenses.map((e, i) =>
@@ -359,14 +359,17 @@ export default function CreateProjectPage() {
     });
   };
 
-  const markAllDirectExpenseFieldsTouched = () => {
+  const markDirectExpenseFieldTouched = (
+    index: number,
+    field: "name" | "amount" | "category",
+  ) => {
     setFormData({
       ...formData,
       directExpenses: formData.directExpenses.filter((_, i) => i !== index),
     });
   };
 
-  const toggleDirectExpenseCollapsed = (index: number) => {
+  const toggleDirectExpenseCardCollapsed = (index: number) => {
     setFormData({
       ...formData,
       directExpenses: formData.directExpenses.map((expense, i) =>
@@ -377,7 +380,7 @@ export default function CreateProjectPage() {
     });
   };
 
-  const markDirectExpenseFieldTouched = (
+  const touchDirectExpenseField = (
     index: number,
     field: "name" | "amount" | "category",
   ) => {
@@ -391,7 +394,7 @@ export default function CreateProjectPage() {
     });
   };
 
-  const markAllDirectExpenseFieldsTouched = () => {
+  const touchAllDirectExpenseFields = () => {
     setFormData({
       ...formData,
       directExpenses: formData.directExpenses.map((expense) => ({
@@ -401,7 +404,7 @@ export default function CreateProjectPage() {
     });
   };
 
-  const getDirectExpenseErrors = (
+  const getDirectExpenseValidationErrors = (
     expense: FormData["directExpenses"][number],
   ) => {
     const parsedAmount = Number(expense.amount);
@@ -416,24 +419,11 @@ export default function CreateProjectPage() {
     };
   };
 
-  const hasInvalidDirectExpenses = () =>
+  const hasAnyInvalidDirectExpenses = () =>
     formData.directExpenses.some((expense) => {
-      const errors = getDirectExpenseErrors(expense);
+      const errors = getDirectExpenseValidationErrors(expense);
       return Boolean(errors.name || errors.amount || errors.category);
     });
-
-  const getDirectExpenseErrors = (expense: FormData["directExpenses"][number]) => {
-    const parsedAmount = Number(expense.amount)
-    return {
-      name: expense.name.trim() ? "" : "Вкажіть назву витрати.",
-      amount: !expense.amount
-        ? "Вкажіть суму витрати."
-        : parsedAmount <= 0
-          ? "Сума має бути більшою за 0."
-          : "",
-      category: expense.category ? "" : "Оберіть категорію витрати.",
-    }
-  }
 
   const hasInvalidDirectExpenses = () =>
     formData.directExpenses.some((expense) => {
@@ -445,8 +435,8 @@ export default function CreateProjectPage() {
     try {
       setIsSubmitting(true);
       setError(null);
-      if (hasInvalidDirectExpenses()) {
-        markAllDirectExpenseFieldsTouched();
+      if (hasAnyInvalidDirectExpenses()) {
+        touchAllDirectExpenseFields();
         setError("Заповніть обовʼязкові поля у прямих витратах проєкту.");
         return;
       }
@@ -1232,7 +1222,9 @@ export default function CreateProjectPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => toggleDirectExpenseCollapsed(idx)}
+                              onClick={() =>
+                                toggleDirectExpenseCardCollapsed(idx)
+                              }
                               className="gap-1"
                             >
                               {expense.isCollapsed ? "Розгорнути" : "Згорнути"}
@@ -1257,14 +1249,19 @@ export default function CreateProjectPage() {
                                     )
                                   }
                                   onBlur={() =>
-                                    markDirectExpenseFieldTouched(idx, "name")
+                                    touchDirectExpenseField(idx, "name")
                                   }
                                   placeholder="Наприклад: AWS Infrastructure"
                                 />
                                 {expense.touched.name &&
-                                  getDirectExpenseErrors(expense).name && (
+                                  getDirectExpenseValidationErrors(expense)
+                                    .name && (
                                     <p className="text-xs text-destructive">
-                                      {getDirectExpenseErrors(expense).name}
+                                      {
+                                        getDirectExpenseValidationErrors(
+                                          expense,
+                                        ).name
+                                      }
                                     </p>
                                   )}
                               </div>
@@ -1284,17 +1281,19 @@ export default function CreateProjectPage() {
                                       )
                                     }
                                     onBlur={() =>
-                                      markDirectExpenseFieldTouched(
-                                        idx,
-                                        "amount",
-                                      )
+                                      touchDirectExpenseField(idx, "amount")
                                     }
                                     placeholder="1000"
                                   />
                                   {expense.touched.amount &&
-                                    getDirectExpenseErrors(expense).amount && (
+                                    getDirectExpenseValidationErrors(expense)
+                                      .amount && (
                                       <p className="text-xs text-destructive">
-                                        {getDirectExpenseErrors(expense).amount}
+                                        {
+                                          getDirectExpenseValidationErrors(
+                                            expense,
+                                          ).amount
+                                        }
                                       </p>
                                     )}
                                 </div>
@@ -1324,10 +1323,7 @@ export default function CreateProjectPage() {
                                     value={expense.category}
                                     onValueChange={(v) => {
                                       updateDirectExpense(idx, "category", v);
-                                      markDirectExpenseFieldTouched(
-                                        idx,
-                                        "category",
-                                      );
+                                      touchDirectExpenseField(idx, "category");
                                     }}
                                   >
                                     <SelectTrigger>
@@ -1347,12 +1343,13 @@ export default function CreateProjectPage() {
                                     </SelectContent>
                                   </Select>
                                   {expense.touched.category &&
-                                    getDirectExpenseErrors(expense)
+                                    getDirectExpenseValidationErrors(expense)
                                       .category && (
                                       <p className="text-xs text-destructive">
                                         {
-                                          getDirectExpenseErrors(expense)
-                                            .category
+                                          getDirectExpenseValidationErrors(
+                                            expense,
+                                          ).category
                                         }
                                       </p>
                                     )}
