@@ -76,6 +76,7 @@ import {
 } from "@/lib/types/projects"
 import { ApiInvoice, ApiProject, ApiRecurringExpense, ApiTeam, ApiDeveloper, workforceApi } from "@/lib/api/workforce"
 import { convertToBaseCurrency, getNbuRates, toMonthlyRecurringAmount } from "@/lib/utils/currency"
+import { getExpenseCategoryLabel, normalizeExpenseCategoryValue, sharedExpenseCategories } from "@/lib/constants/expense-categories"
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -88,21 +89,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const getProjectAllocationsStorageKey = (projectId: string) => `project_allocations_${projectId}`
 
   const calculateRuntimeFinancials = (currentProject: Project) => {
-    const totalRevenue = currentProject.invoices.length > 0
-      ? currentProject.invoices
-        .filter(i => i.status === "paid")
-        .reduce((sum, i) => sum + i.amount, 0)
-      : currentProject.revenue
+    const totalRevenue = currentProject.invoices
+      .filter(i => i.status === "paid")
+      .reduce((sum, i) => sum + i.amount, 0)
 
-    const totalLaborCost = currentProject.allocations.length > 0
-      ? currentProject.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
-      : currentProject.laborCost
+    // Фактична праця має рахуватись лише з recorded actuals (payroll/worklogs/time tracking).
+    // Прив'язка команди та allocation — це план, а не факт.
+    const totalLaborCost = 0
 
-    const totalExpenses = currentProject.expenses.length > 0
-      ? currentProject.expenses
-        .filter((expense) => expense.impactProjectProfitability ?? true)
-        .reduce((sum, e) => sum + (e.amountUsd ?? e.amount), 0)
-      : currentProject.directOverheads
+    // Фактичні витрати: лише реально зафіксовані витрати проєкту.
+    const finalizedExpenseStatuses = new Set(["paid", "completed", "confirmed"])
+    const totalExpenses = currentProject.expenses
+      .filter((expense) => !expense.status || finalizedExpenseStatuses.has(expense.status))
+      .filter((expense) => expense.impactProjectProfitability ?? true)
+      .reduce((sum, e) => sum + (e.amountUsd ?? e.amount), 0)
 
     const netProfit = totalRevenue - totalLaborCost - totalExpenses
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
@@ -125,8 +125,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const netProfit = revenue - laborCost - directOverheads
     const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0
     const totalContractValue = apiProject.total_contract_value ? Number(apiProject.total_contract_value) : undefined
+    const bufferPercent = Number(apiProject.buffer_percent || 0)
+    const bufferAmount = totalContractValue ? totalContractValue * (bufferPercent / 100) : 0
     const budgetUsedPercent = totalContractValue && totalContractValue > 0
-      ? ((laborCost + directOverheads) / totalContractValue) * 100
+      ? ((laborCost + directOverheads + bufferAmount) / totalContractValue) * 100
       : 0
 
     return {
@@ -149,12 +151,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       clientHourlyRate: apiProject.client_hourly_rate ? Number(apiProject.client_hourly_rate) : undefined,
       monthlyCap: apiProject.monthly_cap ?? undefined,
       billingCycle: apiProject.billing_cycle ?? undefined,
-      taxReservePercent: apiProject.tax_reserve_percent ? Number(apiProject.tax_reserve_percent) : undefined,
       revenue,
       laborCost,
       directOverheads,
-      bufferPercent: Number(apiProject.buffer_percent || 0),
+      bufferPercent,
       allocations: [],
+      teamId: apiProject.team ? apiProject.team.toString() : undefined,
+      teamName: apiProject.team_name || undefined,
       invoices: [],
       expenses: [],
       budgetUsedPercent,
@@ -175,24 +178,29 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const buildDefaultAllocationsFromTeams = (
     availableTeams: ApiTeam[],
-    availableDevelopers: ApiDeveloper[]
+    availableDevelopers: ApiDeveloper[],
+    selectedTeamId?: string
   ): ResourceAllocation[] => {
     const developerRateById = availableDevelopers.reduce<Record<number, number>>((acc, developer) => {
       acc[developer.id] = Number(developer.hourly_rate || 0)
       return acc
     }, {})
 
-    return availableTeams.flatMap((team) =>
+    const scopedTeams = selectedTeamId
+      ? availableTeams.filter((team) => String(team.id) === selectedTeamId)
+      : availableTeams
+
+    return scopedTeams.flatMap((team) =>
       team.memberships.map((membership) => {
         const hourlyRate = developerRateById[membership.developer] || 0
-        const memberRole = availableDevelopers.find((developer) => developer.id === membership.developer)?.role || "Developer"
+        const memberRole = availableDevelopers.find((developer) => developer.id === membership.developer)?.role || "Розробник"
         const defaultAllocation = membership.allocation || 100
         const monthlyCost = hourlyRate * 160 * (defaultAllocation / 100)
 
         return {
           id: `alloc-${team.id}-${membership.developer}`,
           memberId: `${team.id}-${membership.developer}`,
-          memberName: membership.developer_name || `Developer #${membership.developer}`,
+          memberName: membership.developer_name || `Розробник #${membership.developer}`,
           memberRole,
           teamId: String(team.id),
           teamName: team.name,
@@ -238,8 +246,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           }
         }
 
-        const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse)
-        const initialAllocations = persistedAllocations.length > 0 ? persistedAllocations : fallbackAllocations
+        const scopedPersistedAllocations = mappedProject.teamId
+          ? persistedAllocations.filter((allocation) => allocation.teamId === mappedProject.teamId)
+          : persistedAllocations
+        const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse, mappedProject.teamId)
+        const initialAllocations = scopedPersistedAllocations.length > 0 ? scopedPersistedAllocations : fallbackAllocations
 
         const projectIrregularExpenses: ProjectExpense[] = variableExpenses
           .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
@@ -255,6 +266,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             date: expense.expense_date,
             description: expense.description || undefined,
             impactProjectProfitability: expense.impact_flags?.projectProfitability ?? true,
+            status: expense.status,
           }))
         const projectRecurringExpenses: ProjectExpense[] = recurringExpenses
           .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
@@ -271,6 +283,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             description: expense.description || undefined,
             impactProjectProfitability: true,
             recurringCycle: expense.cycle,
+            status: expense.status,
           }))
         const projectDirectExpenses = [...projectIrregularExpenses, ...projectRecurringExpenses]
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -278,7 +291,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         setProject({ ...mappedProject, invoices: projectInvoices, allocations: initialAllocations, expenses: projectDirectExpenses })
       } catch (loadError) {
         setProject(null)
-        setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проект")
+        setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проєкт")
       } finally {
         setIsLoading(false)
       }
@@ -299,8 +312,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     const shouldUpdateLocalProject = (
       Math.abs(totalRevenue - project.revenue) > 0.01 ||
-      Math.abs(totalLaborCost - project.laborCost) > 0.01 ||
-      Math.abs(totalExpenses - project.directOverheads) > 0.01 ||
       Math.abs(netProfit - project.netProfit) > 0.01 ||
       Math.abs(profitMargin - project.profitMargin) > 0.01
     )
@@ -309,8 +320,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       setProject(prev => prev ? {
         ...prev,
         revenue: totalRevenue,
-        laborCost: totalLaborCost,
-        directOverheads: totalExpenses,
         netProfit,
         profitMargin,
       } : prev)
@@ -322,8 +331,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     void workforceApi.updateProject(project.id, {
       revenue: totalRevenue.toFixed(2),
-      labor_cost: totalLaborCost.toFixed(2),
-      direct_overheads: totalExpenses.toFixed(2),
     }).catch(() => {
       setError("Дані змінено локально, але не вдалося зберегти на сервері.")
     })
@@ -341,7 +348,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     description: "",
   })
 
-  // Resource Allocation CRUD
+  // Розподіл ресурсів CRUD
   const [isAllocationDialogOpen, setIsAllocationDialogOpen] = useState(false)
   const [isDeleteAllocationOpen, setIsDeleteAllocationOpen] = useState(false)
   const [selectedAllocation, setSelectedAllocation] = useState<ResourceAllocation | null>(null)
@@ -358,6 +365,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     name: "",
     amount: "",
     category: "",
+    currency: "USD" as Currency,
+    source: "cash" as "cash" | "monobank" | "privat24" | "wise" | "payoneer",
     date: new Date().toISOString().split("T")[0],
     description: "",
   })
@@ -377,11 +386,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       teams.flatMap((team) =>
         team.memberships.map((membership) => {
           const hourlyRate = developerRateById[membership.developer] || 0
-          const developerRole = developers.find((developer) => developer.id === membership.developer)?.role || "Developer"
+          const developerRole = developers.find((developer) => developer.id === membership.developer)?.role || "Розробник"
           return {
             id: `${team.id}-${membership.developer}`,
             developerId: membership.developer,
-            name: membership.developer_name || `Developer #${membership.developer}`,
+            name: membership.developer_name || `Розробник #${membership.developer}`,
             role: developerRole,
             teamId: team.id.toString(),
             teamName: team.name,
@@ -395,7 +404,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-muted-foreground">Завантаження проекту...</p>
+        <p className="text-muted-foreground">Завантаження проєкту...</p>
       </div>
     )
   }
@@ -403,9 +412,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   if (!project) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-muted-foreground">{error || "Проект не знайдено"}</p>
+        <p className="text-muted-foreground">{error || "Проєкт не знайдено"}</p>
         <Button variant="outline" className="mt-4" asChild>
-          <Link href="/dashboard/projects">Повернутися до Project Hub</Link>
+          <Link href="/dashboard/projects">Повернутися до портфеля проєктів</Link>
         </Button>
       </div>
     )
@@ -584,17 +593,66 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }
 
   // Expense handlers
-  const handleSaveExpense = () => {
+  const handleSaveExpense = async () => {
+    if (!project) return
+    const amount = parseFloat(expenseForm.amount) || 0
+    const { rates: loadedRates } = await getNbuRates()
+    const amountUsd = convertToBaseCurrency(amount, expenseForm.currency, loadedRates)
+
+    if (selectedExpense?.expenseType === "recurring" && selectedExpense.sourceId) {
+      await workforceApi.updateRecurringExpense(selectedExpense.sourceId, {
+        name: expenseForm.name,
+        amount: amount.toString(),
+        currency: expenseForm.currency,
+        category: expenseForm.category,
+        source: expenseForm.source,
+        description: expenseForm.description,
+        next_payment_date: expenseForm.date,
+      })
+    } else if (selectedExpense?.sourceId) {
+      await workforceApi.updateVariableExpense(selectedExpense.sourceId, {
+        name: expenseForm.name,
+        amount: amount.toString(),
+        currency: expenseForm.currency,
+        category: expenseForm.category,
+        source: expenseForm.source,
+        expense_date: expenseForm.date,
+        description: expenseForm.description,
+      })
+    } else {
+      await workforceApi.createVariableExpense({
+        name: expenseForm.name,
+        amount: amount.toString(),
+        currency: expenseForm.currency,
+        category: expenseForm.category,
+        source: expenseForm.source,
+        status: "pending",
+        expense_date: expenseForm.date,
+        allocation_type: "project",
+        project: Number(project.id),
+        description: expenseForm.description,
+        impact_flags: {
+          actualMonthlySpend: true,
+          cashFlow: true,
+          projectProfitability: true,
+          budgetDeviation: true,
+          teamCost: false,
+          companyBurnRate: true,
+        },
+      })
+    }
+
     const newExpense: ProjectExpense = {
       id: selectedExpense?.id || `exp-${Date.now()}`,
       name: expenseForm.name,
-      amount: parseFloat(expenseForm.amount) || 0,
-      currency: selectedExpense?.currency ?? "USD",
-      amountUsd: parseFloat(expenseForm.amount) || 0,
+      amount,
+      currency: expenseForm.currency,
+      amountUsd,
       category: expenseForm.category,
       date: expenseForm.date,
       description: expenseForm.description,
       impactProjectProfitability: selectedExpense?.impactProjectProfitability ?? true,
+      status: selectedExpense?.status ?? "pending",
     }
 
     if (selectedExpense) {
@@ -631,7 +689,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       ])
       const mappedProject = mapApiProject(apiProject)
       const projectInvoices = allInvoices.filter(invoice => String(invoice.project) === id).map(mapApiInvoice)
-      const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse)
+      const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse, mappedProject.teamId)
       const irregular = variableExpenses
         .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
         .map((expense) => ({
@@ -646,6 +704,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           date: expense.expense_date,
           description: expense.description || undefined,
           impactProjectProfitability: expense.impact_flags?.projectProfitability ?? true,
+          status: expense.status,
         }))
       const recurring = recurringExpenses
         .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
@@ -662,6 +721,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           description: expense.description || undefined,
           impactProjectProfitability: true,
           recurringCycle: expense.cycle,
+          status: expense.status,
         }))
       setProject({ ...mappedProject, invoices: projectInvoices, allocations: project.allocations.length > 0 ? project.allocations : fallbackAllocations, expenses: [...irregular, ...recurring].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime()) })
     } catch (deleteError) {
@@ -677,7 +737,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     setExpenseForm({
       name: expense.name,
       amount: expense.amount.toString(),
-      category: expense.category,
+      category: normalizeExpenseCategoryValue(expense.category),
+      currency: expense.currency ?? "USD",
+      source: "cash",
       date: expense.date,
       description: expense.description || "",
     })
@@ -687,11 +749,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const closeExpenseDialog = () => {
     setIsExpenseDialogOpen(false)
     setSelectedExpense(null)
-    setExpenseForm({ name: "", amount: "", category: "", date: new Date().toISOString().split("T")[0], description: "" })
+    setExpenseForm({ name: "", amount: "", category: "", currency: "USD", source: "cash", date: new Date().toISOString().split("T")[0], description: "" })
   }
 
   // Calculations
   const { totalRevenue, totalLaborCost, totalExpenses, netProfit, profitMargin } = calculateRuntimeFinancials(project)
+  const plannedRevenue = project.totalContractValue || 0
+  const plannedBuffer = plannedRevenue * ((project.bufferPercent || 0) / 100)
+  const plannedCost = project.laborCost + project.directOverheads + plannedBuffer
+  const plannedProfit = plannedRevenue - plannedCost
+  const plannedMargin = plannedRevenue > 0 ? (plannedProfit / plannedRevenue) * 100 : 0
 
   // Cost estimator
   const estimatedMonthlyCost = project.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
@@ -748,49 +815,49 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Плановий дохід</CardTitle>
             <DollarSign className="size-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{formatCurrency(totalRevenue)}</div>
+            <div className="text-2xl font-bold text-emerald-600">{formatCurrency(plannedRevenue)}</div>
+            <p className="text-xs text-muted-foreground">вартість контракту</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Фактичний дохід</CardTitle>
+            <Users className="size-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
             <p className="text-xs text-muted-foreground">оплачені інвойси</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Labor Cost</CardTitle>
-            <Users className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalLaborCost)}</div>
-            <p className="text-xs text-muted-foreground">вартість команди</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Overheads</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Планові витрати</CardTitle>
             <Receipt className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div>
-            <p className="text-xs text-muted-foreground">прямі витрати</p>
+            <div className="text-2xl font-bold">{formatCurrency(plannedCost)}</div>
+            <p className="text-xs text-muted-foreground">команда + прямі + резерв</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Net Profit</CardTitle>
-            {netProfit >= 0 ? (
+            <CardTitle className="text-sm font-medium text-muted-foreground">Очікуваний прибуток</CardTitle>
+            {plannedProfit >= 0 ? (
               <TrendingUp className="size-4 text-emerald-500" />
             ) : (
               <TrendingDown className="size-4 text-destructive" />
             )}
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-              {formatCurrency(netProfit)}
+            <div className={`text-2xl font-bold ${plannedProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+              {formatCurrency(plannedProfit)}
             </div>
             <p className="text-xs text-muted-foreground">
-              маржа {profitMargin.toFixed(1)}%
+              очікувана маржинальність {plannedMargin.toFixed(1)}%
             </p>
           </CardContent>
         </Card>
@@ -799,41 +866,45 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       {/* Tabs */}
       <Tabs defaultValue="financials" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="financials">Financial P&L</TabsTrigger>
-          <TabsTrigger value="resources">Resource Allocation</TabsTrigger>
-          <TabsTrigger value="invoices">Invoicing & Payments</TabsTrigger>
+          <TabsTrigger value="financials">Фінанси проєкту</TabsTrigger>
+          <TabsTrigger value="resources">Розподіл ресурсів</TabsTrigger>
+          <TabsTrigger value="invoices">Інвойси та оплати</TabsTrigger>
         </TabsList>
 
-        {/* Tab A: Financial P&L */}
+        {/* Tab A: Фінанси проєкту */}
         <TabsContent value="financials" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             {/* P&L Breakdown */}
             <Card>
               <CardHeader>
-                <CardTitle>Profit & Loss Statement</CardTitle>
-                <CardDescription>Розрахунок прибутку проекту</CardDescription>
+                <CardTitle>План vs Факт</CardTitle>
+                <CardDescription>Планові та фактичні фінансові показники проєкту</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-muted-foreground">Revenue (Оплачені інвойси)</span>
-                    <span className="font-semibold text-emerald-600">+{formatCurrency(totalRevenue)}</span>
+                    <span className="text-muted-foreground">Плановий дохід</span>
+                    <span className="font-semibold text-emerald-600">+{formatCurrency(plannedRevenue)}</span>
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-muted-foreground">Labor Cost (Команда)</span>
-                    <span className="font-semibold text-destructive">-{formatCurrency(totalLaborCost)}</span>
+                    <span className="text-muted-foreground">Планові витрати</span>
+                    <span className="font-semibold text-destructive">-{formatCurrency(plannedCost)}</span>
                   </div>
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-muted-foreground">Direct Overheads (Витрати)</span>
-                    <span className="font-semibold text-destructive">-{formatCurrency(totalExpenses)}</span>
+                    <span className="text-muted-foreground">Фактичні витрати</span>
+                    <span className="font-semibold text-destructive">-{formatCurrency(totalLaborCost + totalExpenses)}</span>
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3 -mx-3">
-                    <span className="font-semibold">Net Profit</span>
-                    <span className={`text-xl font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                      {formatCurrency(netProfit)}
+                    <span className="font-semibold">Очікуваний прибуток</span>
+                    <span className={`text-xl font-bold ${plannedProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                      {formatCurrency(plannedProfit)}
                     </span>
+                  </div>
+                  <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3 -mx-3">
+                    <span className="font-semibold">Фактичний прибуток</span>
+                    <span className={`text-xl font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>{formatCurrency(netProfit)}</span>
                   </div>
                 </div>
 
@@ -842,13 +913,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <span className="text-muted-foreground">Формула:</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 font-mono bg-muted/50 p-2 rounded">
-                    Profit = Revenue - (LaborCost + DirectOverheads)
+                    Чистий прибуток = Дохід - (Вартість команди + Прямі витрати)
                   </p>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Direct Expenses */}
+            {/* Прямі витрати */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -869,6 +940,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 ) : (
                   <div className="space-y-2">
                     {project.expenses.map(expense => (
+                      (() => {
+                        const status = expense.status || "pending"
+                        const statusLabel = status === "paid" ? "Сплачено" : "Очікується"
+                        const statusClass = status === "paid"
+                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                          : "bg-amber-100 text-amber-700 hover:bg-amber-100"
+                        return (
                       <div 
                         key={expense.id}
                         className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
@@ -876,9 +954,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         <div>
                           <p className="font-medium text-sm">{expense.name}</p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant="outline" className="text-xs">{expense.category}</Badge>
+                            <Badge variant="outline" className="text-xs">{getExpenseCategoryLabel(expense.category)}</Badge>
                             <Badge variant={expense.expenseType === "recurring" ? "secondary" : "default"} className="text-xs">
-                              {expense.expenseType === "recurring" ? "Regular" : "Irregular"}
+                              {expense.expenseType === "recurring" ? "Регулярні" : "Разові"}
+                            </Badge>
+                            <Badge variant="secondary" className={`text-xs ${statusClass}`}>
+                              {statusLabel}
                             </Badge>
                             <span className="text-xs text-muted-foreground">{formatDate(expense.date)}</span>
                           </div>
@@ -927,6 +1008,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           </DropdownMenu>
                         </div>
                       </div>
+                        )
+                      })()
                     ))}
                   </div>
                 )}
@@ -938,7 +1021,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           {project.billingModel === "fixed" && project.milestones && (
             <Card>
               <CardHeader>
-                <CardTitle>Contract Milestones</CardTitle>
+                <CardTitle>Contract Етапи оплати</CardTitle>
                 <CardDescription>
                   Загальна вартість контракту: {formatCurrency(project.totalContractValue || 0)}
                 </CardDescription>
@@ -972,35 +1055,21 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           )}
         </TabsContent>
 
-        {/* Tab B: Resource Allocation */}
+        {/* Tab B: Розподіл ресурсів */}
         <TabsContent value="resources" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             {/* Team Selector */}
             <div className="md:col-span-2">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Team Allocation</CardTitle>
-                    <CardDescription>Члени команди на проекті</CardDescription>
-                  </div>
-                  <Button onClick={() => setIsAllocationDialogOpen(true)}>
-                    <Plus className="mr-2 size-4" />
-                    Додати члена
-                  </Button>
+                <CardHeader>
+                  <CardTitle>Привʼязана команда</CardTitle>
+                  <CardDescription>Залученість учасників редагується на сторінці Команди.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {project.allocations.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                       <Users className="size-12 mx-auto mb-3 opacity-50" />
-                      <p>Ще немає призначених членів команди</p>
-                      <Button 
-                        variant="outline" 
-                        className="mt-4"
-                        onClick={() => setIsAllocationDialogOpen(true)}
-                      >
-                        <Plus className="mr-2 size-4" />
-                        Додати першого
-                      </Button>
+                      <p>Команду ще не призначено</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1025,7 +1094,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                             <div className="flex items-center gap-3">
                               <div>
                                 <p className="text-sm font-medium">{allocation.allocation}%</p>
-                                <p className="text-xs text-muted-foreground">allocation</p>
+                                <p className="text-xs text-muted-foreground">залучення</p>
                               </div>
                               <Separator orientation="vertical" className="h-8" />
                               <div>
@@ -1034,30 +1103,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                               </div>
                             </div>
                           </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="size-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEditAllocation(allocation)}>
-                                <Pencil className="mr-2 size-4" />
-                                Редагувати
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setSelectedAllocation(allocation)
-                                  setIsDeleteAllocationOpen(true)
-                                }}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="mr-2 size-4" />
-                                Видалити
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <Badge variant="outline" className="text-xs">З Команди</Badge>
                         </div>
                       ))}
                     </div>
@@ -1114,7 +1160,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </TabsContent>
 
-        {/* Tab C: Invoicing & Payments */}
+        {/* Tab C: Інвойси та оплати */}
         <TabsContent value="invoices" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -1250,7 +1296,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <div className="space-y-2">
               <Label>Назва</Label>
               <Input 
-                placeholder="напр. Prepayment 50%" 
+                placeholder="напр. Передоплата 50%" 
                 value={invoiceForm.name}
                 onChange={(e) => setInvoiceForm({ ...invoiceForm, name: e.target.value })}
               />
@@ -1305,7 +1351,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       <Dialog open={isAllocationDialogOpen} onOpenChange={setIsAllocationDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedAllocation ? "Редагувати allocation" : "Додати члена команди"}</DialogTitle>
+            <DialogTitle>{selectedAllocation ? "Редагувати залучення" : "Додати члена команди"}</DialogTitle>
             <DialogDescription>Виберіть члена команди та вкажіть відсоток часу</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1340,7 +1386,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 step={10}
               />
               <p className="text-xs text-muted-foreground">
-                Скільки часу цей спеціаліст витрачатиме на проект
+                Скільки часу цей спеціаліст витрачатиме на проєкт
               </p>
             </div>
             {allocationForm.memberId && (
@@ -1369,7 +1415,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{selectedExpense ? "Редагувати витрату" : "Нова витрата"}</DialogTitle>
-            <DialogDescription>Додайте пряму витрату проекту</DialogDescription>
+            <DialogDescription>Додайте пряму витрату проєкту</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -1400,12 +1446,36 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <SelectValue placeholder="Оберіть..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Infrastructure">Infrastructure</SelectItem>
-                    <SelectItem value="Software">Software</SelectItem>
-                    <SelectItem value="Assets">Assets</SelectItem>
-                    <SelectItem value="API">API</SelectItem>
-                    <SelectItem value="Security">Security</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                    {sharedExpenseCategories.map((category) => (
+                      <SelectItem key={category.value} value={category.value}>
+                        {category.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Валюта</Label>
+                <Select value={expenseForm.currency} onValueChange={(v) => setExpenseForm({ ...expenseForm, currency: v as Currency })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="UAH">UAH</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Спосіб оплати</Label>
+                <Select value={expenseForm.source} onValueChange={(v) => setExpenseForm({ ...expenseForm, source: v as "cash" | "monobank" | "privat24" | "wise" | "payoneer" })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Готівка</SelectItem>
+                    <SelectItem value="monobank">Картка</SelectItem>
+                    <SelectItem value="privat24">Банківський переказ</SelectItem>
+                    <SelectItem value="wise">Інше</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1449,9 +1519,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       <AlertDialog open={isDeleteAllocationOpen} onOpenChange={setIsDeleteAllocationOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Видалити з проекту?</AlertDialogTitle>
+            <AlertDialogTitle>Видалити з проєкту?</AlertDialogTitle>
             <AlertDialogDescription>
-              Ви впевнені, що хочете видалити {selectedAllocation?.memberName} з проекту?
+              Ви впевнені, що хочете видалити {selectedAllocation?.memberName} з проєкту?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
