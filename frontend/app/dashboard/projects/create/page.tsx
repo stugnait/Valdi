@@ -85,6 +85,11 @@ interface FormData {
     date: string
     status: "pending" | "paid"
     isCollapsed: boolean
+    touched: {
+      name: boolean
+      amount: boolean
+      category: boolean
+    }
   }[]
 }
 
@@ -286,9 +291,13 @@ export default function CreateProjectPage() {
         date: new Date().toISOString().split("T")[0],
         status: "pending",
         isCollapsed: false,
+        touched: {
+          name: false,
+          amount: false,
+          category: false,
+        },
       }],
     })
-  }
 
   const updateDirectExpense = (index: number, field: string, value: string) => {
     setFormData({
@@ -315,10 +324,53 @@ export default function CreateProjectPage() {
     })
   }
 
+  const markDirectExpenseFieldTouched = (index: number, field: "name" | "amount" | "category") => {
+    setFormData({
+      ...formData,
+      directExpenses: formData.directExpenses.map((expense, i) =>
+        i === index ? { ...expense, touched: { ...expense.touched, [field]: true } } : expense
+      ),
+    })
+  }
+
+  const markAllDirectExpenseFieldsTouched = () => {
+    setFormData({
+      ...formData,
+      directExpenses: formData.directExpenses.map((expense) => ({
+        ...expense,
+        touched: { name: true, amount: true, category: true },
+      })),
+    })
+  }
+
+  const getDirectExpenseErrors = (expense: FormData["directExpenses"][number]) => {
+    const parsedAmount = Number(expense.amount)
+    return {
+      name: expense.name.trim() ? "" : "Вкажіть назву витрати.",
+      amount: !expense.amount
+        ? "Вкажіть суму витрати."
+        : parsedAmount <= 0
+          ? "Сума має бути більшою за 0."
+          : "",
+      category: expense.category ? "" : "Оберіть категорію витрати.",
+    }
+  }
+
+  const hasInvalidDirectExpenses = () =>
+    formData.directExpenses.some((expense) => {
+      const errors = getDirectExpenseErrors(expense)
+      return Boolean(errors.name || errors.amount || errors.category)
+    })
+
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true)
       setError(null)
+      if (hasInvalidDirectExpenses()) {
+        markAllDirectExpenseFieldsTouched()
+        setError("Заповніть обовʼязкові поля у прямих витратах проєкту.")
+        return
+      }
 
       let selectedClientId = formData.clientId
       if (isCreatingClient && formData.newClientName.trim()) {
@@ -930,14 +982,19 @@ export default function CreateProjectPage() {
                             <div className="space-y-4 p-4">
                               <div className="space-y-2">
                                 <Label>Назва витрати *</Label>
-                                <Input value={expense.name} onChange={(e) => updateDirectExpense(idx, "name", e.target.value)} placeholder="Наприклад: AWS Infrastructure" />
-                                {!expense.name.trim() && <p className="text-xs text-destructive">Вкажіть назву витрати.</p>}
+                                <Input
+                                  value={expense.name}
+                                  onChange={(e) => updateDirectExpense(idx, "name", e.target.value)}
+                                  onBlur={() => markDirectExpenseFieldTouched(idx, "name")}
+                                  placeholder="Наприклад: AWS Infrastructure"
+                                />
+                                {expense.touched.name && getDirectExpenseErrors(expense).name && <p className="text-xs text-destructive">{getDirectExpenseErrors(expense).name}</p>}
                               </div>
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <div className="space-y-2">
                                   <Label>Сума *</Label>
-                                  <Input type="number" min="0" step="0.01" value={expense.amount} onChange={(e) => updateDirectExpense(idx, "amount", e.target.value)} placeholder="1000" />
-                                  {(!expense.amount || Number(expense.amount) <= 0) && <p className="text-xs text-destructive">Сума має бути більшою за 0.</p>}
+                                  <Input type="number" min="0" step="0.01" value={expense.amount} onChange={(e) => updateDirectExpense(idx, "amount", e.target.value)} onBlur={() => markDirectExpenseFieldTouched(idx, "amount")} placeholder="1000" />
+                                  {expense.touched.amount && getDirectExpenseErrors(expense).amount && <p className="text-xs text-destructive">{getDirectExpenseErrors(expense).amount}</p>}
                                 </div>
                                 <div className="space-y-2">
                                   <Label>Валюта *</Label>
@@ -950,13 +1007,13 @@ export default function CreateProjectPage() {
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <div className="space-y-2">
                                   <Label>Категорія *</Label>
-                                  <Select value={expense.category} onValueChange={(v) => updateDirectExpense(idx, "category", v)}>
+                                  <Select value={expense.category} onValueChange={(v) => { updateDirectExpense(idx, "category", v); markDirectExpenseFieldTouched(idx, "category") }}>
                                     <SelectTrigger><SelectValue placeholder="Оберіть категорію" /></SelectTrigger>
                                     <SelectContent>
                                       {sharedExpenseCategories.map((category) => <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>)}
                                     </SelectContent>
                                   </Select>
-                                  {!expense.category && <p className="text-xs text-destructive">Оберіть категорію витрати.</p>}
+                                  {expense.touched.category && getDirectExpenseErrors(expense).category && <p className="text-xs text-destructive">{getDirectExpenseErrors(expense).category}</p>}
                                 </div>
                                 <div className="space-y-2">
                                   <Label>Тип витрати</Label>
@@ -1143,7 +1200,7 @@ export default function CreateProjectPage() {
             <ArrowRight className="size-4 ml-2" />
           </Button>
         ) : (
-          <Button onClick={handleSubmit} disabled={!canProceed() || isSubmitting || isLoadingData}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || isLoadingData}>
             <Check className="size-4 mr-2" />
             {isSubmitting ? "Зберігаємо..." : "Створити проєкт"}
           </Button>
