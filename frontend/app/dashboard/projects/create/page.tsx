@@ -324,7 +324,7 @@ export default function CreateProjectPage() {
     });
   };
 
-  const addDirectExpense = () => {
+  const markAllDirectExpenseFieldsTouched = () => {
     setFormData({
       ...formData,
       directExpenses: [
@@ -350,7 +350,7 @@ export default function CreateProjectPage() {
     });
   };
 
-  const updateDirectExpense = (index: number, field: string, value: string) => {
+  const toggleDirectExpenseCollapsed = (index: number) => {
     setFormData({
       ...formData,
       directExpenses: formData.directExpenses.map((e, i) =>
@@ -359,7 +359,10 @@ export default function CreateProjectPage() {
     });
   };
 
-  const removeDirectExpense = (index: number) => {
+  const markDirectExpenseFieldTouched = (
+    index: number,
+    field: "name" | "amount" | "category",
+  ) => {
     setFormData({
       ...formData,
       directExpenses: formData.directExpenses.filter((_, i) => i !== index),
@@ -421,6 +424,12 @@ export default function CreateProjectPage() {
       const errors = getDirectExpenseValidationErrors(expense);
       return Boolean(errors.name || errors.amount || errors.category);
     });
+
+  const hasInvalidDirectExpenses = () =>
+    formData.directExpenses.some((expense) => {
+      const errors = getDirectExpenseErrors(expense)
+      return Boolean(errors.name || errors.amount || errors.category)
+    })
 
   const handleSubmit = async () => {
     try {
