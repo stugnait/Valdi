@@ -78,11 +78,11 @@ export interface AutomationRule {
 }
 
 export const paymentSourceOptions: Array<{ value: PaymentSource; label: string }> = [
-  { value: "cash", label: "Готівка" },
-  { value: "monobank", label: "Картка" },
-  { value: "privat24", label: "Банківський переказ" },
-  { value: "wise", label: "Інше" },
+  { value: "monobank", label: "Monobank" },
+  { value: "privat24", label: "Privat24" },
+  { value: "wise", label: "Wise" },
   { value: "payoneer", label: "Payoneer" },
+  { value: "cash", label: "Готівка" },
 ]
 
 // Exchange rates (mock - in production would fetch from NBU API)

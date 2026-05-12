@@ -988,6 +988,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                             <Badge variant="outline" className="text-xs">
                               {paymentSourceOptions.find((source) => source.value === (expense.source ?? "cash"))?.label || "Готівка"}
                             </Badge>
+                            <Badge variant="secondary" className={`text-xs ${statusClass}`}>
+                              {statusLabel}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {paymentSourceOptions.find((source) => source.value === (expense.source ?? "cash"))?.label || "Готівка"}
+                            </Badge>
                             <Badge variant="outline" className="text-xs">Проєкт</Badge>
                             <span className="text-xs text-muted-foreground">{formatDate(expense.date)}</span>
                           </div>
@@ -1496,7 +1502,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Спосіб оплати</Label>
+                <Label>Джерело оплати</Label>
                 <Select value={expenseForm.source} onValueChange={(v) => setExpenseForm({ ...expenseForm, source: v as "cash" | "monobank" | "privat24" | "wise" | "payoneer" })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
