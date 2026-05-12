@@ -298,7 +298,6 @@ export default function CreateProjectPage() {
         },
       }],
     })
-  }
 
   const updateDirectExpense = (index: number, field: string, value: string) => {
     setFormData({
