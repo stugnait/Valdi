@@ -9,6 +9,8 @@ import {
   Check,
   Plus,
   X,
+  ChevronDown,
+  ChevronUp,
   DollarSign,
   Clock,
   Users,
@@ -72,7 +74,18 @@ interface FormData {
   
   // Step 4
   bufferPercent: string
-  directExpenses: { name: string; amount: string; category: string; currency: Currency; source: "cash" | "monobank" | "privat24" | "wise" | "payoneer"; expenseType: "irregular" | "recurring"; cycle: "monthly" | "quarterly" | "yearly"; date: string }[]
+  directExpenses: {
+    name: string
+    amount: string
+    category: string
+    currency: Currency
+    source: "cash" | "monobank" | "privat24" | "wise" | "payoneer"
+    expenseType: "irregular" | "recurring"
+    cycle: "monthly" | "quarterly" | "yearly"
+    date: string
+    status: "pending" | "paid"
+    isCollapsed: boolean
+  }[]
 }
 
 const initialFormData: FormData = {
@@ -262,7 +275,18 @@ export default function CreateProjectPage() {
   const addDirectExpense = () => {
     setFormData({
       ...formData,
-      directExpenses: [...formData.directExpenses, { name: "", amount: "", category: "", currency: formData.currency, source: "cash", expenseType: "irregular", cycle: "monthly", date: new Date().toISOString().split("T")[0] }],
+      directExpenses: [...formData.directExpenses, {
+        name: "",
+        amount: "",
+        category: "",
+        currency: formData.currency,
+        source: "cash",
+        expenseType: "irregular",
+        cycle: "monthly",
+        date: new Date().toISOString().split("T")[0],
+        status: "pending",
+        isCollapsed: false,
+      }],
     })
   }
 
@@ -279,6 +303,15 @@ export default function CreateProjectPage() {
     setFormData({
       ...formData,
       directExpenses: formData.directExpenses.filter((_, i) => i !== index),
+    })
+  }
+
+  const toggleDirectExpenseCollapsed = (index: number) => {
+    setFormData({
+      ...formData,
+      directExpenses: formData.directExpenses.map((expense, i) =>
+        i === index ? { ...expense, isCollapsed: !expense.isCollapsed } : expense
+      ),
     })
   }
 
@@ -337,9 +370,9 @@ export default function CreateProjectPage() {
               cycle: expense.cycle,
               category: expense.category,
               source: expense.source,
+              status: expense.status,
               allocation_type: "project",
               project: Number(createdProject.id),
-              status: "pending",
               last_paid_date: expense.date,
               next_payment_date: expense.date,
               description: "",
@@ -352,7 +385,7 @@ export default function CreateProjectPage() {
             currency: expense.currency,
             category: expense.category,
             source: expense.source,
-            status: "pending",
+            status: expense.status,
             expense_date: expense.date,
             allocation_type: "project",
             project: Number(createdProject.id),
@@ -861,7 +894,7 @@ export default function CreateProjectPage() {
                     <Label>Прямі витрати проєкту</Label>
                     <Button variant="outline" size="sm" onClick={addDirectExpense}>
                       <Plus className="size-4 mr-1" />
-                      Додати
+                      Додати витрату
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -875,102 +908,103 @@ export default function CreateProjectPage() {
                   ) : (
                     <div className="space-y-3">
                       {formData.directExpenses.map((expense, idx) => (
-                        <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                        <Input
-                          placeholder="Назва витрати"
-                          value={expense.name}
-                          onChange={(e) => updateDirectExpense(idx, "name", e.target.value)}
-                          className="flex-1"
-                        />
-                          <Input
-                            type="number"
-                            placeholder="Сума"
-                            value={expense.amount}
-                            onChange={(e) => updateDirectExpense(idx, "amount", e.target.value)}
-                            className="w-28"
-                          />
-                        <Select
-                          value={expense.currency}
-                          onValueChange={(v) => updateDirectExpense(idx, "currency", v)}
-                        >
-                          <SelectTrigger className="w-24">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="USD">USD</SelectItem>
-                            <SelectItem value="EUR">EUR</SelectItem>
-                            <SelectItem value="UAH">UAH</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={expense.category}
-                          onValueChange={(v) => updateDirectExpense(idx, "category", v)}
-                        >
-                            <SelectTrigger className="w-36">
-                              <SelectValue placeholder="Категорія" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {sharedExpenseCategories.map((category) => (
-                                <SelectItem key={category.value} value={category.value}>
-                                  {category.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                        </Select>
-                        <Select
-                          value={expense.expenseType}
-                          onValueChange={(v) => updateDirectExpense(idx, "expenseType", v)}
-                        >
-                          <SelectTrigger className="w-44">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="irregular">Нерегулярна</SelectItem>
-                            <SelectItem value="recurring">Регулярна</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={expense.source}
-                          onValueChange={(v) => updateDirectExpense(idx, "source", v)}
-                        >
-                          <SelectTrigger className="w-40">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {paymentSourceOptions.map((source) => (
-                              <SelectItem key={source.value} value={source.value}>{source.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {expense.expenseType === "recurring" && (
-                          <Select
-                            value={expense.cycle}
-                            onValueChange={(v) => updateDirectExpense(idx, "cycle", v)}
-                          >
-                            <SelectTrigger className="w-36">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="monthly">Щомісяця</SelectItem>
-                              <SelectItem value="quarterly">Щокварталу</SelectItem>
-                              <SelectItem value="yearly">Щороку</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                        <Input
-                          type="date"
-                          value={expense.date}
-                          onChange={(e) => updateDirectExpense(idx, "date", e.target.value)}
-                          className="w-44"
-                        />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => removeDirectExpense(idx)}
-                          >
-                            <X className="size-4" />
-                          </Button>
+                        <div key={idx} className="rounded-lg border bg-card">
+                          <div className="flex items-center justify-between p-4 border-b">
+                            <div>
+                              <p className="font-medium">Витрата #{idx + 1}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {expense.name.trim() || "Нова витрата"}
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleDirectExpenseCollapsed(idx)}
+                              className="gap-1"
+                            >
+                              {expense.isCollapsed ? "Розгорнути" : "Згорнути"}
+                              {expense.isCollapsed ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
+                            </Button>
+                          </div>
+                          {!expense.isCollapsed && (
+                            <div className="space-y-4 p-4">
+                              <div className="space-y-2">
+                                <Label>Назва витрати *</Label>
+                                <Input value={expense.name} onChange={(e) => updateDirectExpense(idx, "name", e.target.value)} placeholder="Наприклад: AWS Infrastructure" />
+                                {!expense.name.trim() && <p className="text-xs text-destructive">Вкажіть назву витрати.</p>}
+                              </div>
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                  <Label>Сума *</Label>
+                                  <Input type="number" min="0" step="0.01" value={expense.amount} onChange={(e) => updateDirectExpense(idx, "amount", e.target.value)} placeholder="1000" />
+                                  {(!expense.amount || Number(expense.amount) <= 0) && <p className="text-xs text-destructive">Сума має бути більшою за 0.</p>}
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Валюта *</Label>
+                                  <Select value={expense.currency} onValueChange={(v) => updateDirectExpense(idx, "currency", v)}>
+                                    <SelectTrigger><SelectValue placeholder="Оберіть валюту" /></SelectTrigger>
+                                    <SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem><SelectItem value="UAH">UAH</SelectItem></SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                  <Label>Категорія *</Label>
+                                  <Select value={expense.category} onValueChange={(v) => updateDirectExpense(idx, "category", v)}>
+                                    <SelectTrigger><SelectValue placeholder="Оберіть категорію" /></SelectTrigger>
+                                    <SelectContent>
+                                      {sharedExpenseCategories.map((category) => <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>)}
+                                    </SelectContent>
+                                  </Select>
+                                  {!expense.category && <p className="text-xs text-destructive">Оберіть категорію витрати.</p>}
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Тип витрати</Label>
+                                  <Select value={expense.expenseType} onValueChange={(v) => updateDirectExpense(idx, "expenseType", v)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent><SelectItem value="recurring">Регулярна</SelectItem><SelectItem value="irregular">Нерегулярна</SelectItem></SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                  <Label>Джерело оплати</Label>
+                                  <Select value={expense.source} onValueChange={(v) => updateDirectExpense(idx, "source", v)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      {paymentSourceOptions.map((source) => <SelectItem key={source.value} value={source.value}>{source.label}</SelectItem>)}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Статус</Label>
+                                  <Select value={expense.status} onValueChange={(v) => updateDirectExpense(idx, "status", v)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent><SelectItem value="pending">Очікується</SelectItem><SelectItem value="paid">Сплачено</SelectItem></SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                  <Label>Дата</Label>
+                                  <Input type="date" value={expense.date} onChange={(e) => updateDirectExpense(idx, "date", e.target.value)} />
+                                </div>
+                                {expense.expenseType === "recurring" && (
+                                  <div className="space-y-2">
+                                    <Label>Періодичність</Label>
+                                    <Select value={expense.cycle} onValueChange={(v) => updateDirectExpense(idx, "cycle", v)}>
+                                      <SelectTrigger><SelectValue /></SelectTrigger>
+                                      <SelectContent><SelectItem value="monthly">Щомісяця</SelectItem><SelectItem value="quarterly">Щокварталу</SelectItem><SelectItem value="yearly">Щороку</SelectItem></SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+                              </div>
+                              <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => removeDirectExpense(idx)}>
+                                <X className="size-4 mr-1" />
+                                Видалити витрату
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
