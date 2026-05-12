@@ -337,7 +337,7 @@ export default function ProjectsHubPage() {
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/projects/${project.id}?edit=true`}>
+                          <Link href={`/dashboard/projects/${project.id}/edit`}>
                             <Pencil className="mr-2 size-4" />
                             Редагувати
                           </Link>
