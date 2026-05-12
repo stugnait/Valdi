@@ -14,14 +14,20 @@ export interface Client {
   id: string
   name: string
   email?: string
-  company?: string
+  companyName?: string
   contactPerson?: string
   phone?: string
   country?: string
+  website?: string
   notes?: string
+  status: "lead" | "active" | "paused" | "completed" | "archived"
   createdAt: string
   totalRevenue: number
   activeProjects: number
+  totalProjects?: number
+  totalCost?: number
+  profit?: number
+  marginPercent?: number
 }
 
 export type SupportContractStatus = "active" | "paused" | "ended"
@@ -88,6 +94,7 @@ export interface ProjectExpense {
   description?: string
   impactProjectProfitability?: boolean
   recurringCycle?: "monthly" | "quarterly" | "yearly"
+  status?: "pending" | "paid" | "completed" | "overdue" | "failed" | "cancelled"
 }
 
 export interface Project {
@@ -106,7 +113,6 @@ export interface Project {
   // Fixed Price specific
   totalContractValue?: number
   milestones?: Milestone[]
-  taxReservePercent?: number
   
   // T&M specific
   clientHourlyRate?: number
@@ -121,6 +127,8 @@ export interface Project {
   
   // Resources
   allocations: ResourceAllocation[]
+  teamId?: string
+  teamName?: string
   invoices: Invoice[]
   expenses: ProjectExpense[]
   
@@ -132,11 +140,11 @@ export interface Project {
 
 // Mock clients
 export const mockClients: Client[] = [
-  { id: "c1", name: "Nike", company: "Nike Inc.", email: "contact@nike.com", contactPerson: "John Smith", phone: "+1 503-671-6453", country: "USA", createdAt: "2023-06-15", totalRevenue: 85000, activeProjects: 1 },
-  { id: "c2", name: "Spotify", company: "Spotify AB", email: "partners@spotify.com", contactPerson: "Emma Lindqvist", phone: "+46 8 123 456", country: "Sweden", createdAt: "2023-09-01", totalRevenue: 48000, activeProjects: 1 },
-  { id: "c3", name: "CryptoExchange", company: "CryptoEx Ltd", email: "dev@cryptoex.io", contactPerson: "Alex Chen", phone: "+852 2123 4567", country: "Hong Kong", createdAt: "2024-01-10", totalRevenue: 30000, activeProjects: 1 },
-  { id: "c4", name: "TechStartup", company: "TechStartup UA", email: "hello@techstartup.ua", contactPerson: "Oleh Bondar", phone: "+380 44 123 4567", country: "Ukraine", createdAt: "2023-11-20", totalRevenue: 8000, activeProjects: 0 },
-  { id: "c5", name: "HealthApp", company: "Health Solutions", email: "project@healthapp.com", contactPerson: "Sarah Miller", phone: "+1 415-555-0123", country: "USA", createdAt: "2024-03-05", totalRevenue: 0, activeProjects: 0, notes: "Lead - potential new client" },
+  { id: "c1", name: "Nike", companyName: "Nike Inc.", email: "contact@nike.com", contactPerson: "John Smith", phone: "+1 503-671-6453", country: "USA", createdAt: "2023-06-15", totalRevenue: 85000, activeProjects: 1, status: "active" },
+  { id: "c2", name: "Spotify", companyName: "Spotify AB", email: "partners@spotify.com", contactPerson: "Emma Lindqvist", phone: "+46 8 123 456", country: "Sweden", createdAt: "2023-09-01", totalRevenue: 48000, activeProjects: 1, status: "active" },
+  { id: "c3", name: "CryptoExchange", companyName: "CryptoEx Ltd", email: "dev@cryptoex.io", contactPerson: "Alex Chen", phone: "+852 2123 4567", country: "Hong Kong", createdAt: "2024-01-10", totalRevenue: 30000, activeProjects: 1, status: "active" },
+  { id: "c4", name: "TechStartup", companyName: "TechStartup UA", email: "hello@techstartup.ua", contactPerson: "Oleh Bondar", phone: "+380 44 123 4567", country: "Ukraine", createdAt: "2023-11-20", totalRevenue: 8000, activeProjects: 0, status: "paused" },
+  { id: "c5", name: "HealthApp", companyName: "Health Solutions", email: "project@healthapp.com", contactPerson: "Sarah Miller", phone: "+1 415-555-0123", country: "USA", createdAt: "2024-03-05", totalRevenue: 0, activeProjects: 0, status: "lead", notes: "Lead - potential new client" },
 ]
 
 // Mock support contracts
@@ -224,7 +232,6 @@ export const mockProjects: Project[] = [
       { id: "m2", name: "MVP Release", percentage: 40, amount: 34000 },
       { id: "m3", name: "Final Delivery", percentage: 30, amount: 25500 },
     ],
-    taxReservePercent: 5,
     revenue: 59500,
     laborCost: 32400,
     directOverheads: 2800,
@@ -300,7 +307,6 @@ export const mockProjects: Project[] = [
       { id: "m6", name: "Phase 2: Trading", percentage: 30, amount: 45000 },
       { id: "m7", name: "Final Launch", percentage: 20, amount: 30000 },
     ],
-    taxReservePercent: 5,
     revenue: 30000,
     laborCost: 42000,
     directOverheads: 5200,
@@ -337,7 +343,6 @@ export const mockProjects: Project[] = [
       { id: "m8", name: "Prepayment", percentage: 50, amount: 4000 },
       { id: "m9", name: "Delivery", percentage: 50, amount: 4000 },
     ],
-    taxReservePercent: 5,
     revenue: 8000,
     laborCost: 4200,
     directOverheads: 300,
@@ -374,7 +379,6 @@ export const mockProjects: Project[] = [
       { id: "m12", name: "Development", percentage: 35, amount: 22750 },
       { id: "m13", name: "Launch", percentage: 15, amount: 9750 },
     ],
-    taxReservePercent: 5,
     revenue: 0,
     laborCost: 0,
     directOverheads: 0,
@@ -721,10 +725,10 @@ export function getStatusBadgeVariant(status: ProjectStatus): "default" | "secon
 
 export function getStatusLabel(status: ProjectStatus): string {
   switch (status) {
-    case "active": return "Active"
-    case "lead": return "Lead"
-    case "finished": return "Finished"
-    case "paused": return "Paused"
+    case "active": return "Активний"
+    case "lead": return "Потенційний"
+    case "finished": return "Завершений"
+    case "paused": return "Призупинений"
     default: return status
   }
 }
