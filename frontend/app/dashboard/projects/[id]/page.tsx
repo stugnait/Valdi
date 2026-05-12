@@ -963,14 +963,21 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {project.expenses.map(expense => (
-                      (() => {
-                        const status = expense.status || "pending"
-                        const statusLabel = status === "paid" ? "Сплачено" : "Очікується"
-                        const statusClass = status === "paid"
-                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                          : "bg-amber-100 text-amber-700 hover:bg-amber-100"
-                        return (
+                    {project.expenses.map(expense => {
+                      const status = expense.status || "pending"
+                      const statusLabel = status === "paid" ? "Сплачено" : "Очікується"
+                      const statusClass = status === "paid"
+                        ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                        : "bg-amber-100 text-amber-700 hover:bg-amber-100"
+                      const paymentSourceLabel = paymentSourceOptions.find((source) => source.value === (expense.source ?? "cash"))?.label || "Готівка"
+                      const metadataBadges = [
+                        { key: `category-${expense.category}`, element: <Badge variant="outline" className="text-xs">{getExpenseCategoryLabel(expense.category)}</Badge> },
+                        { key: `type-${expense.expenseType}`, element: <Badge variant={expense.expenseType === "recurring" ? "secondary" : "default"} className="text-xs">{expense.expenseType === "recurring" ? "Регулярні" : "Разові"}</Badge> },
+                        { key: `status-${statusLabel}`, element: <Badge variant="secondary" className={`text-xs ${statusClass}`}>{statusLabel}</Badge> },
+                        { key: `source-${paymentSourceLabel}`, element: <Badge variant="outline" className="text-xs">{paymentSourceLabel}</Badge> },
+                      ]
+                      const uniqueBadges = metadataBadges.filter((badge, index, arr) => arr.findIndex((item) => item.key === badge.key) === index)
+                      return (
                       <div 
                         key={expense.id}
                         className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
@@ -978,23 +985,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         <div>
                           <p className="font-medium text-sm">{expense.name}</p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant="outline" className="text-xs">{getExpenseCategoryLabel(expense.category)}</Badge>
-                            <Badge variant={expense.expenseType === "recurring" ? "secondary" : "default"} className="text-xs">
-                              {expense.expenseType === "recurring" ? "Регулярні" : "Разові"}
-                            </Badge>
-                            <Badge variant="secondary" className={`text-xs ${statusClass}`}>
-                              {statusLabel}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {paymentSourceOptions.find((source) => source.value === (expense.source ?? "cash"))?.label || "Готівка"}
-                            </Badge>
-                            <Badge variant="secondary" className={`text-xs ${statusClass}`}>
-                              {statusLabel}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {paymentSourceOptions.find((source) => source.value === (expense.source ?? "cash"))?.label || "Готівка"}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">Проєкт</Badge>
+                            {uniqueBadges.map((badge) => (
+                              <span key={badge.key}>{badge.element}</span>
+                            ))}
                             <span className="text-xs text-muted-foreground">{formatDate(expense.date)}</span>
                           </div>
                         </div>
@@ -1042,9 +1035,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           </DropdownMenu>
                         </div>
                       </div>
-                        )
-                      })()
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </CardContent>
