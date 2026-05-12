@@ -117,7 +117,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const totalLaborCost = 0
 
     // Фактичні витрати: лише реально зафіксовані витрати проєкту.
+    const finalizedExpenseStatuses = new Set(["paid", "completed", "confirmed"])
     const totalExpenses = currentProject.expenses
+      .filter((expense) => !expense.status || finalizedExpenseStatuses.has(expense.status))
       .filter((expense) => expense.impactProjectProfitability ?? true)
       .reduce((sum, e) => sum + (e.amountUsd ?? e.amount), 0)
 
@@ -142,8 +144,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const netProfit = revenue - laborCost - directOverheads
     const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0
     const totalContractValue = apiProject.total_contract_value ? Number(apiProject.total_contract_value) : undefined
+    const bufferPercent = Number(apiProject.buffer_percent || 0)
+    const bufferAmount = totalContractValue ? totalContractValue * (bufferPercent / 100) : 0
     const budgetUsedPercent = totalContractValue && totalContractValue > 0
-      ? ((laborCost + directOverheads) / totalContractValue) * 100
+      ? ((laborCost + directOverheads + bufferAmount) / totalContractValue) * 100
       : 0
 
     return {
@@ -169,7 +173,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       revenue,
       laborCost,
       directOverheads,
-      bufferPercent: Number(apiProject.buffer_percent || 0),
+      bufferPercent,
       allocations: [],
       teamId: apiProject.team ? apiProject.team.toString() : undefined,
       teamName: apiProject.team_name || undefined,
@@ -281,6 +285,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             date: expense.expense_date,
             description: expense.description || undefined,
             impactProjectProfitability: expense.impact_flags?.projectProfitability ?? true,
+            status: expense.status,
           }))
         const projectRecurringExpenses: ProjectExpense[] = recurringExpenses
           .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
@@ -297,6 +302,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             description: expense.description || undefined,
             impactProjectProfitability: true,
             recurringCycle: expense.cycle,
+            status: expense.status,
           }))
         const projectDirectExpenses = [...projectIrregularExpenses, ...projectRecurringExpenses]
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -666,6 +672,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           date: expense.expense_date,
           description: expense.description || undefined,
           impactProjectProfitability: expense.impact_flags?.projectProfitability ?? true,
+          status: expense.status,
         }))
       const recurring = recurringExpenses
         .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
@@ -682,6 +689,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           description: expense.description || undefined,
           impactProjectProfitability: true,
           recurringCycle: expense.cycle,
+          status: expense.status,
         }))
       setProject(hydratePlannedFinanceFromStorage({ ...mappedProject, invoices: projectInvoices, allocations: project.allocations.length > 0 ? project.allocations : fallbackAllocations, expenses: [...irregular, ...recurring].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime()) }))
     } catch (deleteError) {

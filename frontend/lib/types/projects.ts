@@ -94,6 +94,7 @@ export interface ProjectExpense {
   description?: string
   impactProjectProfitability?: boolean
   recurringCycle?: "monthly" | "quarterly" | "yearly"
+  status?: "pending" | "paid" | "completed" | "overdue" | "failed" | "cancelled"
 }
 
 export interface Project {

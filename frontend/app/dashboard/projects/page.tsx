@@ -67,8 +67,10 @@ export default function ProjectsHubPage() {
     const netProfit = revenue - laborCost - directOverheads
     const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0
     const totalContractValue = apiProject.total_contract_value ? Number(apiProject.total_contract_value) : undefined
+    const bufferPercent = Number(apiProject.buffer_percent || 0)
+    const bufferAmount = totalContractValue ? totalContractValue * (bufferPercent / 100) : 0
     const budgetUsedPercent = totalContractValue && totalContractValue > 0
-      ? ((laborCost + directOverheads) / totalContractValue) * 100
+      ? ((laborCost + directOverheads + bufferAmount) / totalContractValue) * 100
       : 0
 
     return {
@@ -95,7 +97,7 @@ export default function ProjectsHubPage() {
       revenue,
       laborCost,
       directOverheads,
-      bufferPercent: Number(apiProject.buffer_percent || 0),
+      bufferPercent,
       allocations: [],
       teamId: apiProject.team ? apiProject.team.toString() : undefined,
       teamName: apiProject.team_name || undefined,
@@ -162,12 +164,12 @@ export default function ProjectsHubPage() {
   }
 
   // Header stats
-  const activeProjects = projects.filter(p => p.status === "active")
-  const totalPipelineValue = activeProjects.reduce((sum, p) => sum + (p.totalContractValue || 0), 0)
-  const avgMargin = activeProjects.length > 0
-    ? activeProjects.reduce((sum, p) => sum + getPlannedFinance(p).plannedMargin, 0) / activeProjects.length
+  const portfolioProjects = projects.filter((p) => p.status === "active" || p.status === "lead")
+  const totalPipelineValue = portfolioProjects.reduce((sum, p) => sum + (p.totalContractValue || 0), 0)
+  const avgMargin = portfolioProjects.length > 0
+    ? portfolioProjects.reduce((sum, p) => sum + getPlannedFinance(p).plannedMargin, 0) / portfolioProjects.length
     : 0
-  const activeTeamsCount = new Set(activeProjects.map((p) => p.teamId).filter(Boolean)).size
+  const activeTeamsCount = new Set(portfolioProjects.map((p) => p.teamId).filter(Boolean)).size
 
   const toggleStatusFilter = (status: ProjectStatus) => {
     setStatusFilter(prev => 
@@ -219,7 +221,7 @@ export default function ProjectsHubPage() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalPipelineValue)}</div>
             <p className="text-xs text-muted-foreground">
-              {activeProjects.length} активних контрактів
+              {portfolioProjects.length} активних/потенційних контрактів
             </p>
           </CardContent>
         </Card>
