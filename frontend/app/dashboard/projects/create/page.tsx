@@ -325,15 +325,15 @@ export default function CreateProjectPage() {
   };
 
   function addDirectExpense() {
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       directExpenses: [
-        ...formData.directExpenses,
+        ...prev.directExpenses,
         {
           name: "",
           amount: "",
           category: "",
-          currency: formData.currency,
+          currency: prev.currency,
           source: "cash",
           expenseType: "irregular",
           cycle: "monthly",
@@ -347,58 +347,58 @@ export default function CreateProjectPage() {
           },
         },
       ],
-    });
+    }));
   }
 
   const updateDirectExpense = (index: number, field: string, value: string) => {
-    setFormData({
-      ...formData,
-      directExpenses: formData.directExpenses.map((e, i) =>
+    setFormData((prev) => ({
+      ...prev,
+      directExpenses: prev.directExpenses.map((e, i) =>
         i === index ? { ...e, [field]: value } : e,
       ),
-    });
+    }));
   };
 
   const removeDirectExpense = (index: number) => {
-    setFormData({
-      ...formData,
-      directExpenses: formData.directExpenses.filter((_, i) => i !== index),
-    });
+    setFormData((prev) => ({
+      ...prev,
+      directExpenses: prev.directExpenses.filter((_, i) => i !== index),
+    }));
   };
 
   const toggleDirectExpenseCardCollapsed = (index: number) => {
-    setFormData({
-      ...formData,
-      directExpenses: formData.directExpenses.map((expense, i) =>
+    setFormData((prev) => ({
+      ...prev,
+      directExpenses: prev.directExpenses.map((expense, i) =>
         i === index
           ? { ...expense, isCollapsed: !expense.isCollapsed }
           : expense,
       ),
-    });
+    }));
   };
 
   const touchDirectExpenseField = (
     index: number,
     field: "name" | "amount" | "category",
   ) => {
-    setFormData({
-      ...formData,
-      directExpenses: formData.directExpenses.map((expense, i) =>
+    setFormData((prev) => ({
+      ...prev,
+      directExpenses: prev.directExpenses.map((expense, i) =>
         i === index
           ? { ...expense, touched: { ...expense.touched, [field]: true } }
           : expense,
       ),
-    });
+    }));
   };
 
   const touchAllDirectExpenseFields = () => {
-    setFormData({
-      ...formData,
-      directExpenses: formData.directExpenses.map((expense) => ({
+    setFormData((prev) => ({
+      ...prev,
+      directExpenses: prev.directExpenses.map((expense) => ({
         ...expense,
         touched: { name: true, amount: true, category: true },
       })),
-    });
+    }));
   };
 
   const getDirectExpenseValidationErrors = (
