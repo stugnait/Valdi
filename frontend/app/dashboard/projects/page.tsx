@@ -96,7 +96,7 @@ export default function ProjectsHubPage() {
         id: apiProject.client.toString(),
         name: apiProject.client_name,
         createdAt: apiProject.created_at,
-        totalRevenue: 0,
+        totalДохід: 0,
         activeProjects: 0,
         status: "lead",
       },
