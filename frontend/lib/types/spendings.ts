@@ -85,6 +85,23 @@ export const paymentSourceOptions: Array<{ value: PaymentSource; label: string }
   { value: "cash", label: "Готівка" },
 ]
 
+export const currencyOptions: Array<{ value: Currency; label: string }> = [
+  { value: "USD", label: "USD" },
+  { value: "EUR", label: "EUR" },
+  { value: "UAH", label: "UAH" },
+]
+
+export const recurringCycleOptions: Array<{ value: PaymentCycle; label: string }> = [
+  { value: "monthly", label: "Щомісячно" },
+  { value: "quarterly", label: "Щоквартально" },
+  { value: "yearly", label: "Щорічно" },
+]
+
+export const expenseStatusOptions: Array<{ value: "pending" | "paid"; label: string }> = [
+  { value: "pending", label: "Очікується" },
+  { value: "paid", label: "Сплачено" },
+]
+
 // Exchange rates (mock - in production would fetch from NBU API)
 export const exchangeRates: Record<Currency, number> = {
   USD: 1,
