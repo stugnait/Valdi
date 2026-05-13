@@ -746,7 +746,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const plannedMargin = plannedRevenue > 0 ? (plannedProfit / plannedRevenue) * 100 : 0
 
   // Cost estimator
-  const breakEvenRevenue = estimatedMonthlyCost * 1.3 // 30% margin minimum
+  const breakEvenMonthlyRevenue = estimatedMonthlyCost * 1.3 // 30% margin minimum
 
   const getInvoiceStatusIcon = (status: InvoiceStatus) => {
     switch (status) {
@@ -1124,7 +1124,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <div className="p-3 rounded-lg bg-muted/50 space-y-2">
                   <p className="text-sm font-medium">Щоб бути в плюсі:</p>
                   <p className="text-lg font-bold text-primary">
-                    мін. {formatCurrency(breakEvenДохід)}/міс
+                    мін. {formatCurrency(breakEvenMonthlyRevenue)}/міс
                   </p>
                   <p className="text-xs text-muted-foreground">
                     При маржі 30%
