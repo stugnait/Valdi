@@ -1266,26 +1266,36 @@ export default function ProjectDetailPage({
                     </span>
                   </div>
                   <Separator />
-                  <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3 -mx-3">
-                    <span className="font-semibold">Очікуваний прибуток</span>
-                    <span
-                      className={`text-xl font-bold ${plannedProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}
-                    >
-                      {formatCurrency(plannedProfit)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3 -mx-3">
-                    <span className="font-semibold">Фактичний прибуток</span>
-                    <span
-                      className={`text-xl font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}
-                    >
-                      {formatCurrency(netProfit)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3 -mx-3">
-                    <span className="font-semibold">Фактичний прибуток</span>
-                    <span className={`text-xl font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>{formatCurrency(netProfit)}</span>
-                  </div>
+                  {[
+                    {
+                      label: "Очікуваний прибуток",
+                      value: plannedProfit,
+                      color:
+                        plannedProfit >= 0 ? "text-emerald-600" : "text-destructive",
+                    },
+                    {
+                      label: "Фактичний прибуток",
+                      value: netProfit,
+                      color:
+                        netProfit >= 0 ? "text-emerald-600" : "text-destructive",
+                    },
+                  ]
+                    .filter(
+                      (row, index, rows) =>
+                        rows.findIndex((candidate) => candidate.label === row.label) ===
+                        index,
+                    )
+                    .map((row) => (
+                      <div
+                        key={row.label}
+                        className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3 -mx-3"
+                      >
+                        <span className="font-semibold">{row.label}</span>
+                        <span className={`text-xl font-bold ${row.color}`}>
+                          {formatCurrency(row.value)}
+                        </span>
+                      </div>
+                    ))}
                 </div>
 
                 <div className="pt-4 border-t">
