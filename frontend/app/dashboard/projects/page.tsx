@@ -47,28 +47,46 @@ import {
   getStatusLabel,
   getBudgetHealthColor,
 } from "@/lib/types/projects"
-import { ApiProject, workforceApi } from "@/lib/api/workforce"
+import { ApiDeveloper, ApiProject, ApiTeam, workforceApi } from "@/lib/api/workforce"
 
 const statusFilters: ProjectStatus[] = ["lead", "active", "finished", "paused"]
 
 export default function ProjectsHubPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus[]>(["active", "lead"])
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus[]>(["lead", "active", "finished", "paused"])
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const mapApiProject = (apiProject: ApiProject): Project => {
+  const calculateTeamLaborCost = (teamId: string | undefined, teams: ApiTeam[], developers: ApiDeveloper[]) => {
+    if (!teamId) return 0
+    const team = teams.find((candidate) => String(candidate.id) === teamId)
+    if (!team) return 0
+    const developerRateById = developers.reduce<Record<number, number>>((acc, developer) => {
+      acc[developer.id] = Number(developer.hourly_rate || 0)
+      return acc
+    }, {})
+    return team.memberships.reduce((sum, membership) => {
+      const hourlyRate = developerRateById[membership.developer] || 0
+      const allocation = membership.allocation || 100
+      return sum + (hourlyRate * 160 * (allocation / 100))
+    }, 0)
+  }
+
+  const mapApiProject = (apiProject: ApiProject, teams: ApiTeam[], developers: ApiDeveloper[]): Project => {
     const revenue = Number(apiProject.revenue || 0)
-    const laborCost = Number(apiProject.labor_cost || 0)
+    const teamId = apiProject.team ? apiProject.team.toString() : undefined
+    const laborCost = calculateTeamLaborCost(teamId, teams, developers)
     const directOverheads = Number(apiProject.direct_overheads || 0)
     const netProfit = revenue - laborCost - directOverheads
     const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0
     const totalContractValue = apiProject.total_contract_value ? Number(apiProject.total_contract_value) : undefined
+    const bufferPercent = Number(apiProject.buffer_percent || 0)
+    const bufferAmount = totalContractValue ? totalContractValue * (bufferPercent / 100) : 0
     const budgetUsedPercent = totalContractValue && totalContractValue > 0
-      ? ((laborCost + directOverheads) / totalContractValue) * 100
+      ? ((laborCost + directOverheads + bufferAmount) / totalContractValue) * 100
       : 0
 
     return {
@@ -80,6 +98,7 @@ export default function ProjectsHubPage() {
         createdAt: apiProject.created_at,
         totalRevenue: 0,
         activeProjects: 0,
+        status: "lead",
       },
       status: apiProject.status,
       startDate: apiProject.start_date,
@@ -91,12 +110,13 @@ export default function ProjectsHubPage() {
       clientHourlyRate: apiProject.client_hourly_rate ? Number(apiProject.client_hourly_rate) : undefined,
       monthlyCap: apiProject.monthly_cap ?? undefined,
       billingCycle: apiProject.billing_cycle ?? undefined,
-      taxReservePercent: apiProject.tax_reserve_percent ? Number(apiProject.tax_reserve_percent) : undefined,
       revenue,
       laborCost,
       directOverheads,
-      bufferPercent: Number(apiProject.buffer_percent || 0),
+      bufferPercent,
       allocations: [],
+      teamId,
+      teamName: apiProject.team_name || undefined,
       invoices: [],
       expenses: [],
       budgetUsedPercent,
@@ -109,8 +129,12 @@ export default function ProjectsHubPage() {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await workforceApi.listProjects()
-      setProjects(response.map(mapApiProject))
+      const [response, teams, developers] = await Promise.all([
+        workforceApi.listProjects(),
+        workforceApi.listTeams(),
+        workforceApi.listDevelopers(),
+      ])
+      setProjects(response.map((project) => mapApiProject(project, teams, developers)))
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проєкти")
     } finally {
@@ -150,16 +174,22 @@ export default function ProjectsHubPage() {
       maximumFractionDigits: 0,
     }).format(value)
   }
+  const getPlannedFinance = (project: Project) => {
+    const plannedRevenue = project.totalContractValue || 0
+    const plannedBuffer = plannedRevenue * ((project.bufferPercent || 0) / 100)
+    const plannedCost = project.laborCost + project.directOverheads + plannedBuffer
+    const plannedProfit = plannedRevenue - plannedCost
+    const plannedMargin = plannedRevenue > 0 ? (plannedProfit / plannedRevenue) * 100 : 0
+    return { plannedRevenue, plannedCost, plannedProfit, plannedMargin }
+  }
 
   // Header stats
-  const activeProjects = projects.filter(p => p.status === "active")
-  const totalPipelineValue = activeProjects.reduce((sum, p) => sum + (p.totalContractValue || 0), 0)
-  const avgMargin = activeProjects.length > 0
-    ? activeProjects.reduce((sum, p) => sum + p.profitMargin, 0) / activeProjects.length
+  const portfolioProjects = projects.filter((p) => p.status === "active" || p.status === "lead")
+  const totalPipelineValue = portfolioProjects.reduce((sum, p) => sum + (p.totalContractValue || 0), 0)
+  const avgMargin = portfolioProjects.length > 0
+    ? portfolioProjects.reduce((sum, p) => sum + getPlannedFinance(p).plannedMargin, 0) / portfolioProjects.length
     : 0
-  const activeTeamsCount = new Set(
-    activeProjects.flatMap(p => p.allocations.map(a => a.teamId))
-  ).size
+  const activeTeamsCount = new Set(portfolioProjects.map((p) => p.teamId).filter(Boolean)).size
 
   const toggleStatusFilter = (status: ProjectStatus) => {
     setStatusFilter(prev => 
@@ -211,7 +241,7 @@ export default function ProjectsHubPage() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalPipelineValue)}</div>
             <p className="text-xs text-muted-foreground">
-              {activeProjects.length} активних контрактів
+              {portfolioProjects.length} активних/потенційних контрактів
             </p>
           </CardContent>
         </Card>
@@ -288,8 +318,9 @@ export default function ProjectsHubPage() {
       {/* Projects Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredProjects.map((project) => {
-          const healthColor = getBudgetHealthColor(project.budgetUsedPercent, project.netProfit)
-          const isUnprofitable = project.netProfit < 0
+          const { plannedProfit, plannedMargin } = getPlannedFinance(project)
+          const healthColor = getBudgetHealthColor(project.budgetUsedPercent, plannedProfit)
+          const isUnprofitable = plannedProfit < 0
 
           return (
             <Card 
@@ -326,7 +357,7 @@ export default function ProjectsHubPage() {
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/projects/${project.id}?edit=true`}>
+                          <Link href={`/dashboard/projects/${project.id}/edit`}>
                             <Pencil className="mr-2 size-4" />
                             Редагувати
                           </Link>
@@ -388,12 +419,12 @@ export default function ProjectsHubPage() {
 
                 {/* Profitability */}
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Чистий прибуток</span>
+                  <span className="text-sm text-muted-foreground">Очікуваний прибуток</span>
                   <div className="flex items-center gap-2">
                     <span className={`font-semibold ${isUnprofitable ? "text-destructive" : "text-emerald-600"}`}>
-                      {formatCurrency(project.netProfit)}
+                      {formatCurrency(plannedProfit)}
                     </span>
-                    {project.profitMargin !== 0 && (
+                    {plannedMargin !== 0 && (
                       <Badge 
                         variant="outline"
                         className={`text-xs ${
@@ -402,7 +433,7 @@ export default function ProjectsHubPage() {
                         }`}
                       >
                         <TrendingUp className="mr-1 size-3" />
-                        {project.profitMargin.toFixed(1)}%
+                        {plannedMargin.toFixed(1)}%
                       </Badge>
                     )}
                   </div>
@@ -412,7 +443,9 @@ export default function ProjectsHubPage() {
                 <div className="flex items-center justify-between pt-2 border-t">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Users className="size-3.5" />
-                    <span>{project.allocations.length} членів</span>
+                    <span>
+                      {project.teamName ? `${project.teamName} · команда` : "Команду ще не призначено"}
+                    </span>
                   </div>
                   {project.totalContractValue && (
                     <span className="text-sm font-medium">
@@ -434,17 +467,16 @@ export default function ProjectsHubPage() {
         })}
 
         {/* Add New Project Card */}
-        <Card 
-          className="flex cursor-pointer items-center justify-center border-dashed transition-colors hover:border-primary hover:bg-muted/50"
-          onClick={() => window.location.href = "/dashboard/projects/create"}
-        >
-          <CardContent className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed">
-              <Plus className="size-6" />
-            </div>
-            <span className="text-sm font-medium">Створити проєкт</span>
-          </CardContent>
-        </Card>
+        <Link href="/dashboard/projects/create" className="block">
+          <Card className="flex cursor-pointer items-center justify-center border-dashed transition-colors hover:border-primary hover:bg-muted/50">
+            <CardContent className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed">
+                <Plus className="size-6" />
+              </div>
+              <span className="text-sm font-medium">Створити проєкт</span>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Empty State */}

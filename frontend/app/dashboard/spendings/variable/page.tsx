@@ -137,7 +137,13 @@ export default function VariableExpensesPage() {
     },
     createdAt: expense.created_at,
     impactFlags: expense.impact_flags || undefined,
+    status: expense.status,
   })
+
+  const getStatusMeta = (status: VariableExpense["status"]) => {
+    if (status === "paid") return { label: "Сплачено", className: "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" }
+    return { label: "Очікується", className: "bg-amber-100 text-amber-700 hover:bg-amber-100" }
+  }
 
   const loadExpenses = async () => {
     setLoading(true)
@@ -293,6 +299,16 @@ export default function VariableExpensesPage() {
         setError(deleteError instanceof Error ? deleteError.message : "Не вдалося видалити змінну витрату")
       }
       setDeleteExpense(null)
+    }
+  }
+
+  const toggleExpenseStatus = async (expense: VariableExpense) => {
+    const nextStatus: VariableExpense["status"] = expense.status === "paid" ? "pending" : "paid"
+    try {
+      await workforceApi.updateVariableExpense(expense.id, { status: nextStatus })
+      await loadExpenses()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Не вдалося змінити статус витрати")
     }
   }
 
@@ -503,6 +519,9 @@ export default function VariableExpensesPage() {
                           {category.name}
                         </Badge>
                       )}
+                      <Badge variant="secondary" className={`text-xs px-2 py-0.5 ${getStatusMeta(expense.status).className}`}>
+                        {getStatusMeta(expense.status).label}
+                      </Badge>
                       <span className="text-sm text-muted-foreground/90 flex items-center gap-1">
                         {getSourceIcon(expense.source)} {getSourceLabelUa(expense.source)}
                       </span>
@@ -545,6 +564,10 @@ export default function VariableExpensesPage() {
                       <DropdownMenuItem onClick={() => handleOpenEdit(expense)}>
                         <Pencil className="size-4 mr-2" />
                         Редагувати
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleExpenseStatus(expense)}>
+                        <Receipt className="size-4 mr-2" />
+                        {expense.status === "paid" ? "Позначити як очікується" : "Позначити як сплачено"}
                       </DropdownMenuItem>
                       {expense.receiptUrl && (
                         <DropdownMenuItem>
