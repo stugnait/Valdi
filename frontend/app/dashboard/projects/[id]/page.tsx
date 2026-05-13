@@ -840,7 +840,8 @@ export default function ProjectDetailPage({
           allocation_type: "project",
           project: Number(project.id),
           next_payment_date: expenseForm.date,
-          last_paid_date: expenseForm.date,
+          last_paid_date:
+            expenseForm.status === "paid" ? expenseForm.date : null,
           description: expenseForm.description,
         });
       } else {
@@ -1066,10 +1067,16 @@ export default function ProjectDetailPage({
     (sum, a) => sum + a.monthlyCost,
     0,
   );
+  const plannedDirectExpenses = project.expenses
+    .filter((expense) => {
+      const status = expense.status || "pending";
+      return status === "pending" || status === "paid";
+    })
+    .reduce((sum, expense) => sum + (expense.amountUsd ?? expense.amount), 0);
   const plannedRevenue = project.totalContractValue || 0;
   const plannedBuffer = plannedRevenue * ((project.bufferPercent || 0) / 100);
   const plannedCost =
-    estimatedMonthlyCost + project.directOverheads + plannedBuffer;
+    estimatedMonthlyCost + plannedDirectExpenses + plannedBuffer;
   const plannedProfit = plannedRevenue - plannedCost;
   const plannedMargin =
     plannedRevenue > 0 ? (plannedProfit / plannedRevenue) * 100 : 0;
