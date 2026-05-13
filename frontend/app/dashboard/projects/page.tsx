@@ -47,7 +47,7 @@ import {
   getStatusLabel,
   getBudgetHealthColor,
 } from "@/lib/types/projects"
-import { ApiProject, workforceApi } from "@/lib/api/workforce"
+import { ApiDeveloper, ApiProject, ApiTeam, workforceApi } from "@/lib/api/workforce"
 
 const statusFilters: ProjectStatus[] = ["lead", "active", "finished", "paused"]
 
@@ -60,9 +60,25 @@ export default function ProjectsHubPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const mapApiProject = (apiProject: ApiProject): Project => {
+  const calculateTeamLaborCost = (teamId: string | undefined, teams: ApiTeam[], developers: ApiDeveloper[]) => {
+    if (!teamId) return 0
+    const team = teams.find((candidate) => String(candidate.id) === teamId)
+    if (!team) return 0
+    const developerRateById = developers.reduce<Record<number, number>>((acc, developer) => {
+      acc[developer.id] = Number(developer.hourly_rate || 0)
+      return acc
+    }, {})
+    return team.memberships.reduce((sum, membership) => {
+      const hourlyRate = developerRateById[membership.developer] || 0
+      const allocation = membership.allocation || 100
+      return sum + (hourlyRate * 160 * (allocation / 100))
+    }, 0)
+  }
+
+  const mapApiProject = (apiProject: ApiProject, teams: ApiTeam[], developers: ApiDeveloper[]): Project => {
     const revenue = Number(apiProject.revenue || 0)
-    const laborCost = Number(apiProject.labor_cost || 0)
+    const teamId = apiProject.team ? apiProject.team.toString() : undefined
+    const laborCost = calculateTeamLaborCost(teamId, teams, developers)
     const directOverheads = Number(apiProject.direct_overheads || 0)
     const netProfit = revenue - laborCost - directOverheads
     const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0
@@ -99,7 +115,7 @@ export default function ProjectsHubPage() {
       directOverheads,
       bufferPercent,
       allocations: [],
-      teamId: apiProject.team ? apiProject.team.toString() : undefined,
+      teamId,
       teamName: apiProject.team_name || undefined,
       invoices: [],
       expenses: [],
@@ -113,8 +129,12 @@ export default function ProjectsHubPage() {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await workforceApi.listProjects()
-      setProjects(response.map(mapApiProject))
+      const [response, teams, developers] = await Promise.all([
+        workforceApi.listProjects(),
+        workforceApi.listTeams(),
+        workforceApi.listDevelopers(),
+      ])
+      setProjects(response.map((project) => mapApiProject(project, teams, developers)))
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проєкти")
     } finally {

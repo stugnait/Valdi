@@ -87,27 +87,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const getProjectAllocationsStorageKey = (projectId: string) => `project_allocations_${projectId}`
-  const getProjectPlannedFinanceStorageKey = (projectId: string) => `project_planned_finance_${projectId}`
-
-  const hydratePlannedFinanceFromStorage = (currentProject: Project): Project => {
-    if (typeof window === "undefined") return currentProject
-    if (currentProject.laborCost > 0 || currentProject.directOverheads > 0) return currentProject
-    const raw = localStorage.getItem(getProjectPlannedFinanceStorageKey(currentProject.id))
-    if (!raw) return currentProject
-    try {
-      const parsed = JSON.parse(raw) as { laborCost?: number; directOverheads?: number; bufferPercent?: number }
-      return {
-        ...currentProject,
-        laborCost: parsed.laborCost ?? currentProject.laborCost,
-        directOverheads: parsed.directOverheads ?? currentProject.directOverheads,
-        bufferPercent: parsed.bufferPercent ?? currentProject.bufferPercent,
-      }
-    } catch {
-      return currentProject
-    }
-  }
-
   const calculateRuntimeFinancials = (currentProject: Project) => {
     const totalRevenue = currentProject.invoices
       .filter(i => i.status === "paid")
@@ -254,23 +233,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           .filter(invoice => String(invoice.project) === id)
           .map(mapApiInvoice)
 
-        let persistedAllocations: ResourceAllocation[] = []
-        if (typeof window !== "undefined") {
-          const rawAllocations = localStorage.getItem(getProjectAllocationsStorageKey(id))
-          if (rawAllocations) {
-            try {
-              persistedAllocations = JSON.parse(rawAllocations) as ResourceAllocation[]
-            } catch {
-              persistedAllocations = []
-            }
-          }
-        }
-
-        const scopedPersistedAllocations = mappedProject.teamId
-          ? persistedAllocations.filter((allocation) => allocation.teamId === mappedProject.teamId)
-          : persistedAllocations
         const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse, mappedProject.teamId)
-        const initialAllocations = scopedPersistedAllocations.length > 0 ? scopedPersistedAllocations : fallbackAllocations
+        const syncedLaborCost = fallbackAllocations.reduce((sum, allocation) => sum + allocation.monthlyCost, 0)
 
         const projectIrregularExpenses: ProjectExpense[] = variableExpenses
           .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
@@ -310,7 +274,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         const projectDirectExpenses = [...projectIrregularExpenses, ...projectRecurringExpenses]
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-        setProject(hydratePlannedFinanceFromStorage({ ...mappedProject, invoices: projectInvoices, allocations: initialAllocations, expenses: projectDirectExpenses }))
+        setProject({ ...mappedProject, laborCost: syncedLaborCost, invoices: projectInvoices, allocations: fallbackAllocations, expenses: projectDirectExpenses })
       } catch (loadError) {
         setProject(null)
         setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити проєкт")
@@ -321,11 +285,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     void loadProject()
   }, [id])
-
-  useEffect(() => {
-    if (!project || typeof window === "undefined") return
-    localStorage.setItem(getProjectAllocationsStorageKey(project.id), JSON.stringify(project.allocations))
-  }, [project?.id, project?.allocations])
 
   useEffect(() => {
     if (!project) return
@@ -712,6 +671,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       const mappedProject = mapApiProject(apiProject)
       const projectInvoices = allInvoices.filter(invoice => String(invoice.project) === id).map(mapApiInvoice)
       const fallbackAllocations = buildDefaultAllocationsFromTeams(teamsResponse, developersResponse, mappedProject.teamId)
+      const syncedLaborCost = fallbackAllocations.reduce((sum, allocation) => sum + allocation.monthlyCost, 0)
       const irregular = variableExpenses
         .filter((expense) => expense.allocation_type === "project" && String(expense.project) === id)
         .map((expense) => ({
@@ -747,7 +707,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           recurringCycle: expense.cycle,
           status: expense.status,
         }))
-      setProject(hydratePlannedFinanceFromStorage({ ...mappedProject, invoices: projectInvoices, allocations: project.allocations.length > 0 ? project.allocations : fallbackAllocations, expenses: [...irregular, ...recurring].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime()) }))
+      setProject({ ...mappedProject, laborCost: syncedLaborCost, invoices: projectInvoices, allocations: fallbackAllocations, expenses: [...irregular, ...recurring].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime()) })
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Не вдалося видалити витрату")
     } finally {
@@ -778,15 +738,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   // Calculations
   const { totalRevenue, totalLaborCost, totalExpenses, netProfit, profitMargin } = calculateRuntimeFinancials(project)
+  const estimatedMonthlyCost = project.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
   const plannedRevenue = project.totalContractValue || 0
   const plannedBuffer = plannedRevenue * ((project.bufferPercent || 0) / 100)
-  const plannedCost = project.laborCost + project.directOverheads + plannedBuffer
+  const plannedCost = estimatedMonthlyCost + project.directOverheads + plannedBuffer
   const plannedProfit = plannedRevenue - plannedCost
   const plannedMargin = plannedRevenue > 0 ? (plannedProfit / plannedRevenue) * 100 : 0
 
   // Cost estimator
-  const estimatedMonthlyCost = project.allocations.reduce((sum, a) => sum + a.monthlyCost, 0)
-  const breakEvenДохід = estimatedMonthlyCost * 1.3 // 30% margin minimum
+  const breakEvenRevenue = estimatedMonthlyCost * 1.3 // 30% margin minimum
 
   const getInvoiceStatusIcon = (status: InvoiceStatus) => {
     switch (status) {
