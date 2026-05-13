@@ -1282,6 +1282,10 @@ export default function ProjectDetailPage({
                       {formatCurrency(netProfit)}
                     </span>
                   </div>
+                  <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3 -mx-3">
+                    <span className="font-semibold">Фактичний прибуток</span>
+                    <span className={`text-xl font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>{formatCurrency(netProfit)}</span>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t">
