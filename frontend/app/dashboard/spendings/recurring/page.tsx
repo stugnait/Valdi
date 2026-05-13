@@ -693,7 +693,7 @@ export default function RecurringExpensesPage() {
                     <TableCell>
                       <div className="space-y-0.5">
                         <div>{new Date(expense.nextPaymentDate).toLocaleDateString("uk-UA")}</div>
-                        {expense.lastPaidDate ? (
+                        {expense.status === "paid" && expense.lastPaidDate ? (
                           <div className="text-[11px] text-muted-foreground">
                             Остання оплата: {new Date(expense.lastPaidDate).toLocaleDateString("uk-UA")}
                           </div>
